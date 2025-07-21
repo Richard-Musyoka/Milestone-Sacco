@@ -1,0 +1,379 @@
+﻿@page "/members/edit/{MemberId:int}"
+@using System.ComponentModel.DataAnnotations
+@using SaccoManagementSystem.Models
+@inject NavigationManager NavigationManager
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
+
+@if (member != null)
+{
+    <EditForm Model="@member" OnValidSubmit="@HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <div class="edit-member-page">
+            <!-- Header Section -->
+            <div class="page-header">
+                <div class="header-content">
+                    <div class="header-title">
+                        <i class="bi bi-person-lines-fill header-icon"></i>
+                        <h1>Edit Member</h1>
+                    </div>
+                    <NavLink class="btn btn-outline-secondary btn-back" href="/members">
+                        <i class="bi bi-arrow-left me-2"></i>
+                        Back to Members
+                    </NavLink>
+                </div>
+            </div>
+
+            <!-- Form Section -->
+            <div class="form-container">
+                <div class="card shadow-sm rounded-3">
+                    <div class="card-body p-4">
+                        @if (isLoading)
+                        {
+                            <div class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2">@loadingMessage</p>
+                            </div>
+                        }
+                        else if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                @errorMessage
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="row g-4">
+                                <!-- Member Number (Readonly) -->
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <InputText id="memberNo" class="form-control" @bind-Value="member.MemberNo"
+                                                   disabled />
+                                        <label for="memberNo">Member Number</label>
+                                    </div>
+                                </div>
+
+                                <!-- Status -->
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <InputSelect id="status" class="form-select" @bind-Value="member.Status">
+                                            <option value="">Select Status</option>
+                                            <option value="Active">Active</option>
+                                            <option value="Inactive">Inactive</option>
+                                            <option value="Pending">Pending</option>
+                                            <option value="Suspended">Suspended</option>
+                                        </InputSelect>
+                                        <label for="status">Status *</label>
+                                        <ValidationMessage For="@(() => member.Status)" class="invalid-feedback" />
+                                    </div>
+                                </div>
+
+                                <!-- First Name -->
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <InputText id="firstName" class="form-control" @bind-Value="member.FirstName"
+                                                   placeholder=" " />
+                                        <label for="firstName">First Name *</label>
+                                        <ValidationMessage For="@(() => member.FirstName)" class="invalid-feedback" />
+                                    </div>
+                                </div>
+
+                                <!-- Last Name -->
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <InputText id="lastName" class="form-control" @bind-Value="member.LastName"
+                                                   placeholder=" " />
+                                        <label for="lastName">Last Name *</label>
+                                        <ValidationMessage For="@(() => member.LastName)" class="invalid-feedback" />
+                                    </div>
+                                </div>
+
+                                <!-- Email -->
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <InputText id="email" class="form-control" @bind-Value="member.Email"
+                                                   placeholder=" " />
+                                        <label for="email">Email *</label>
+                                        <ValidationMessage For="@(() => member.Email)" class="invalid-feedback" />
+                                    </div>
+                                </div>
+
+                                <!-- Phone -->
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <InputText id="phone" class="form-control" @bind-Value="member.PhoneNumber"
+                                                   placeholder=" " />
+                                        <label for="phone">Phone Number *</label>
+                                        <ValidationMessage For="@(() => member.PhoneNumber)" class="invalid-feedback" />
+                                    </div>
+                                </div>
+
+                                <!-- National ID -->
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <InputText id="nationalId" class="form-control" @bind-Value="member.NationalID"
+                                                   placeholder=" " />
+                                        <label for="nationalId">National ID/Passport</label>
+                                    </div>
+                                </div>
+
+                                <!-- Date of Birth -->
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <InputDate id="dob" class="form-control" @bind-Value="member.DateOfBirth" />
+                                        <label for="dob">Date of Birth</label>
+                                    </div>
+                                </div>
+
+                                <!-- Gender -->
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <InputSelect id="gender" class="form-select" @bind-Value="member.Gender">
+                                            <option value="">Select Gender</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                            <option value="Other">Other</option>
+                                        </InputSelect>
+                                        <label for="gender">Gender</label>
+                                    </div>
+                                </div>
+
+                                <!-- Marital Status -->
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <InputSelect id="maritalStatus" class="form-select" @bind-Value="member.MaritalStatus">
+                                            <option value="">Select Marital Status</option>
+                                            <option value="Single">Single</option>
+                                            <option value="Married">Married</option>
+                                            <option value="Divorced">Divorced</option>
+                                            <option value="Widowed">Widowed</option>
+                                        </InputSelect>
+                                        <label for="maritalStatus">Marital Status</label>
+                                    </div>
+                                </div>
+
+                                <!-- Occupation -->
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <InputText id="occupation" class="form-control" @bind-Value="member.Occupation"
+                                                   placeholder=" " />
+                                        <label for="occupation">Occupation</label>
+                                    </div>
+                                </div>
+
+                                <!-- Employer -->
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <InputText id="employer" class="form-control" @bind-Value="member.Employer"
+                                                   placeholder=" " />
+                                        <label for="employer">Employer</label>
+                                    </div>
+                                </div>
+
+                                <!-- Address -->
+                                <div class="col-12">
+                                    <div class="form-floating">
+                                        <InputTextArea id="address" class="form-control" @bind-Value="member.Address"
+                                                       placeholder=" " style="height: 100px" />
+                                        <label for="address">Address</label>
+                                    </div>
+                                </div>
+
+                                <!-- Join Date -->
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <InputDate id="joinDate" class="form-control" @bind-Value="member.JoinDate" />
+                                        <label for="joinDate">Join Date</label>
+                                    </div>
+                                </div>
+
+                                <!-- Profile Image URL -->
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <InputText id="profileImage" class="form-control" @bind-Value="member.ProfileImageUrl"
+                                                   placeholder=" " />
+                                        <label for="profileImage">Profile Image URL</label>
+                                    </div>
+                                </div>
+
+                                <!-- Form Actions -->
+                                <div class="col-12 mt-4">
+                                    <div class="d-flex justify-content-end gap-3">
+                                        <button type="button" class="btn btn-outline-secondary" @onclick="CancelEdit">
+                                            <i class="bi bi-x-circle me-2"></i>
+                                            Cancel
+                                        </button>
+                                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                            @if (isSaving)
+                                            {
+                                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                            }
+                                            else
+                                            {
+                                                <i class="bi bi-save me-2"></i>
+                                            }
+                                            Save Changes
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public int MemberId { get; set; }
+
+    private MemberModel member = new MemberModel();
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private string errorMessage = string.Empty;
+    private string loadingMessage = "Loading member data...";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMember();
+    }
+
+    private async Task LoadMember()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("ApiClient");
+            var response = await client.GetAsync($"api/members/get/{MemberId}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                member = await response.Content.ReadFromJsonAsync<MemberModel>();
+                if (member == null)
+                {
+                    errorMessage = "Member not found";
+                }
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                errorMessage = "Member not found";
+            }
+            else
+            {
+                errorMessage = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading member: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        isSaving = true;
+        errorMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("ApiClient");
+            var response = await client.PutAsJsonAsync($"api/members/update/{MemberId}", member);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await ShowToast("success", "Member Updated", "Member has been successfully updated.");
+                NavigationManager.NavigateTo("/members");
+            }
+            else
+            {
+                errorMessage = await response.Content.ReadAsStringAsync();
+                await ShowToast("error", "Error", $"Failed to update member: {errorMessage}");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred: {ex.Message}";
+            await ShowToast("error", "Error", errorMessage);
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ShowToast(string type, string title, string message)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", type, title, message);
+        }
+        catch (JSException)
+        {
+            // Fallback if toast function isn't available
+            errorMessage = $"{title}: {message}";
+            StateHasChanged();
+        }
+    }
+
+    private void CancelEdit()
+    {
+        NavigationManager.NavigateTo("/members");
+    }
+}
+
+<style>
+    .edit-member-page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+
+    .page-header {
+        margin-bottom: 2rem;
+    }
+
+    .header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .header-title {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .header-icon {
+        font-size: 2rem;
+        color: #4361ee;
+    }
+
+    .form-container {
+        margin-top: 1.5rem;
+    }
+
+    @@media (max-width: 768px) {
+        .header-content {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+    }
+</style>

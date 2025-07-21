@@ -1,0 +1,684 @@
+﻿@page "/reports"
+@using System.Globalization
+@using Microsoft.AspNetCore.Mvc.Rendering
+@using Microsoft.Data.SqlClient
+@using Sacco_Management_System.Models
+
+
+<PageTitle>Reports Dashboard</PageTitle>
+
+<div class="container-fluid">
+    <h2 class="mb-4">Reports Dashboard</h2>
+
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Report Parameters</h5>
+        </div>
+        <div class="card-body">
+            <EditForm Model="@model" OnValidSubmit="@GenerateReport">
+                <div class="form-row">
+                    <div class="form-group col-md-3">
+                        <label for="startDate">Start Date</label>
+                        <InputDate @bind-Value="model.StartDate" class="form-control" id="startDate" />
+                    </div>
+                    <div class="form-group col-md-3">
+                        <label for="endDate">End Date</label>
+                        <InputDate @bind-Value="model.EndDate" class="form-control" id="endDate" />
+                    </div>
+                    <div class="form-group col-md-4">
+                        <label for="reportType">Report Type</label>
+                        <InputSelect @bind-Value="model.ReportType" class="form-control" id="reportType">
+                            @foreach (var item in reportTypes)
+                            {
+                                <option value="@item.Value">@item.Text</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="form-group col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary">Generate Report</button>
+                    </div>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+
+    @if (model.ReportType == "FinancialSummary")
+    {
+        <div class="row">
+            <div class="col-md-3 mb-4">
+                <div class="card border-left-primary shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                    Active Members
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">@model.ActiveMembers</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-users fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 mb-4">
+                <div class="card border-left-success shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                    Total Contributions
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">@model.TotalContributions.ToString("C")</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-hand-holding-usd fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 mb-4">
+                <div class="card border-left-info shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                    Total Savings
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">@model.TotalSavings.ToString("C")</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-piggy-bank fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 mb-4">
+                <div class="card border-left-warning shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                    Total Loans Issued
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">@model.TotalLoansIssued.ToString("C")</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-file-invoice-dollar fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="m-0 font-weight-bold">Contributions Trend</h6>
+                    </div>
+                    <div class="card-body">
+                        <Chart Config="contributionsConfig" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="m-0 font-weight-bold">Savings Trend</h6>
+                    </div>
+                    <div class="card-body">
+                        <Chart Config="savingsConfig" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="m-0 font-weight-bold">Loans Issued</h6>
+                    </div>
+                    <div class="card-body">
+                        <Chart Config="loansConfig" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="m-0 font-weight-bold">Dividends Paid</h6>
+                    </div>
+                    <div class="card-body">
+                        <Chart Config="dividendsConfig" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else if (model.ReportType == "Contributions")
+    {
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="m-0 font-weight-bold">Contributions by Type</h6>
+                    </div>
+                    <div class="card-body">
+                        <Chart Config="contributionsPieConfig" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="m-0 font-weight-bold">Monthly Contributions Trend</h6>
+                    </div>
+                    <div class="card-body">
+                        <Chart Config="contributionsLineConfig" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else if (model.ReportType == "Loans")
+    {
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="m-0 font-weight-bold">Loans by Status</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th>Status</th>
+                                        <th>Count</th>
+                                        <th>Total Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in model.LoanStatusData)
+                                    {
+                                        <tr>
+                                            <td>@item.Status</td>
+                                            <td>@item.Count</td>
+                                            <td>@item.TotalAmount.ToString("C")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="m-0 font-weight-bold">Loan Performance</h6>
+                    </div>
+                    <div class="card-body">
+                        <Chart Config="loanPerformanceConfig" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else if (model.ReportType == "Dividends")
+    {
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="m-0 font-weight-bold">Dividends by Financial Year</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th>Financial Year</th>
+                                        <th>Total Amount</th>
+                                        <th>Members Paid</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in model.DividendSummary)
+                                    {
+                                        <tr>
+                                            <td>@item.FinancialYear</td>
+                                            <td>@item.TotalAmount.ToString("C")</td>
+                                            <td>@item.MemberCount</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="m-0 font-weight-bold">Top Dividend Recipients</h6>
+                    </div>
+                    <div class="card-body">
+                        <Chart Config="dividendRecipientsConfig" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else if (model.ReportType == "Savings")
+    {
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="m-0 font-weight-bold">Savings by Transaction Type</h6>
+                    </div>
+                    <div class="card-body">
+                        <Chart Config="savingsPieConfig" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="m-0 font-weight-bold">Monthly Savings Trend</h6>
+                    </div>
+                    <div class="card-body">
+                        <Chart Config="savingsLineConfig" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else if (model.ReportType == "Membership")
+    {
+        <div class="row">
+            <div class="col-md-4 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="m-0 font-weight-bold">Membership by Status</h6>
+                    </div>
+                    <div class="card-body">
+                        <Chart Config="memberStatusConfig" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="m-0 font-weight-bold">Membership Growth</h6>
+                    </div>
+                    <div class="card-body">
+                        <Chart Config="membershipGrowthConfig" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="m-0 font-weight-bold">Membership by Gender</h6>
+                    </div>
+                    <div class="card-body">
+                        <Chart Config="memberGenderConfig" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private ReportsModel model = new ReportsModel
+    {
+        StartDate = DateTime.Now.AddMonths(-6).Date,
+        EndDate = DateTime.Now.Date,
+        ReportType = "FinancialSummary"
+    };
+
+    private List<SelectListItem> reportTypes = new List<SelectListItem>
+    {
+        new SelectListItem { Value = "FinancialSummary", Text = "Financial Summary" },
+        new SelectListItem { Value = "Contributions", Text = "Contributions Analysis" },
+        new SelectListItem { Value = "Loans", Text = "Loans Performance" },
+        new SelectListItem { Value = "Dividends", Text = "Dividends Distribution" },
+        new SelectListItem { Value = "Savings", Text = "Savings Trends" },
+        new SelectListItem { Value = "Membership", Text = "Membership Statistics" }
+    };
+
+    // Chart configurations
+    private BarConfig contributionsConfig;
+    private LineConfig savingsConfig;
+    private BarConfig loansConfig;
+    private LineConfig dividendsConfig;
+    private PieConfig contributionsPieConfig;
+    private LineConfig contributionsLineConfig;
+    private BarConfig loanPerformanceConfig;
+    private BarConfig dividendRecipientsConfig;
+    private PieConfig savingsPieConfig;
+    private LineConfig savingsLineConfig;
+    private DoughnutConfig memberStatusConfig;
+    private LineConfig membershipGrowthConfig;
+    private PieConfig memberGenderConfig;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await InitializeChartConfigs();
+        await LoadReportData();
+    }
+
+    private async Task InitializeChartConfigs()
+    {
+        contributionsConfig = new BarConfig();
+        savingsConfig = new LineConfig();
+        loansConfig = new BarConfig();
+        dividendsConfig = new LineConfig();
+        contributionsPieConfig = new PieConfig();
+        contributionsLineConfig = new LineConfig();
+        loanPerformanceConfig = new BarConfig();
+        dividendRecipientsConfig = new BarConfig();
+        savingsPieConfig = new PieConfig();
+        savingsLineConfig = new LineConfig();
+        memberStatusConfig = new DoughnutConfig();
+        membershipGrowthConfig = new LineConfig();
+        memberGenderConfig = new PieConfig();
+    }
+
+    private async Task GenerateReport()
+    {
+        await LoadReportData();
+    }
+
+    private async Task LoadReportData()
+    {
+        try
+        {
+            using var connection = new SqlConnection(Configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            switch (model.ReportType)
+            {
+                case "FinancialSummary":
+                    await LoadFinancialSummary(connection);
+                    break;
+                case "Contributions":
+                    await LoadContributionsReport(connection);
+                    break;
+                case "Loans":
+                    await LoadLoansReport(connection);
+                    break;
+                case "Dividends":
+                    await LoadDividendsReport(connection);
+                    break;
+                case "Savings":
+                    await LoadSavingsReport(connection);
+                    break;
+                case "Membership":
+                    await LoadMembershipReport(connection);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading report data");
+        }
+    }
+
+    private async Task LoadFinancialSummary(SqlConnection connection)
+    {
+        // Load summary data
+        var summaryQuery = @"
+            SELECT 
+                (SELECT COUNT(*) FROM Members WHERE Status = 'Active') AS ActiveMembers,
+                (SELECT SUM(Amount) FROM Contributions WHERE ContributionDate BETWEEN @StartDate AND @EndDate) AS TotalContributions,
+                (SELECT SUM(Amount) FROM Savings WHERE TransactionType = 'Deposit' AND TransactionDate BETWEEN @StartDate AND @EndDate) AS TotalSavings,
+                (SELECT SUM(LoanAmount) FROM Loans WHERE DisbursementDate BETWEEN @StartDate AND @EndDate) AS TotalLoansIssued";
+
+        using var summaryCommand = new SqlCommand(summaryQuery, connection);
+        summaryCommand.Parameters.AddWithValue("@StartDate", model.StartDate);
+        summaryCommand.Parameters.AddWithValue("@EndDate", model.EndDate);
+
+        using var summaryReader = await summaryCommand.ExecuteReaderAsync();
+        if (await summaryReader.ReadAsync())
+        {
+            model.ActiveMembers = summaryReader.GetInt32(0);
+            model.TotalContributions = summaryReader.IsDBNull(1) ? 0 : summaryReader.GetDecimal(1);
+            model.TotalSavings = summaryReader.IsDBNull(2) ? 0 : summaryReader.GetDecimal(2);
+            model.TotalLoansIssued = summaryReader.IsDBNull(3) ? 0 : summaryReader.GetDecimal(3);
+        }
+        await summaryReader.CloseAsync();
+
+        // Load chart data
+        var contributionsQuery = @"
+            SELECT SUM(Amount) AS Total, 
+                   DATEPART(MONTH, ContributionDate) AS Month,
+                   DATEPART(YEAR, ContributionDate) AS Year
+            FROM Contributions
+            WHERE ContributionDate BETWEEN @StartDate AND @EndDate
+            GROUP BY DATEPART(YEAR, ContributionDate), DATEPART(MONTH, ContributionDate)
+            ORDER BY Year, Month";
+
+        var savingsQuery = @"
+            SELECT SUM(Amount) AS Total, 
+                   DATEPART(MONTH, TransactionDate) AS Month,
+                   DATEPART(YEAR, TransactionDate) AS Year
+            FROM Savings
+            WHERE TransactionType = 'Deposit' AND TransactionDate BETWEEN @StartDate AND @EndDate
+            GROUP BY DATEPART(YEAR, TransactionDate), DATEPART(MONTH, TransactionDate)
+            ORDER BY Year, Month";
+
+        var loansQuery = @"
+            SELECT SUM(LoanAmount) AS Total, 
+                   DATEPART(MONTH, DisbursementDate) AS Month,
+                   DATEPART(YEAR, DisbursementDate) AS Year
+            FROM Loans
+            WHERE DisbursementDate BETWEEN @StartDate AND @EndDate
+            GROUP BY DATEPART(YEAR, DisbursementDate), DATEPART(MONTH, DisbursementDate)
+            ORDER BY Year, Month";
+
+        var dividendsQuery = @"
+            SELECT SUM(Amount) AS Total, 
+                   DATEPART(MONTH, PaymentDate) AS Month,
+                   DATEPART(YEAR, PaymentDate) AS Year
+            FROM Dividends
+            WHERE PaymentDate BETWEEN @StartDate AND @EndDate
+            GROUP BY DATEPART(YEAR, PaymentDate), DATEPART(MONTH, PaymentDate)
+            ORDER BY Year, Month";
+
+        var contributionsData = await GetChartData(connection, contributionsQuery, "Contributions");
+        var savingsData = await GetChartData(connection, savingsQuery, "Savings");
+        var loansData = await GetChartData(connection, loansQuery, "Loans");
+        var dividendsData = await GetChartData(connection, dividendsQuery, "Dividends");
+
+        // Configure charts
+        contributionsConfig = new BarConfig
+        {
+            Options = new BarOptions
+            {
+                Responsive = true,
+                Scales = new BarScales
+                {
+                    YAxes = new List<CartesianAxis>
+                    {
+                        new LinearCartesianAxis
+                        {
+                            Ticks = new LinearCartesianTicks
+                            {
+                                BeginAtZero = true,
+                                Callback = "function(value) { return '$' + value.toLocaleString(); }"
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        contributionsConfig.Data.Labels.AddRange(contributionsData.Select(d => d.Label).ToArray());
+        var contributionsDataset = new BarDataset<decimal>(contributionsData.Select(d => d.Value).ToList())
+        {
+            BackgroundColor = "rgba(54, 162, 235, 0.7)",
+            BorderColor = "rgba(54, 162, 235, 1)",
+            BorderWidth = 1,
+            Label = "Contributions"
+        };
+        contributionsConfig.Data.Datasets.Add(contributionsDataset);
+
+        // Similar configuration for other charts (savingsConfig, loansConfig, dividendsConfig)
+        // ...
+    }
+
+    private async Task LoadContributionsReport(SqlConnection connection)
+    {
+        var pieQuery = @"
+            SELECT ContributionType, SUM(Amount) AS Total
+            FROM Contributions
+            WHERE ContributionDate BETWEEN @StartDate AND @EndDate
+            GROUP BY ContributionType
+            ORDER BY Total DESC";
+
+        model.PieChartData = new List<KeyValuePair<string, decimal>>();
+        using var pieCommand = new SqlCommand(pieQuery, connection);
+        pieCommand.Parameters.AddWithValue("@StartDate", model.StartDate);
+        pieCommand.Parameters.AddWithValue("@EndDate", model.EndDate);
+
+        using var pieReader = await pieCommand.ExecuteReaderAsync();
+        while (await pieReader.ReadAsync())
+        {
+            model.PieChartData.Add(new KeyValuePair<string, decimal>(
+                pieReader.GetString(0),
+                pieReader.GetDecimal(1)
+            );
+        }
+        await pieReader.CloseAsync();
+
+        var lineQuery = @"
+            SELECT SUM(Amount) AS Total, 
+                   DATEPART(MONTH, ContributionDate) AS Month,
+                   DATEPART(YEAR, ContributionDate) AS Year
+            FROM Contributions
+            WHERE ContributionDate BETWEEN @StartDate AND @EndDate
+            GROUP BY DATEPART(YEAR, ContributionDate), DATEPART(MONTH, ContributionDate)
+            ORDER BY Year, Month";
+
+        model.LineChartData = await GetChartData(connection, lineQuery, "Contributions");
+
+        // Configure pie chart
+        contributionsPieConfig = new PieConfig
+        {
+            Options = new PieOptions
+            {
+                Responsive = true,
+                Plugins = new PiePlugins
+                {
+                    Legend = new Legend { Position = Position.Top },
+                    Tooltip = new Tooltip
+                    {
+                        Callbacks = new TooltipCallbacks
+                        {
+                            Label = "function(context) { return context.label + ': $' + context.raw.toLocaleString(); }"
+                        }
+                    }
+                }
+            }
+        };
+
+        contributionsPieConfig.Data.Labels.AddRange(model.PieChartData.Select(d => d.Key).ToArray());
+        var pieDataset = new PieDataset<decimal>(model.PieChartData.Select(d => d.Value).ToList())
+        {
+            BackgroundColor = new[]
+            {
+                "rgba(255, 99, 132, 0.7)",
+                "rgba(54, 162, 235, 0.7)",
+                "rgba(255, 206, 86, 0.7)"
+            },
+            BorderWidth = 1
+        };
+        contributionsPieConfig.Data.Datasets.Add(pieDataset);
+
+        // Configure line chart
+        contributionsLineConfig = new LineConfig
+        {
+            Options = new LineOptions
+            {
+                Responsive = true,
+                Scales = new LineScales
+                {
+                    YAxes = new List<CartesianAxis>
+                    {
+                        new LinearCartesianAxis
+                        {
+                            Ticks = new LinearCartesianTicks
+                            {
+                                BeginAtZero = true,
+                                Callback = "function(value) { return '$' + value.toLocaleString(); }"
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        contributionsLineConfig.Data.Labels.AddRange(model.LineChartData.Select(d => d.Label).ToArray());
+        var lineDataset = new LineDataset<decimal>(model.LineChartData.Select(d => d.Value).ToList())
+        {
+            BackgroundColor = "rgba(54, 162, 235, 0.2)",
+            BorderColor = "rgba(54, 162, 235, 1)",
+            BorderWidth = 2,
+            Tension = 0.1f,
+            Fill = true,
+            Label = "Contributions"
+        };
+        contributionsLineConfig.Data.Datasets.Add(lineDataset);
+    }
+
+    private async Task<List<ChartData>> GetChartData(SqlConnection connection, string query, string labelPrefix)
+    {
+        var chartData = new List<ChartData>();
+        using var command = new SqlCommand(query, connection);
+        command.Parameters.AddWithValue("@StartDate", model.StartDate);
+        command.Parameters.AddWithValue("@EndDate", model.EndDate);
+
+        using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            chartData.Add(new ChartData
+            {
+                Label = $"{CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedMonthName(reader.GetInt32(1))} {reader.GetInt32(2)}",
+                Value = reader.IsDBNull(0) ? 0 : reader.GetDecimal(0)
+            });
+        }
+
+        return chartData;
+    }
+
+    private class ChartData
+    {
+        public string Label { get; set; }
+        public decimal Value { get; set; }
+    }
+
+
+
+
+}

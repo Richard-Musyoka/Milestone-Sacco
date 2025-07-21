@@ -1,0 +1,35 @@
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net7.0\appsettings.Development.json
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net7.0\appsettings.json
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net7.0\Sacco Management System.staticwebassets.runtime.json
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net7.0\Sacco Management System.staticwebassets.endpoints.json
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net7.0\Sacco Management System.exe
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net7.0\Sacco Management System.deps.json
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net7.0\Sacco Management System.runtimeconfig.json
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net7.0\Sacco Management System.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net7.0\Sacco Management System.pdb
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\Sacco Management System.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\Sacco Management System.AssemblyInfoInputs.cache
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\Sacco Management System.AssemblyInfo.cs
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\Sacco Management System.csproj.CoreCompileInputs.cache
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\Sacco Management System.MvcApplicationPartsAssemblyInfo.cache
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\Sacco Management System.RazorAssemblyInfo.cache
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\Sacco Management System.RazorAssemblyInfo.cs
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\scopedcss\Shared\MainLayout.razor.rz.scp.css
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\scopedcss\Shared\NavMenu.razor.rz.scp.css
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\scopedcss\bundle\Sacco Management System.styles.css
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\scopedcss\projectbundle\Sacco Management System.bundle.scp.css
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\staticwebassets.build.json
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\staticwebassets.development.json
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\staticwebassets.build.endpoints.json
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\staticwebassets\msbuild.Sacco Management System.Microsoft.AspNetCore.StaticWebAssets.props
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\staticwebassets\msbuild.Sacco Management System.Microsoft.AspNetCore.StaticWebAssetEndpoints.props
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\staticwebassets\msbuild.build.Sacco Management System.props
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\staticwebassets\msbuild.buildMultiTargeting.Sacco Management System.props
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\staticwebassets\msbuild.buildTransitive.Sacco Management System.props
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\staticwebassets.pack.json
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\staticwebassets.upToDateCheck.txt
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\Sacco Management System.dll
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\refint\Sacco Management System.dll
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\Sacco Management System.pdb
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\Sacco Management System.genruntimeconfig.cache
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net7.0\ref\Sacco Management System.dll

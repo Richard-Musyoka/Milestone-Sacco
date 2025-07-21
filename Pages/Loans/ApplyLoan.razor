@@ -1,0 +1,920 @@
+@page "/loans/apply"
+@using Microsoft.AspNetCore.Components
+@using System.ComponentModel.DataAnnotations
+@inject NavigationManager NavigationManager
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
+
+<style>
+    .apply-loan-container {
+    max-width: 1000px;
+    margin: 2rem auto;
+    padding: 0 1.5rem;
+    }
+
+    .apply-loan-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    border: 1px solid #e9ecef;
+    }
+
+    .card-header {
+    background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+    color: white;
+    padding: 1.5rem;
+    }
+
+    .card-header h3 {
+    margin: 0;
+    font-weight: 600;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    }
+
+    .card-header i {
+    font-size: 1.75rem;
+    margin-right: 0.75rem;
+    }
+
+    .card-body {
+    padding: 2rem;
+    }
+
+    .form-label {
+    font-weight: 500;
+    color: #5a5c69;
+    margin-bottom: 0.5rem;
+    }
+
+    .form-control, .form-select {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid #d1d3e2;
+    transition: border-color 0.2s ease;
+    }
+
+    .form-control:focus, .form-select:focus {
+    border-color: #bac8f3;
+    box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+    outline: 0;
+    }
+
+    .validation-message {
+    color: #e74a3b;
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+    }
+
+    .searchable-dropdown {
+    position: relative;
+    }
+
+    .dropdown-options {
+    position: absolute;
+    width: 100%;
+    max-height: 300px;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 0 0 0.5rem 0.5rem;
+    z-index: 1000;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    margin-top: -1px;
+    }
+
+    .dropdown-option {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    }
+
+    .dropdown-option:hover {
+    background-color: #f8f9fa;
+    }
+
+    .dropdown-option small {
+    display: block;
+    margin-top: 0.25rem;
+    color: #6c757d;
+    }
+
+    .action-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e3e6f0;
+    }
+
+    .btn {
+    padding: 0.75rem 1.75rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    }
+
+    .btn-primary {
+    background-color: #4e73df;
+    border-color: #4e73df;
+    }
+
+    .btn-primary:hover {
+    background-color: #2e59d9;
+    border-color: #2653d4;
+    }
+
+    .btn-outline-secondary {
+    border-color: #d1d3e2;
+    color: #5a5c69;
+    }
+
+    .btn-outline-secondary:hover {
+    background-color: #f8f9fc;
+    border-color: #bac8f3;
+    color: #4e73df;
+    }
+
+    .section-title {
+    color: #4e73df;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e3e6f0;
+    }
+
+    .loading-spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 0.2em solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spinner-border 0.75s linear infinite;
+    }
+
+    @@keyframes spinner-border {
+    to {
+    transform: rotate(360deg);
+    }
+    }
+
+    .modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    z-index: 1040;
+    }
+
+    .modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1050;
+    overflow: hidden;
+    outline: 0;
+    }
+
+    .success-icon {
+    color: #1cc88a;
+    font-size: 3rem;
+    }
+
+    .selected-item-display {
+    min-height: 56px;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    }
+
+    @@media (max-width: 768px) {
+    .card-body {
+    padding: 1.5rem;
+    }
+
+    .action-buttons {
+    flex-direction: column;
+    }
+
+    .btn {
+    width: 100%;
+    }
+    }
+</style>
+
+<div class="apply-loan-container">
+    <div class="apply-loan-card">
+        <div class="card-header">
+            <h3><i class="bi bi-cash-coin"></i> Loan Application Form</h3>
+        </div>
+
+        <div class="card-body">
+            <EditForm Model="@loanApplication" OnValidSubmit="SubmitLoanApplication">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="alert alert-danger" />
+
+                <!-- Member Selection Section -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="memberSearch" class="form-label">Search Member *</label>
+                        <div class="searchable-dropdown">
+                            <input type="text" id="memberSearch" class="form-control"
+                            placeholder="Type to search members..."
+                            @bind="memberSearchQuery"
+                            @oninput="async () => await FilterMembers()"
+                            @onfocus="() => showMemberDropdown = true"
+                            @onblur="CloseMemberDropdown" />
+
+                            @if (showMemberDropdown && filteredMembers.Any())
+                            {
+                                <div class="dropdown-options">
+                                    @foreach (var member in filteredMembers)
+                                    {
+                                        <div class="dropdown-option" @onclick="() => SelectMember(member)">
+                                            @member.FirstName @member.LastName
+                                            <small>ID: @member.MemberNo | Phone: @member.PhoneNumber</small>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        <ValidationMessage For="@(() => loanApplication.MemberId)" class="validation-message" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Selected Member</label>
+                        <div class="selected-item-display">
+                            @if (selectedMember != null)
+                            {
+                                <div>
+                                    <strong>@selectedMember.FirstName @selectedMember.LastName</strong>
+                                    <div class="text-muted small">
+                                        ID: @selectedMember.MemberNo | Phone: @selectedMember.PhoneNumber
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="text-muted">No member selected</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loan Details Section -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="loanType" class="form-label">Loan Type *</label>
+                        <InputSelect id="loanType" @bind-Value="loanApplication.LoanType" class="form-select">
+                            <option value="">Select loan type</option>
+                            <option value="Emergency">Emergency Loan</option>
+                            <option value="Education">Education Loan</option>
+                            <option value="Business">Business Loan</option>
+                            <option value="Personal">Personal Loan</option>
+                        </InputSelect>
+                        <ValidationMessage For="@(() => loanApplication.LoanType)" class="validation-message" />
+                    </div>
+                    <div class="col-md-6">
+                        <label for="principalAmount" class="form-label">Loan Amount *</label>
+                        <InputNumber id="principalAmount" @bind-Value="loanApplication.PrincipalAmount"
+                        class="form-control" />
+                        <ValidationMessage For="@(() => loanApplication.PrincipalAmount)" class="validation-message" />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="interestRate" class="form-label">Interest Rate (%) *</label>
+                        <InputNumber id="interestRate" @bind-Value="loanApplication.InterestRate"
+                        class="form-control" step="0.01" />
+                        <ValidationMessage For="@(() => loanApplication.InterestRate)" class="validation-message" />
+                    </div>
+                    <div class="col-md-6">
+                        <label for="termMonths" class="form-label">Repayment Term (months) *</label>
+                        <InputNumber id="termMonths" @bind-Value="loanApplication.TermMonths"
+                        class="form-control" min="1" max="60" />
+                        <ValidationMessage For="@(() => loanApplication.TermMonths)" class="validation-message" />
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="purpose" class="form-label">Purpose of Loan *</label>
+                    <InputTextArea id="purpose" @bind-Value="loanApplication.Purpose"
+                    class="form-control" rows="3" />
+                    <ValidationMessage For="@(() => loanApplication.Purpose)" class="validation-message" />
+                </div>
+
+                <!-- Guarantor Sections -->
+                <div class="guarantor-section">
+                    <h5 class="section-title"><i class="bi bi-person-check"></i> Guarantor Information</h5>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="useExternalGuarantor"
+                            id="useExternalGuarantor" />
+                            <label class="form-check-label" for="useExternalGuarantor">
+                                Use external guarantor (non-member)
+                            </label>
+                        </div>
+                    </div>
+
+                    @if (!useExternalGuarantor)
+                    {
+                        <!-- Member Guarantors -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="guarantor1Search" class="form-label">Primary Guarantor *</label>
+                                <div class="searchable-dropdown">
+                                    <input type="text" id="guarantor1Search" class="form-control"
+                                    placeholder="Type to search guarantors..."
+                                    @bind="guarantor1SearchQuery"
+                                    @oninput="async () => await FilterGuarantor1()"
+                                    @onfocus="() => showGuarantor1Dropdown = true"
+                                    @onblur="CloseGuarantor1Dropdown" />
+
+                                    @if (showGuarantor1Dropdown && filteredGuarantors1.Any())
+                                    {
+                                        <div class="dropdown-options">
+                                            @foreach (var guarantor in filteredGuarantors1)
+                                            {
+                                                <div class="dropdown-option" @onclick="() => SelectGuarantor1(guarantor)">
+                                                    @guarantor.FirstName @guarantor.LastName
+                                                    <small>ID: @guarantor.IDNumber | Phone: @guarantor.PhoneNumber</small>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                                <ValidationMessage For="@(() => loanApplication.Guarantor1Id)" class="validation-message" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Selected Guarantor</label>
+                                <div class="selected-item-display">
+                                    @if (selectedGuarantor1 != null)
+                                    {
+                                        <div>
+                                            <strong>@selectedGuarantor1.FirstName @selectedGuarantor1.LastName</strong>
+                                            <div class="text-muted small">
+                                                ID: @selectedGuarantor1.IDNumber | Phone: @selectedGuarantor1.PhoneNumber
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">No guarantor selected</span>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="guarantor2Search" class="form-label">Secondary Guarantor (Optional)</label>
+                                <div class="searchable-dropdown">
+                                    <input type="text" id="guarantor2Search" class="form-control"
+                                    placeholder="Type to search guarantors..."
+                                    @bind="guarantor2SearchQuery"
+                                    @oninput="async () => await FilterGuarantor2()"
+                                    @onfocus="() => showGuarantor2Dropdown = true"
+                                    @onblur="CloseGuarantor2Dropdown" />
+
+                                    @if (showGuarantor2Dropdown && filteredGuarantors2.Any())
+                                    {
+                                        <div class="dropdown-options">
+                                            @foreach (var guarantor in filteredGuarantors2)
+                                            {
+                                                <div class="dropdown-option" @onclick="() => SelectGuarantor2(guarantor)">
+                                                    @guarantor.FirstName @guarantor.LastName
+                                                    <small>ID: @guarantor.IDNumber | Phone: @guarantor.PhoneNumber</small>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Selected Guarantor</label>
+                                <div class="selected-item-display">
+                                    @if (selectedGuarantor2 != null)
+                                    {
+                                        <div>
+                                            <strong>@selectedGuarantor2.FirstName @selectedGuarantor2.LastName</strong>
+                                            <div class="text-muted small">
+                                                ID: @selectedGuarantor2.IDNumber | Phone: @selectedGuarantor2.PhoneNumber
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">No guarantor selected</span>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <!-- External Guarantor Form -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="externalFirstName" class="form-label">First Name *</label>
+                                <InputText id="externalFirstName" @bind-Value="externalGuarantor.FirstName"
+                                class="form-control" />
+                                <ValidationMessage For="@(() => externalGuarantor.FirstName)" class="validation-message" />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="externalLastName" class="form-label">Last Name *</label>
+                                <InputText id="externalLastName" @bind-Value="externalGuarantor.LastName"
+                                class="form-control" />
+                                <ValidationMessage For="@(() => externalGuarantor.LastName)" class="validation-message" />
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="externalIdNumber" class="form-label">ID Number *</label>
+                                <InputText id="externalIdNumber" @bind-Value="externalGuarantor.IDNumber"
+                                class="form-control" />
+                                <ValidationMessage For="@(() => externalGuarantor.IDNumber)" class="validation-message" />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="externalPhone" class="form-label">Phone Number *</label>
+                                <InputText id="externalPhone" @bind-Value="externalGuarantor.PhoneNumber"
+                                class="form-control" />
+                                <ValidationMessage For="@(() => externalGuarantor.PhoneNumber)" class="validation-message" />
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="externalEmail" class="form-label">Email</label>
+                                <InputText id="externalEmail" @bind-Value="externalGuarantor.Email"
+                                class="form-control" />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="externalAddress" class="form-label">Physical Address</label>
+                                <InputText id="externalAddress" @bind-Value="externalGuarantor.PhysicalAddress"
+                                class="form-control" />
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Application Date</label>
+                        <div class="form-control">@DateTime.Now.ToString("dd MMMM yyyy")</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="remarks" class="form-label">Remarks</label>
+                        <InputText id="remarks" @bind-Value="loanApplication.Remarks"
+                        class="form-control" />
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="CancelApplication">
+                        <i class="bi bi-x-circle me-2"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="loading-spinner me-2"></span>
+                            <span>Processing...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-send-check me-2"></i>
+                            <span>Submit Application</span>
+                        }
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+<!-- Success Modal -->
+@if (showSuccessModal)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">Application Submitted</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseSuccessModal"></button>
+                </div>
+                <div class="modal-body text-center py-4">
+                    <i class="bi bi-check-circle-fill success-icon"></i>
+                    <h4 class="mt-3">Loan Application Submitted Successfully!</h4>
+                    <p>Your loan application reference is:</p>
+                    <h3 class="text-primary">@loanApplication.LoanNumber</h3>
+                    <div class="mt-3">
+                        <div><strong>Amount:</strong> @loanApplication.PrincipalAmount.ToString("C")</div>
+                        <div><strong>Term:</strong> @loanApplication.TermMonths months</div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-center">
+                    <button type="button" class="btn btn-success" @onclick="CloseSuccessModal">
+                        <i class="bi bi-check-lg me-2"></i> Done
+                    </button>
+                    <button type="button" class="btn btn-outline-light" @onclick="PrintApplication">
+                        <i class="bi bi-printer me-2"></i> Print
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private HttpClient Http => HttpClientFactory.CreateClient("ApiClient");
+    private LoanApplicationDto loanApplication = new();
+    private bool isSubmitting = false;
+    private bool showSuccessModal = false;
+    private bool useExternalGuarantor = false;
+    private ExternalGuarantorDto externalGuarantor = new();
+
+    // Member selection
+    private List<MemberDto> allMembers = new();
+    private List<MemberDto> filteredMembers = new();
+    private string memberSearchQuery = string.Empty;
+    private bool showMemberDropdown = false;
+    private MemberDto? selectedMember = null;
+
+    // Guarantor selection
+    private List<GuarantorDto> allGuarantors = new();
+    private List<GuarantorDto> filteredGuarantors1 = new();
+    private List<GuarantorDto> filteredGuarantors2 = new();
+    private string guarantor1SearchQuery = string.Empty;
+    private string guarantor2SearchQuery = string.Empty;
+    private bool showGuarantor1Dropdown = false;
+    private bool showGuarantor2Dropdown = false;
+    private GuarantorDto? selectedGuarantor1 = null;
+    private GuarantorDto? selectedGuarantor2 = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        loanApplication.ApplicationDate = DateTime.Now;
+        loanApplication.CreatedDate = DateTime.Now;
+        loanApplication.Status = "Pending";
+
+        // Load all members and guarantors initially
+        await LoadMembers();
+        await LoadGuarantors();
+    }
+
+    private async Task LoadMembers()
+    {
+        try
+        {
+            allMembers = await Http.GetFromJsonAsync<List<MemberDto>>("api/members") ?? new();
+            filteredMembers = allMembers.Take(10).ToList();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error loading members: {ex.Message}");
+        }
+    }
+
+    private async Task LoadGuarantors()
+    {
+        try
+        {
+            allGuarantors = await Http.GetFromJsonAsync<List<GuarantorDto>>("api/guarantors") ?? new();
+            filteredGuarantors1 = allGuarantors.Take(10).ToList();
+            filteredGuarantors2 = allGuarantors.Take(10).ToList();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error loading guarantors: {ex.Message}");
+        }
+    }
+
+    private async Task FilterMembers()
+    {
+        if (string.IsNullOrWhiteSpace(memberSearchQuery))
+        {
+            filteredMembers = allMembers.Take(10).ToList();
+        }
+        else
+        {
+            var query = memberSearchQuery.ToLower();
+            filteredMembers = allMembers.Where(m =>
+                m.FirstName.ToLower().Contains(query) ||
+                m.LastName.ToLower().Contains(query) ||
+                m.MemberNo.ToLower().Contains(query) ||
+                m.PhoneNumber.Contains(query)
+            ).Take(10).ToList();
+        }
+        showMemberDropdown = true;
+    }
+
+    private async Task FilterGuarantor1()
+    {
+        if (string.IsNullOrWhiteSpace(guarantor1SearchQuery))
+        {
+            filteredGuarantors1 = allGuarantors.Take(10).ToList();
+        }
+        else
+        {
+            var query = guarantor1SearchQuery.ToLower();
+            filteredGuarantors1 = allGuarantors.Where(g =>
+                g.FirstName.ToLower().Contains(query) ||
+                g.LastName.ToLower().Contains(query) ||
+                g.IDNumber.Contains(query) ||
+                g.PhoneNumber.Contains(query)
+            ).Take(10).ToList();
+        }
+        showGuarantor1Dropdown = true;
+    }
+
+    private async Task FilterGuarantor2()
+    {
+        if (string.IsNullOrWhiteSpace(guarantor2SearchQuery))
+        {
+            filteredGuarantors2 = allGuarantors.Take(10).ToList();
+        }
+        else
+        {
+            var query = guarantor2SearchQuery.ToLower();
+            filteredGuarantors2 = allGuarantors.Where(g =>
+                g.FirstName.ToLower().Contains(query) ||
+                g.LastName.ToLower().Contains(query) ||
+                g.IDNumber.Contains(query) ||
+                g.PhoneNumber.Contains(query)
+            ).Take(10).ToList();
+        }
+        showGuarantor2Dropdown = true;
+    }
+
+    private void SelectMember(MemberDto member)
+    {
+        selectedMember = member;
+        loanApplication.MemberId = member.MemberId;
+        memberSearchQuery = $"{member.FirstName} {member.LastName}";
+        showMemberDropdown = false;
+    }
+
+    private void SelectGuarantor1(GuarantorDto guarantor)
+    {
+        selectedGuarantor1 = guarantor;
+        loanApplication.Guarantor1Id = guarantor.GuarantorId;
+        guarantor1SearchQuery = $"{guarantor.FirstName} {guarantor.LastName}";
+        showGuarantor1Dropdown = false;
+    }
+
+    private void SelectGuarantor2(GuarantorDto guarantor)
+    {
+        selectedGuarantor2 = guarantor;
+        loanApplication.Guarantor2Id = guarantor.GuarantorId;
+        guarantor2SearchQuery = $"{guarantor.FirstName} {guarantor.LastName}";
+        showGuarantor2Dropdown = false;
+    }
+
+    private void CloseMemberDropdown()
+    {
+        Task.Delay(200).ContinueWith(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                showMemberDropdown = false;
+                StateHasChanged();
+            });
+        });
+    }
+
+    private void CloseGuarantor1Dropdown()
+    {
+        Task.Delay(200).ContinueWith(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                showGuarantor1Dropdown = false;
+                StateHasChanged();
+            });
+        });
+    }
+
+    private void CloseGuarantor2Dropdown()
+    {
+        Task.Delay(200).ContinueWith(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                showGuarantor2Dropdown = false;
+                StateHasChanged();
+            });
+        });
+    }
+
+    private async Task SubmitLoanApplication()
+    {
+        isSubmitting = true;
+
+        try
+        {
+            // Validate required fields
+            if (selectedMember == null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Please select a member");
+                return;
+            }
+
+            loanApplication.MemberId = selectedMember.MemberId;
+
+            if (!useExternalGuarantor && selectedGuarantor1 == null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Please select at least one guarantor");
+                return;
+            }
+
+            // Generate loan number
+            loanApplication.LoanNumber = $"LN-{DateTime.Now:yyyyMMdd}-{new Random().Next(1000, 9999)}";
+            loanApplication.ApplicationDate = DateTime.Now;
+            loanApplication.CreatedDate = DateTime.Now;
+            loanApplication.Status = "Pending";
+
+            if (useExternalGuarantor)
+            {
+                // First create the external guarantor
+                var guarantorResponse = await Http.PostAsJsonAsync("api/guarantors", new
+                {
+                    FirstName = externalGuarantor.FirstName,
+                    LastName = externalGuarantor.LastName,
+                    IDNumber = externalGuarantor.IDNumber,
+                    PhoneNumber = externalGuarantor.PhoneNumber,
+                    Email = externalGuarantor.Email,
+                    PhysicalAddress = externalGuarantor.PhysicalAddress,
+                    IsExternal = true,
+                    Remarks = externalGuarantor.Remarks, // Add this line
+                    CreatedBy = 1 // Replace with actual user ID
+                });
+
+                if (!guarantorResponse.IsSuccessStatusCode)
+                {
+                    var error = await guarantorResponse.Content.ReadAsStringAsync();
+                    await JSRuntime.InvokeVoidAsync("alert", $"Error creating guarantor: {error}");
+                    return;
+                }
+
+                var guarantorResult = await guarantorResponse.Content.ReadFromJsonAsync<GuarantorResult>();
+                loanApplication.Guarantor1Id = guarantorResult?.GuarantorId;
+            }
+            else
+            {
+                loanApplication.Guarantor1Id = selectedGuarantor1?.GuarantorId;
+                loanApplication.Guarantor2Id = selectedGuarantor2?.GuarantorId;
+            }
+
+
+            var response = await Http.PostAsJsonAsync("api/loans/add", loanApplication);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<LoanApplicationResult>();
+                if (result != null)
+                {
+                    loanApplication.LoanNumber = result.LoanNumber;
+                    showSuccessModal = true;
+                }
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await JSRuntime.InvokeVoidAsync("alert", $"Error submitting application: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void CancelApplication()
+    {
+        NavigationManager.NavigateTo("/loans");
+    }
+
+    private void CloseSuccessModal()
+    {
+        showSuccessModal = false;
+        NavigationManager.NavigateTo("/loans");
+    }
+
+    private async Task PrintApplication()
+    {
+        await JSRuntime.InvokeVoidAsync("window.print");
+    }
+
+    // Model classes
+    public class LoanApplicationDto
+    {
+        [Required(ErrorMessage = "Member is required")]
+        public int MemberId { get; set; }
+
+        [Required(ErrorMessage = "Loan type is required")]
+        public string LoanType { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Principal amount is required")]
+        [Range(1000, 1000000, ErrorMessage = "Amount must be between 1,000 and 1,000,000")]
+        public decimal PrincipalAmount { get; set; }
+
+        [Required(ErrorMessage = "Interest rate is required")]
+        [Range(1, 30, ErrorMessage = "Interest rate must be between 1% and 30%")]
+        public decimal InterestRate { get; set; } = 12;
+
+        [Required(ErrorMessage = "Term is required")]
+        [Range(1, 60, ErrorMessage = "Term must be between 1 and 60 months")]
+        public int TermMonths { get; set; } = 12;
+
+        [Required(ErrorMessage = "Purpose is required")]
+        [StringLength(500, ErrorMessage = "Purpose cannot exceed 500 characters")]
+        public string Purpose { get; set; } = string.Empty;
+
+        public int? Guarantor1Id { get; set; }
+        public int? Guarantor2Id { get; set; }
+        public string Remarks { get; set; }
+
+        // Auto-generated fields
+        public string LoanNumber { get; set; } = string.Empty;
+        public DateTime ApplicationDate { get; set; }
+        public DateTime CreatedDate { get; set; }
+        public string Status { get; set; } = string.Empty;
+    }
+
+    public class MemberDto
+    {
+        public int MemberId { get; set; }
+        public string MemberNo { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public decimal SavingsBalance { get; set; }
+    }
+
+    public class GuarantorDto
+    {
+        public int GuarantorId { get; set; }
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string IDNumber { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string PhysicalAddress { get; set; } = string.Empty;
+        public bool IsExternal { get; set; }
+        public int? MemberId { get; set; } // Null for external guarantors
+    }
+
+    public class ExternalGuarantorDto
+    {
+        [Required(ErrorMessage = "First name is required")]
+        [StringLength(100, ErrorMessage = "First name cannot exceed 100 characters")]
+        public string FirstName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Last name is required")]
+        [StringLength(100, ErrorMessage = "Last name cannot exceed 100 characters")]
+        public string LastName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "ID number is required")]
+        [StringLength(50, ErrorMessage = "ID number cannot exceed 50 characters")]
+        public string IDNumber { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Phone number is required")]
+        [StringLength(20, ErrorMessage = "Phone number cannot exceed 20 characters")]
+        public string PhoneNumber { get; set; } = string.Empty;
+
+        [EmailAddress(ErrorMessage = "Invalid email address")]
+        public string Email { get; set; } = string.Empty;
+
+        [StringLength(200, ErrorMessage = "Address cannot exceed 200 characters")]
+        public string PhysicalAddress { get; set; } = string.Empty;
+
+        [StringLength(500, ErrorMessage = "Remarks cannot exceed 500 characters")]
+        public string Remarks { get; set; } = string.Empty;
+    }
+
+    public class GuarantorResult
+    {
+        public int GuarantorId { get; set; }
+    }
+
+    public class LoanApplicationResult
+    {
+        public string LoanNumber { get; set; } = string.Empty;
+        public int LoanId { get; set; }
+    }
+}

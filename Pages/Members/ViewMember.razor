@@ -1,0 +1,481 @@
+@page "/members/view/{MemberId:int}"
+@using Microsoft.AspNetCore.Components
+@inject NavigationManager NavigationManager
+@inject IHttpClientFactory HttpClientFactory
+
+<style>
+    /* Section Styles */
+    .details-container {
+        background-color: #fff;
+        border-radius: 10px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
+    }
+
+    .section-title {
+        color: #4361ee;
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin: 1.5rem 0 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(67, 97, 238, 0.2);
+        display: flex;
+        align-items: center;
+    }
+
+        .section-title:first-child {
+            margin-top: 0;
+        }
+
+        .section-title i {
+            margin-right: 0.75rem;
+            font-size: 1.2rem;
+        }
+
+    .info-row {
+        display: flex;
+        margin-bottom: 0.8rem;
+        padding: 0.5rem 0;
+    }
+
+    .info-label {
+        flex: 0 0 40%;
+        color: #6c757d;
+        font-weight: 500;
+        font-size: 0.9rem;
+    }
+
+    .info-value {
+        flex: 1;
+        color: #212529;
+        font-weight: 500;
+        word-break: break-word;
+    }
+
+    .empty-value {
+        color: #adb5bd;
+        font-style: italic;
+        font-weight: normal;
+    }
+
+    /* Responsive Adjustments */
+    @@media (max-width: 768px) {
+        .details-container {
+            padding: 1rem;
+        }
+
+        .info-row {
+            flex-direction: column;
+            gap: 0.25rem;
+            padding: 0.6rem 0;
+        }
+
+        .info-label {
+            flex: 1;
+            font-size: 0.85rem;
+        }
+
+        .info-value {
+            font-size: 0.95rem;
+        }
+    }
+</style>
+
+
+
+<div>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+            <i class="bi bi-people-fill me-2"></i>Member Management
+        </h2>
+        <button class="btn btn-outline-primary" @onclick="NavigateBack">
+            <i class="bi bi-arrow-left me-2"></i> Back to Members
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5 my-5">
+            <div class="spinner-border text-primary loading-spinner" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <h4 class="mt-4 text-primary">Loading Member Details</h4>
+            <p class="text-muted">Please wait while we retrieve the member information...</p>
+        </div>
+    }
+    else if (errorLoading)
+    {
+        <div class="alert alert-danger d-flex align-items-center p-4">
+            <i class="bi bi-exclamation-triangle-fill me-3" style="font-size: 2rem;"></i>
+            <div>
+                <h4 class="alert-heading">Error Loading Member</h4>
+                <p>We encountered an issue while loading the member details. Please try the following:</p>
+                <ul>
+                    <li>Refresh the page</li>
+                    <li>Check your network connection</li>
+                    <li>Contact support if the problem persists</li>
+                </ul>
+                <button class="btn btn-outline-danger mt-2" @onclick="LoadMember">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Retry
+                </button>
+            </div>
+        </div>
+    }
+    else if (member == null)
+    {
+        <div class="alert alert-warning d-flex align-items-center p-4">
+            <i class="bi bi-person-x-fill me-3" style="font-size: 2rem;"></i>
+            <div>
+                <h4 class="alert-heading">Member Not Found</h4>
+                <p>The member you're looking for doesn't exist or may have been removed.</p>
+                <button class="btn btn-outline-secondary mt-2" @onclick="NavigateBack">
+                    <i class="bi bi-arrow-left me-1"></i> Return to Members List
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card member-card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0 text-white">
+                            <i class="bi bi-person-badge me-2"></i>Member Details
+                        </h3>
+                        <p class="mb-0 text-white-50">Complete profile information</p>
+                    </div>
+                    <div>
+                        <span class="status-badge @GetStatusClass(member.Status)">
+                            <i class="bi @GetStatusIcon(member.Status) me-1"></i>@member.Status
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-body p-4">
+                <div class="row">
+                    <!-- Profile Column -->
+                    <div class="col-md-4 text-center mb-4 mb-md-0">
+                        @if (!string.IsNullOrEmpty(member.ProfileImageUrl))
+                        {
+                            <img src="@member.ProfileImageUrl"
+                                 class="member-profile-img mb-3"
+                                 alt="Profile Image" />
+                        }
+                        else
+                        {
+                            <div class="profile-placeholder mb-3">
+                                <i class="bi bi-person-circle"></i>
+                            </div>
+                        }
+                        <h3 class="member-name">@member.FirstName @member.LastName</h3>
+                        <p class="member-meta">
+                            <i class="bi bi-person-vcard"></i>Member #@member.MemberNo
+                            @if (member.JoinDate.HasValue)
+                            {
+                                <span class="d-block mt-2">
+                                    <i class="bi bi-calendar-event"></i>
+                                    Member since @member.JoinDate.Value.ToString("MMMM yyyy")
+                                </span>
+                            }
+                        </p>
+                    </div>
+
+                    <div class="col-md-8">
+                        <div class="details-container">
+                            <div class="row">
+                                <!-- Left Column -->
+                                <div class="col-md-6">
+                                    <h5 class="section-title">
+                                        <i class="bi bi-person-lines-fill"></i>Personal Information
+                                    </h5>
+                                    <div class="info-row">
+                                        <span class="info-label">National ID:</span>
+                                        <span class="info-value">@(string.IsNullOrEmpty(member.NationalID) ? "<span class='empty-value'>Not specified</span>" : member.NationalID)</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">Date of Birth:</span>
+                                        <span class="info-value">@(member.DateOfBirth?.ToString("dd MMMM yyyy") ?? "<span class='empty-value'>Not specified</span>")</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">Gender:</span>
+                                        <span class="info-value">@(string.IsNullOrEmpty(member.Gender) ? "<span class='empty-value'>Not specified</span>" : member.Gender)</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">Marital Status:</span>
+                                        <span class="info-value">@(string.IsNullOrEmpty(member.MaritalStatus) ? "<span class='empty-value'>Not specified</span>" : member.MaritalStatus)</span>
+                                    </div>
+
+                                    <h5 class="section-title">
+                                        <i class="bi bi-briefcase"></i>Employment Details
+                                    </h5>
+                                    <div class="info-row">
+                                        <span class="info-label">Occupation:</span>
+                                        <span class="info-value">@(string.IsNullOrEmpty(member.Occupation) ? "<span class='empty-value'>Not specified</span>" : member.Occupation)</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">Employer:</span>
+                                        <span class="info-value">@(string.IsNullOrEmpty(member.Employer) ? "<span class='empty-value'>Not specified</span>" : member.Employer)</span>
+                                    </div>
+                                </div>
+
+                                <!-- Right Column -->
+                                <div class="col-md-6">
+                                    <h5 class="section-title">
+                                        <i class="bi bi-telephone"></i>Contact Information
+                                    </h5>
+                                    <div class="info-row">
+                                        <span class="info-label">Email:</span>
+                                        <span class="info-value">@member.Email</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">Phone:</span>
+                                        <span class="info-value">@member.PhoneNumber</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">Address:</span>
+                                        <span class="info-value">@(string.IsNullOrEmpty(member.Address) ? "<span class='empty-value'>Not specified</span>" : member.Address)</span>
+                                    </div>
+
+                                    <h5 class="section-title">
+                                        <i class="bi bi-card-checklist"></i>Membership Details
+                                    </h5>
+                                    <div class="info-row">
+                                        <span class="info-label">Join Date:</span>
+                                        <span class="info-value">@(member.JoinDate?.ToString("dd MMMM yyyy") ?? "<span class='empty-value'>Not specified</span>")</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">Member Since:</span>
+                                        <span class="info-value">@GetMembershipDuration(member.JoinDate)</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">Created On:</span>
+                                        <span class="info-value">@(member.CreatedDate?.ToString("f") ?? "<span class='empty-value'>Not available</span>")</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+                </div>
+
+            <div class="card-footer bg-light p-3">
+                <div class="d-flex justify-content-between action-buttons">
+                    <button class="btn btn-outline-secondary" @onclick="NavigateBack">
+                        <i class="bi bi-arrow-left me-1"></i> Back to List
+                    </button>
+                    <div>
+                        <button class="btn btn-primary me-2" @onclick="() => EditMember(member.MemberId)">
+                            <i class="bi bi-pencil-square me-1"></i> Edit Profile
+                        </button>
+                        <button class="btn btn-outline-danger" @onclick="() => ConfirmDelete(member)">
+                            <i class="bi bi-trash3 me-1"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+    }
+
+    @if (showDeleteModal)
+    {
+        <div class="modal-backdrop show"></div>
+        <div class="modal show d-block delete-modal" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>
+                            Confirm Member Deletion
+                        </h5>
+                        <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to permanently delete this member?</p>
+
+                        <div class="member-highlight mb-3">
+                            <div class="d-flex align-items-center">
+                                @if (!string.IsNullOrEmpty(memberToDelete?.ProfileImageUrl))
+                                {
+                                    <img src="@memberToDelete?.ProfileImageUrl"
+                                         class="rounded-circle me-3"
+                                         width="50" height="50"
+                                         alt="Profile" />
+                                }
+                                else
+                                {
+                                    <div class="rounded-circle bg-light me-3 d-flex align-items-center justify-content-center" style="width:50px;height:50px;">
+                                        <i class="bi bi-person-fill text-muted"></i>
+                                    </div>
+                                }
+                                <div>
+                                    <h6 class="mb-0">@memberToDelete?.FullName</h6>
+                                    <small class="text-muted">Member #@memberToDelete?.MemberNo</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-octagon-fill me-2"></i>
+                            <strong>Warning:</strong> This action cannot be undone. All associated data will be permanently removed.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CancelDelete">
+                            <i class="bi bi-x-circle me-1"></i> Cancel
+                        </button>
+                        <button type="button" class="btn btn-danger" @onclick="DeleteMember">
+                            <i class="bi bi-trash3 me-1"></i> Delete Permanently
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int MemberId { get; set; }
+
+    private MemberModel member;
+    private bool showDeleteModal = false;
+    private MemberModel memberToDelete;
+    private bool isLoading = true;
+    private bool errorLoading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMember();
+    }
+
+    private async Task LoadMember()
+    {
+        try
+        {
+            isLoading = true;
+            errorLoading = false;
+            StateHasChanged();
+
+            var client = HttpClientFactory.CreateClient("ApiClient");
+            var response = await client.GetAsync($"api/members/get/{MemberId}"); // Changed this line
+
+            if (response.IsSuccessStatusCode)
+            {
+                member = await response.Content.ReadFromJsonAsync<MemberModel>();
+            }
+            else
+            {
+                errorLoading = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorLoading = true;
+            Console.WriteLine($"Error loading member: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetStatusClass(string status) => status switch
+    {
+        "Active" => "bg-success",
+        "Inactive" => "bg-secondary",
+        "Pending" => "bg-warning text-dark",
+        "Suspended" => "bg-danger",
+        _ => "bg-info"
+    };
+
+    private string GetStatusIcon(string status) => status switch
+    {
+        "Active" => "bi-check-circle",
+        "Inactive" => "bi-dash-circle",
+        "Pending" => "bi-hourglass",
+        "Suspended" => "bi-slash-circle",
+        _ => "bi-question-circle"
+    };
+
+    private string GetMembershipDuration(DateTime? joinDate)
+    {
+        if (!joinDate.HasValue) return "Not specified";
+
+        var duration = DateTime.Now - joinDate.Value;
+
+        if (duration.TotalDays < 30)
+            return $"{(int)duration.TotalDays} days";
+
+        if (duration.TotalDays < 365)
+            return $"{(int)(duration.TotalDays / 30)} months";
+
+        return $"{(int)(duration.TotalDays / 365)} years";
+    }
+
+    private void NavigateBack() => NavigationManager.NavigateTo("/members");
+    private void EditMember(int id) => NavigationManager.NavigateTo($"/members/edit/{id}");
+
+    private void ConfirmDelete(MemberModel member)
+    {
+        memberToDelete = member;
+        showDeleteModal = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteModal = false;
+        memberToDelete = null;
+    }
+
+    private async Task DeleteMember()
+    {
+        if (memberToDelete != null)
+        {
+            try
+            {
+                var client = HttpClientFactory.CreateClient("ApiClient");
+                var response = await client.DeleteAsync($"api/members/{memberToDelete.MemberId}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    NavigationManager.NavigateTo("/members");
+                }
+                else
+                {
+                    Console.WriteLine($"Error deleting member: {response.StatusCode}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error deleting member: {ex.Message}");
+            }
+        }
+    }
+
+    public class MemberModel
+    {
+        public int MemberId { get; set; }
+        public string MemberNo { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public string NationalID { get; set; } = string.Empty;
+        public DateTime? DateOfBirth { get; set; }
+        public string Gender { get; set; } = string.Empty;
+        public string MaritalStatus { get; set; } = string.Empty;
+        public string Occupation { get; set; } = string.Empty;
+        public string Employer { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string ProfileImageUrl { get; set; } = string.Empty;
+        public DateTime? JoinDate { get; set; }
+        public string Status { get; set; } = "Active";
+        public DateTime? CreatedDate { get; set; }
+        public int? CreatedBy { get; set; }
+
+        public string FullName => $"{FirstName} {LastName}";
+    }
+}

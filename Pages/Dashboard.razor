@@ -1,0 +1,163 @@
+﻿@page "/dashboard"
+@layout MainLayout
+@using System.Globalization
+
+<div class="sacco-dashboard">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <div class="header-content">
+            <div class="header-title">
+                <i class="bi bi-speedometer2 dashboard-icon"></i>
+                <h1>Dashboard Overview</h1>
+            </div>
+            <div class="header-actions">
+                <div class="date-display">
+                    <i class="bi bi-calendar-week"></i>
+                    @DateTime.Now.ToString("dddd, MMMM d, yyyy", CultureInfo.InvariantCulture)
+                </div>
+                <button class="btn btn-light refresh-btn">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-grid">
+        <div class="summary-card total-members">
+            <div class="card-icon">
+                <i class="bi bi-people-fill"></i>
+            </div>
+            <div class="card-content">
+                <div class="card-title">Total Members</div>
+                <div class="card-value">1,248</div>
+                <div class="card-trend positive">
+                    <i class="bi bi-arrow-up"></i> 12.5% from last month
+                </div>
+            </div>
+        </div>
+
+        <div class="summary-card active-loans">
+            <div class="card-icon">
+                <i class="bi bi-cash-stack"></i>
+            </div>
+            <div class="card-content">
+                <div class="card-title">Active Loans</div>
+                <div class="card-value">342</div>
+                <div class="card-trend negative">
+                    <i class="bi bi-arrow-down"></i> 3.2% from last month
+                </div>
+            </div>
+        </div>
+
+        <div class="summary-card total-savings">
+            <div class="card-icon">
+                <i class="bi bi-piggy-bank-fill"></i>
+            </div>
+            <div class="card-content">
+                <div class="card-title">Total Savings</div>
+                <div class="card-value">KES @((58450000).ToString("N0"))</div>
+                <div class="card-trend positive">
+                    <i class="bi bi-arrow-up"></i> 8.7% from last month
+                </div>
+            </div>
+        </div>
+
+        <div class="summary-card pending-applications">
+            <div class="card-icon">
+                <i class="bi bi-file-earmark-text"></i>
+            </div>
+            <div class="card-content">
+                <div class="card-title">Pending Applications</div>
+                <div class="card-value">28</div>
+                <div class="card-trend neutral">
+                    <i class="bi bi-dash"></i> No change
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="charts-row">
+        <!-- Savings vs Loans Chart -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h5><i class="bi bi-bar-chart-line"></i> Savings vs Loans (Last 6 Months)</h5>
+                <div class="chart-legend">
+                    <span class="legend-item savings"><i class="bi bi-square-fill"></i> Savings</span>
+                    <span class="legend-item loans"><i class="bi bi-square-fill"></i> Loans</span>
+                </div>
+            </div>
+            <div class="chart-container">
+                <img src="/images/sample-chart.png" alt="Savings vs Loans Chart" class="chart-image" />
+            </div>
+        </div>
+
+        <!-- Loan Performance -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h5><i class="bi bi-pie-chart-fill"></i> Loan Performance</h5>
+                <div class="chart-legend">
+                    <span class="legend-item performing"><i class="bi bi-square-fill"></i> Performing</span>
+                    <span class="legend-item non-performing"><i class="bi bi-square-fill"></i> Non-Performing</span>
+                </div>
+            </div>
+            <div class="chart-container">
+                <img src="/images/pie-chart.png" alt="Loan Performance Chart" class="chart-image" />
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="activity-section">
+        <div class="section-header">
+            <h5><i class="bi bi-clock-history"></i> Recent Transactions</h5>
+            <a href="#" class="view-all">View All <i class="bi bi-chevron-right"></i></a>
+        </div>
+        <div class="activity-list">
+            <div class="activity-item">
+                <div class="activity-icon deposit">
+                    <i class="bi bi-arrow-down-circle"></i>
+                </div>
+                <div class="activity-details">
+                    <div class="activity-title">Member Deposit</div>
+                    <div class="activity-meta">James Mwangi • Today 09:45 AM</div>
+                </div>
+                <div class="activity-amount positive">KES 25,000</div>
+            </div>
+
+            <div class="activity-item">
+                <div class="activity-icon loan">
+                    <i class="bi bi-cash-coin"></i>
+                </div>
+                <div class="activity-details">
+                    <div class="activity-title">Loan Disbursement</div>
+                    <div class="activity-meta">Sarah Wanjiku • Today 11:20 AM</div>
+                </div>
+                <div class="activity-amount negative">KES 150,000</div>
+            </div>
+
+            <div class="activity-item">
+                <div class="activity-icon withdrawal">
+                    <i class="bi bi-arrow-up-circle"></i>
+                </div>
+                <div class="activity-details">
+                    <div class="activity-title">Withdrawal Request</div>
+                    <div class="activity-meta">Peter Kamau • Yesterday 3:15 PM</div>
+                </div>
+                <div class="activity-amount negative">KES 50,000</div>
+            </div>
+
+            <div class="activity-item">
+                <div class="activity-icon application">
+                    <i class="bi bi-file-earmark-plus"></i>
+                </div>
+                <div class="activity-details">
+                    <div class="activity-title">New Membership Application</div>
+                    <div class="activity-meta">Grace Wambui • Yesterday 1:30 PM</div>
+                </div>
+                <div class="activity-amount neutral">Pending</div>
+            </div>
+        </div>
+    </div>
+</div>

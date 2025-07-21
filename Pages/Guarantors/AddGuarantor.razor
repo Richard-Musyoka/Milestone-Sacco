@@ -1,0 +1,403 @@
+﻿@page "/guarantors/add"
+@using Microsoft.AspNetCore.Components
+@using System.ComponentModel.DataAnnotations
+@using SaccoManagementSystem.Models
+@inject NavigationManager NavigationManager
+@inject IHttpClientFactory _httpClientFactory
+@inject IJSRuntime JSRuntime
+
+<style>
+    :root {
+        --primary-color: #4361ee;
+        --primary-light: #eef2ff;
+        --secondary-color: #3f37c9;
+        --success-color: #4cc9f0;
+        --warning-color: #f8961e;
+        --danger-color: #f94144;
+        --light-color: #f8f9fa;
+        --dark-color: #212529;
+        --border-radius: 12px;
+        --box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .add-guarantor-container {
+        max-width: 900px;
+        margin: 2rem auto;
+        padding: 0 1.5rem;
+        animation: fadeIn 0.5s ease-out;
+    }
+
+    .add-guarantor-card {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+        overflow: hidden;
+        transition: var(--transition);
+    }
+
+        .add-guarantor-card:hover {
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+        }
+
+    .card-header {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+        padding: 1.75rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+        .card-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 70%);
+            transform: rotate(30deg);
+        }
+
+        .card-header h3 {
+            margin: 0;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+            font-size: 1.5rem;
+        }
+
+        .card-header i {
+            font-size: 1.75rem;
+            margin-right: 0.75rem;
+        }
+
+    .card-body {
+        padding: 2.5rem;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+    }
+
+    .form-control, .form-select {
+        border-radius: var(--border-radius);
+        padding: 0.75rem 1rem;
+        border: 1px solid #e0e0e0;
+        transition: var(--transition);
+    }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.25rem rgba(67, 97, 238, 0.15);
+        }
+
+    .validation-message {
+        color: var(--danger-color);
+        font-size: 0.85rem;
+        margin-top: 0.25rem;
+    }
+
+    .alert-danger {
+        background: rgba(249, 65, 68, 0.1);
+        border-left: 4px solid var(--danger-color);
+        border-radius: var(--border-radius);
+        padding: 1rem;
+    }
+
+    .action-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1.25rem;
+        margin-top: 2.5rem;
+    }
+
+    .btn {
+        padding: 0.75rem 1.75rem;
+        border-radius: 50px;
+        font-weight: 600;
+        transition: var(--transition);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        border: none;
+    }
+
+    .btn-outline-secondary {
+        background: white;
+        color: var(--dark-color);
+        border: 1px solid #dee2e6;
+    }
+
+        .btn-outline-secondary:hover {
+            background: #f8f9fa;
+            transform: translateY(-2px);
+        }
+
+    .btn-primary {
+        background: var(--primary-color);
+        color: white;
+        box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
+    }
+
+        .btn-primary:hover {
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
+        }
+
+        .btn-primary:disabled {
+            background: #b0b0b0;
+            transform: none;
+            box-shadow: none;
+        }
+
+    .form-check-input {
+        width: 1.25em;
+        height: 1.25em;
+        margin-top: 0.15em;
+    }
+
+    .form-check-label {
+        margin-left: 0.5rem;
+    }
+
+    .status-toggle {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.75rem;
+        background: #f8f9fa;
+        border-radius: var(--border-radius);
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .card-body {
+            padding: 1.75rem;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+        }
+
+        .btn {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+<div class="add-guarantor-container">
+    <div class="add-guarantor-card">
+        <div class="card-header">
+            <h3><i class="bi bi-person-plus"></i> Add New Guarantor</h3>
+        </div>
+
+        <div class="card-body">
+            <EditForm Model="@guarantor" OnValidSubmit="SubmitGuarantor">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="alert alert-danger" />
+
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label for="firstName" class="form-label">First Name *</label>
+                        <InputText id="firstName" @bind-Value="guarantor.FirstName" class="form-control" placeholder="Enter first name" />
+                        <ValidationMessage For="@(() => guarantor.FirstName)" class="validation-message" />
+                    </div>
+                    <div class="col-md-6">
+                        <label for="lastName" class="form-label">Last Name *</label>
+                        <InputText id="lastName" @bind-Value="guarantor.LastName" class="form-control" placeholder="Enter last name" />
+                        <ValidationMessage For="@(() => guarantor.LastName)" class="validation-message" />
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label for="idNumber" class="form-label">ID Number *</label>
+                        <InputText id="idNumber" @bind-Value="guarantor.IDNumber" class="form-control" placeholder="Enter national ID/passport" />
+                        <ValidationMessage For="@(() => guarantor.IDNumber)" class="validation-message" />
+                    </div>
+                    <div class="col-md-6">
+                        <label for="phoneNumber" class="form-label">Phone Number</label>
+                        <InputText id="phoneNumber" @bind-Value="guarantor.PhoneNumber" class="form-control" placeholder="Enter phone number" />
+                        <ValidationMessage For="@(() => guarantor.PhoneNumber)" class="validation-message" />
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label for="email" class="form-label">Email</label>
+                        <InputText id="email" @bind-Value="guarantor.Email" class="form-control" placeholder="Enter email address" />
+                        <ValidationMessage For="@(() => guarantor.Email)" class="validation-message" />
+                    </div>
+                    <div class="col-md-6">
+                        <label for="dateOfBirth" class="form-label">Date of Birth</label>
+                        <InputDate id="dateOfBirth" @bind-Value="guarantor.DateOfBirth" class="form-control" />
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="status-toggle">
+                            <div class="form-check">
+                                <InputCheckbox id="isActive" @bind-Value="guarantor.IsActive" class="form-check-input" />
+                                <label for="isActive" class="form-check-label">Active Guarantor</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="physicalAddress" class="form-label">Physical Address</label>
+                    <InputTextArea id="physicalAddress" @bind-Value="guarantor.PhysicalAddress" class="form-control" rows="3" placeholder="Enter full physical address"></InputTextArea>
+                </div>
+
+                <div class="mb-4">
+                    <label for="remarks" class="form-label">Remarks</label>
+                    <InputTextArea id="remarks" @bind-Value="guarantor.Remarks" class="form-control" rows="2" placeholder="Any additional notes"></InputTextArea>
+                </div>
+
+                <div class="action-buttons">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="Cancel">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            <span> Saving...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-save"></i> <span>Save Guarantor</span>
+                        }
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private HttpClient Http => _httpClientFactory.CreateClient("ApiClient");
+    private GuarantorCreateDto guarantor = new GuarantorCreateDto();
+    private bool isSubmitting = false;
+
+    protected override void OnInitialized()
+    {
+        // Set default values
+        guarantor.IsActive = true;
+        guarantor.CreatedBy = 1; // Replace with actual user ID from authentication
+    }
+
+    private async Task SubmitGuarantor()
+    {
+        isSubmitting = true;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/guarantors", guarantor);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<GuarantorCreateResult>();
+                await ShowSuccessMessage("Guarantor added successfully!");
+                NavigationManager.NavigateTo($"/guarantors/view/{result?.GuarantorId}");
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await ShowErrorMessage(error);
+            }
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorMessage(ex.Message);
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private async Task ShowSuccessMessage(string message)
+    {
+        await JSRuntime.InvokeVoidAsync("Swal.fire", new
+        {
+            icon = "success",
+            title = "Success!",
+            text = message,
+            showConfirmButton = false,
+            timer = 2000
+        });
+    }
+
+    private async Task ShowErrorMessage(string message)
+    {
+        await JSRuntime.InvokeVoidAsync("Swal.fire", new
+        {
+            icon = "error",
+            title = "Error",
+            text = message
+        });
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("/guarantors");
+    }
+
+    public class GuarantorCreateDto
+    {
+        [Required(ErrorMessage = "First name is required")]
+        [StringLength(100, ErrorMessage = "First name cannot exceed 100 characters")]
+        public string FirstName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Last name is required")]
+        [StringLength(100, ErrorMessage = "Last name cannot exceed 100 characters")]
+        public string LastName { get; set; } = string.Empty;
+
+        [StringLength(20, ErrorMessage = "Phone number cannot exceed 20 characters")]
+        [RegularExpression(@"^[0-9\+\- ]*$", ErrorMessage = "Invalid phone number format")]
+        public string PhoneNumber { get; set; } = string.Empty;
+
+        [EmailAddress(ErrorMessage = "Invalid email format")]
+        [StringLength(100, ErrorMessage = "Email cannot exceed 100 characters")]
+        public string Email { get; set; } = string.Empty;
+
+        public DateTime? DateOfBirth { get; set; }
+
+        [Required(ErrorMessage = "ID number is required")]
+        [StringLength(50, ErrorMessage = "ID number cannot exceed 50 characters")]
+        public string IDNumber { get; set; } = string.Empty;
+
+        [StringLength(200, ErrorMessage = "Address cannot exceed 200 characters")]
+        public string PhysicalAddress { get; set; } = string.Empty;
+
+        public bool IsActive { get; set; } = true;
+
+        public long? CreatedBy { get; set; }
+
+        [StringLength(500, ErrorMessage = "Remarks cannot exceed 500 characters")]
+        public string Remarks { get; set; } = string.Empty;
+    }
+
+    public class GuarantorCreateResult
+    {
+        public int GuarantorId { get; set; }
+    }
+}

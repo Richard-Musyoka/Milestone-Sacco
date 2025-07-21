@@ -1,0 +1,95 @@
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\appsettings.Development.json
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\appsettings.json
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Sacco Management System.staticwebassets.runtime.json
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Sacco Management System.staticwebassets.endpoints.json
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Sacco Management System.exe
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Sacco Management System.deps.json
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Sacco Management System.runtimeconfig.json
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Sacco Management System.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Sacco Management System.pdb
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Azure.Core.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Azure.Identity.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\DinkToPdf.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\itext.barcodes.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\itext.bouncy-castle-connector.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\itext.forms.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\itext.io.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\itext.kernel.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\itext.layout.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\itext.pdfa.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\itext.pdfua.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\itext.sign.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\itext.styledxmlparser.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\itext.svg.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\itext.commons.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Microsoft.Bcl.AsyncInterfaces.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Microsoft.Data.SqlClient.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Microsoft.DotNet.PlatformAbstractions.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Microsoft.EntityFrameworkCore.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Microsoft.EntityFrameworkCore.Abstractions.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Microsoft.EntityFrameworkCore.Relational.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Microsoft.EntityFrameworkCore.SqlServer.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Microsoft.Extensions.DependencyModel.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Microsoft.Identity.Client.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Microsoft.Identity.Client.Extensions.Msal.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Microsoft.IdentityModel.Abstractions.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Microsoft.IdentityModel.JsonWebTokens.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Microsoft.IdentityModel.Logging.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Microsoft.IdentityModel.Protocols.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Microsoft.IdentityModel.Tokens.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Microsoft.SqlServer.Server.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Microsoft.Win32.SystemEvents.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Newtonsoft.Json.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\System.Configuration.ConfigurationManager.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\System.Drawing.Common.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\System.IdentityModel.Tokens.Jwt.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\System.IO.Pipelines.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\System.Memory.Data.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\System.Runtime.Caching.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\System.Security.Cryptography.ProtectedData.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\System.Security.Permissions.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\System.Text.Encodings.Web.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\System.Text.Json.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\System.Windows.Extensions.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\runtimes\unix\lib\net6.0\Microsoft.Data.SqlClient.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\runtimes\win\lib\net6.0\Microsoft.Data.SqlClient.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\runtimes\win-arm\native\Microsoft.Data.SqlClient.SNI.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\runtimes\win-arm64\native\Microsoft.Data.SqlClient.SNI.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\runtimes\win-x64\native\Microsoft.Data.SqlClient.SNI.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\runtimes\win-x86\native\Microsoft.Data.SqlClient.SNI.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\runtimes\win\lib\net6.0\Microsoft.Win32.SystemEvents.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\runtimes\unix\lib\net6.0\System.Drawing.Common.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\runtimes\win\lib\net6.0\System.Drawing.Common.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\runtimes\win\lib\net6.0\System.Runtime.Caching.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\runtimes\win\lib\net6.0\System.Security.Cryptography.ProtectedData.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\runtimes\browser\lib\net8.0\System.Text.Encodings.Web.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\runtimes\win\lib\net6.0\System.Windows.Extensions.dll
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\Sacco Management System.csproj.AssemblyReference.cache
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\Sacco Management System.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\Sacco Management System.AssemblyInfoInputs.cache
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\Sacco Management System.AssemblyInfo.cs
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\Sacco Management System.csproj.CoreCompileInputs.cache
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\Sacco Management System.MvcApplicationPartsAssemblyInfo.cache
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\Sacco Management System.RazorAssemblyInfo.cache
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\Sacco Management System.RazorAssemblyInfo.cs
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\scopedcss\Shared\MainLayout.razor.rz.scp.css
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\scopedcss\Shared\NavMenu.razor.rz.scp.css
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\scopedcss\bundle\Sacco Management System.styles.css
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\scopedcss\projectbundle\Sacco Management System.bundle.scp.css
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\staticwebassets.build.json
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\staticwebassets.development.json
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\staticwebassets.build.endpoints.json
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\Sacco Ma.95AFD796.Up2Date
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\Sacco Management System.dll
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\refint\Sacco Management System.dll
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\Sacco Management System.pdb
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\Sacco Management System.genruntimeconfig.cache
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\ref\Sacco Management System.dll
+C:\Users\Attain\source\repos\Sacco Management System\bin\Debug\net8.0\Dapper.dll
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\rpswa.dswa.cache.json
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\rjimswa.dswa.cache.json
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\rjsmrazor.dswa.cache.json
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\rjsmcshtml.dswa.cache.json
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\staticwebassets.build.json.cache

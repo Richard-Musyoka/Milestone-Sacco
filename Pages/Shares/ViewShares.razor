@@ -1,0 +1,588 @@
+﻿@page "/shares/member/{MemberId:int}"
+@using SaccoManagementSystem.Models
+@using static Sacco_Management_System.Pages.Members.ListMember
+@inject NavigationManager NavigationManager
+@inject IHttpClientFactory HttpClientFactory
+
+<style>
+    :root {
+        --primary-color: #4361ee;
+        --secondary-color: #3f37c9;
+        --success-color: #4cc9f0;
+        --warning-color: #f8961e;
+        --danger-color: #f94144;
+        --light-color: #f8f9fa;
+        --dark-color: #212529;
+        --border-radius: 0.5rem;
+        --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        --transition: all 0.3s ease;
+    }
+
+    .member-shares-container {
+        max-width: 1200px;
+        margin: 2rem auto;
+        padding: 0 1.5rem;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .member-card {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+
+    .member-header {
+        background: var(--primary-color);
+        color: white;
+        padding: 1.5rem 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .header-title {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+        .header-title h2 {
+            font-weight: 600;
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+    .member-id {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 0.25rem 1rem;
+        border-radius: 2rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: var(--border-radius);
+        font-weight: 500;
+        transition: var(--transition);
+        border: none;
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+
+    .btn-outline-light {
+        background: transparent;
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+    }
+
+        .btn-outline-light:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+    .member-content {
+        padding: 2rem;
+    }
+
+    .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+    }
+
+    .detail-section {
+        margin-bottom: 2rem;
+    }
+
+        .detail-section:last-child {
+            margin-bottom: 0;
+        }
+
+    .section-title {
+        font-size: 1.1rem;
+        color: var(--dark-color);
+        margin-bottom: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-weight: 600;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+        .section-title i {
+            font-size: 1.2rem;
+            color: var(--primary-color);
+        }
+
+    .detail-row {
+        display: flex;
+        margin-bottom: 0.75rem;
+    }
+
+    .detail-label {
+        font-weight: 500;
+        color: #6c757d;
+        width: 160px;
+        flex-shrink: 0;
+        font-size: 0.9rem;
+    }
+
+    .detail-value {
+        color: var(--dark-color);
+        font-weight: 500;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 0.35em 0.65em;
+        font-size: 0.75em;
+        font-weight: 600;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: 0.375rem;
+    }
+
+    .bg-success {
+        background-color: #2ecc71;
+        color: white;
+    }
+
+    .bg-secondary {
+        background-color: #95a5a6;
+        color: white;
+    }
+
+    .bg-info {
+        background-color: var(--success-color);
+        color: white;
+    }
+
+    .shares-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin: 2rem 0;
+    }
+
+    .summary-card {
+        background: #f8fafc;
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        box-shadow: var(--box-shadow);
+        border-left: 3px solid var(--primary-color);
+    }
+
+    .summary-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+    }
+
+    .summary-value {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--dark-color);
+    }
+
+    .shares-table {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+        overflow: hidden;
+        margin-top: 2rem;
+    }
+
+    .table-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .table-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--dark-color);
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+    }
+
+    .btn-primary {
+        background: var(--primary-color);
+        color: white;
+    }
+
+        .btn-primary:hover {
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(67, 97, 238, 0.2);
+        }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th, td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    th {
+        font-weight: 600;
+        color: #6c757d;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+    }
+
+    tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .loading-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 300px;
+        gap: 1rem;
+    }
+
+    .spinner-border {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-width: 0.2em;
+    }
+
+    .not-found-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 300px;
+        gap: 1rem;
+        text-align: center;
+    }
+
+        .not-found-container i {
+            font-size: 3rem;
+            color: var(--danger-color);
+        }
+
+        .not-found-container h3 {
+            font-weight: 600;
+            color: var(--dark-color);
+            margin: 0;
+        }
+
+        .not-found-container p {
+            color: #6c757d;
+            font-size: 1rem;
+            max-width: 500px;
+            margin: 0;
+        }
+
+    @@media (max-width: 768px) {
+        .member-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1.25rem;
+        }
+
+        .header-actions {
+            width: 100%;
+            justify-content: flex-end;
+        }
+
+        .member-content {
+            padding: 1.5rem;
+        }
+
+        .detail-row {
+            flex-direction: column;
+            gap: 0.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .detail-label {
+            width: 100%;
+        }
+
+        .shares-summary {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+            width: 100%;
+        }
+
+        table {
+            display: block;
+            overflow-x: auto;
+        }
+    }
+</style>
+
+<div>
+    @if (isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <h4>Loading member shares...</h4>
+        </div>
+    }
+    else if (member is null)
+    {
+        <div class="not-found-container">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            <h3>Member Not Found</h3>
+            <p>The requested member could not be found. Please check the member ID and try again.</p>
+            <button class="btn btn-primary" @onclick="ReturnToShares">
+                <i class="bi bi-arrow-left"></i> Return to Shares
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="member-card">
+            <div class="member-header">
+                <div class="header-title">
+                    <h2>@member.FullName</h2>
+                    <span class="member-id">ID: @member.MemberId</span>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-outline-light" @onclick="ReturnToShares">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </button>
+                   
+                </div>
+            </div>
+
+            <div class="member-content">
+                <div class="detail-grid">
+                    <!-- Member Details Section -->
+                    <div class="detail-section">
+                        <h4 class="section-title">
+                            <i class="bi bi-person-badge"></i> Member Details
+                        </h4>
+                        <div class="detail-row">
+                            <span class="detail-label">Member Number:</span>
+                            <span class="detail-value">@member.MemberNo</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">ID Number:</span>
+                            <span class="detail-value">@member.NationalID</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Phone Number:</span>
+                            <span class="detail-value">@member.PhoneNumber</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Email:</span>
+                            <span class="detail-value">@(member.Email ?? "Not provided")</span>
+                        </div>
+                    </div>
+
+                    <!-- Membership Section -->
+                    <div class="detail-section">
+                        <h4 class="section-title">
+                            <i class="bi bi-people-fill"></i> Membership
+                        </h4>
+                        <div class="detail-row">
+                            <span class="detail-label">Join Date:</span>
+                            <span class="detail-value">@member.JoinDate</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Shares Count:</span>
+                            <span class="detail-value">@shares.Count transactions</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Shares Summary -->
+                <div class="shares-summary">
+                    <div class="summary-card">
+                        <div class="summary-label">Total Shares</div>
+                        <div class="summary-value">@shares.Sum(s => s.Units).ToString("N0") units</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Total Value</div>
+                        <div class="summary-value">@((shares.Sum(s => s.Units * s.UnitPrice)).ToString("C"))</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">First Purchase</div>
+                        <div class="summary-value">@shares.Min(s => s.PurchaseDate).ToString("dd MMM yyyy")</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Last Purchase</div>
+                        <div class="summary-value">@shares.Max(s => s.PurchaseDate).ToString("dd MMM yyyy")</div>
+                    </div>
+                </div>
+
+                <!-- Shares Transactions Table -->
+                <div class="shares-table">
+                    <div class="table-header">
+                        <h3 class="table-title">Share Transactions</h3>
+                       
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Transaction ID</th>
+                                <th>Date</th>
+                                <th>Units</th>
+                                <th>Unit Price</th>
+                                <th>Total Value</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var share in shares.OrderByDescending(s => s.PurchaseDate))
+                            {
+                                <tr>
+                                    <td>SH-@share.ShareId.ToString("D4")</td>
+                                    <td>@share.PurchaseDate.ToString("dd MMM yyyy")</td>
+                                    <td>@share.Units.ToString("N0")</td>
+                                    <td>@share.UnitPrice.ToString("C")</td>
+                                    <td>@((share.Units * share.UnitPrice).ToString("C"))</td>
+                                    <td>
+                                        <span class="badge @GetStatusClass(share.Status)">
+                                            @share.Status
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int MemberId { get; set; }
+
+    private Member? member;
+    private List<ShareViewModel> shares = new();
+    private bool isLoading = true;
+    private string? errorMessage;
+    private HttpClient Http => HttpClientFactory.CreateClient("ApiClient");
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadMemberShares();
+    }
+
+    private async Task LoadMemberShares()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+            StateHasChanged();
+
+            // Load member shares (which includes member data)
+            var sharesResponse = await Http.GetAsync($"api/shares/member/{MemberId}");
+
+            if (sharesResponse.IsSuccessStatusCode)
+            {
+                shares = await sharesResponse.Content.ReadFromJsonAsync<List<ShareViewModel>>() ?? new List<ShareViewModel>();
+
+                if (shares.Any())
+                {
+                    // Parse the full name into first and last names
+                    var fullName = shares[0].MemberName.Split(new[] { ' ' }, 3, StringSplitOptions.RemoveEmptyEntries);
+
+                    member = new Member
+                    {
+                        MemberId = shares[0].MemberId,
+                        FirstName = fullName.Length > 0 ? fullName[0] : string.Empty,
+                        LastName = fullName.Length > 1 ? fullName[1] : string.Empty,
+                        // Handle cases where there might be a middle name
+                        MemberNo = shares[0].MemberNumber,
+
+                        // Initialize other required properties
+                        JoinDate = DateTime.Now, // Default or get from API
+
+                    };
+                }
+                else
+                {
+                    // Fallback to member API if no shares exist
+                    await LoadMemberFromApi();
+                }
+            }
+            else
+            {
+                errorMessage = "Failed to load shares data";
+                await LoadMemberFromApi(); // Try loading member directly if shares fail
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading data: {ex.Message}";
+            Console.WriteLine($"Error: {errorMessage}");
+            await LoadMemberFromApi(); // Fallback to member API on error
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadMemberFromApi()
+    {
+        var memberResponse = await Http.GetAsync($"api/members/{MemberId}");
+        if (memberResponse.IsSuccessStatusCode)
+        {
+            member = await memberResponse.Content.ReadFromJsonAsync<Member>();
+        }
+        else
+        {
+            errorMessage = "Member record not found";
+        }
+    }
+
+    private string GetStatusClass(string status) => status switch
+    {
+        "Active" => "bg-success",
+        "Cancelled" => "bg-secondary",
+        "Transferred" => "bg-info",
+        _ => "bg-secondary"
+    };
+
+    private void ReturnToShares()
+    {
+        NavigationManager.NavigateTo("/shares");
+    }
+
+    private void PurchaseMoreShares(int memberId)
+    {
+        NavigationManager.NavigateTo($"/shares/purchase/{memberId}");
+    }
+}

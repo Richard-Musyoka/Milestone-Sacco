@@ -1,0 +1,932 @@
+[
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.AuthController",
+    "Method": "Login",
+    "RelativePath": "api/Auth/login",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "login",
+        "Type": "SaccoManagementSystem.Controllers.LoginModel",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.AuthController",
+    "Method": "Register",
+    "RelativePath": "api/Auth/register",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "register",
+        "Type": "SaccoManagementSystem.Models.RegisterModel",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.AuthController",
+    "Method": "TestConnection",
+    "RelativePath": "api/Auth/test-connection",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.ContributionsController",
+    "Method": "AddContribution",
+    "RelativePath": "api/contributions/add",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "contribution",
+        "Type": "SaccoManagementSystem.Models.Contribution",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.ContributionsController",
+    "Method": "DeleteContribution",
+    "RelativePath": "api/contributions/delete/{id}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.ContributionsController",
+    "Method": "GetAllContributions",
+    "RelativePath": "api/contributions/get-all",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.ContributionsController",
+    "Method": "GetContributionById",
+    "RelativePath": "api/contributions/get/{id}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.ContributionsController",
+    "Method": "UpdateContribution",
+    "RelativePath": "api/contributions/update/{id}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "contribution",
+        "Type": "SaccoManagementSystem.Models.Contribution",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.DividendsController",
+    "Method": "CalculateProjection",
+    "RelativePath": "api/dividends/calculate-projection",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "calculator",
+        "Type": "SaccoManagementSystem.Models.ProjectionCalculatorDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.DividendsController",
+    "Method": "GetAllDeclarations",
+    "RelativePath": "api/dividends/declarations",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.DividendsController",
+    "Method": "CreateDeclaration",
+    "RelativePath": "api/dividends/declarations",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "SaccoManagementSystem.Models.DividendDeclarationRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.DividendsController",
+    "Method": "GetDeclarationById",
+    "RelativePath": "api/dividends/declarations/{id}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.DividendsController",
+    "Method": "DeleteDeclaration",
+    "RelativePath": "api/dividends/declarations/{id}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.DividendsController",
+    "Method": "ApproveDeclaration",
+    "RelativePath": "api/dividends/declarations/{id}/approve",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.DividendsController",
+    "Method": "ProcessDeclaration",
+    "RelativePath": "api/dividends/declarations/{id}/process",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.DividendsController",
+    "Method": "GetDeclarationByYear",
+    "RelativePath": "api/dividends/declarations/financial-year/{financialYear}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "financialYear",
+        "Type": "System.String",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.DividendsController",
+    "Method": "UpdateDeclaration",
+    "RelativePath": "api/dividends/declarations/financial-year/{financialYear}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "financialYear",
+        "Type": "System.String",
+        "IsRequired": true
+      },
+      {
+        "Name": "request",
+        "Type": "SaccoManagementSystem.Models.DividendDeclarationRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.DividendsController",
+    "Method": "GetEligibleMembers",
+    "RelativePath": "api/dividends/members/eligible-for-dividend",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "recordDate",
+        "Type": "System.DateTime",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.DividendsController",
+    "Method": "GetAllPayments",
+    "RelativePath": "api/dividends/payments",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.DividendsController",
+    "Method": "GetPaymentById",
+    "RelativePath": "api/dividends/payments/{id}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.DividendsController",
+    "Method": "MarkPaymentFailed",
+    "RelativePath": "api/dividends/payments/{id}/fail",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "remarks",
+        "Type": "System.String",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.DividendsController",
+    "Method": "ProcessSinglePayment",
+    "RelativePath": "api/dividends/payments/{id}/process",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "request",
+        "Type": "SaccoManagementSystem.Controllers.ProcessDividendPaymentRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.DividendsController",
+    "Method": "GetPaymentsByDeclaration",
+    "RelativePath": "api/dividends/payments/declaration/{declarationId}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "declarationId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.DividendsController",
+    "Method": "ProcessPayments",
+    "RelativePath": "api/dividends/payments/process",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "SaccoManagementSystem.Models.ProcessDividendPaymentsRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.DividendsController",
+    "Method": "GetDividendSummary",
+    "RelativePath": "api/dividends/summary",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.GuarantorsController",
+    "Method": "GetAllGuarantors",
+    "RelativePath": "api/Guarantors",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.GuarantorsController",
+    "Method": "CreateGuarantor",
+    "RelativePath": "api/Guarantors",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "guarantorDto",
+        "Type": "SaccoManagementSystem.Controllers.GuarantorCreateDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.GuarantorsController",
+    "Method": "GetGuarantor",
+    "RelativePath": "api/Guarantors/{id}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.GuarantorsController",
+    "Method": "UpdateGuarantor",
+    "RelativePath": "api/Guarantors/{id}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "guarantorDto",
+        "Type": "SaccoManagementSystem.Controllers.GuarantorUpdateDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.GuarantorsController",
+    "Method": "DeleteGuarantor",
+    "RelativePath": "api/Guarantors/{id}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.GuarantorsController",
+    "Method": "GetPotentialGuarantors",
+    "RelativePath": "api/Guarantors/potential",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.GuarantorsController",
+    "Method": "SearchGuarantors",
+    "RelativePath": "api/Guarantors/search",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "query",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.LoansController",
+    "Method": "AddLoan",
+    "RelativePath": "api/loans/add",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "loanDto",
+        "Type": "SaccoManagementSystem.Controllers.LoansController\u002BLoanApplicationDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.LoansController",
+    "Method": "ApproveLoan",
+    "RelativePath": "api/loans/approve/{id}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "approvalDto",
+        "Type": "SaccoManagementSystem.Controllers.LoanApprovalDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.LoansController",
+    "Method": "DeleteLoan",
+    "RelativePath": "api/loans/delete/{id}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.LoansController",
+    "Method": "DisburseLoan",
+    "RelativePath": "api/loans/disburse/{id}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.LoansController",
+    "Method": "GetAllLoans",
+    "RelativePath": "api/loans/get-all",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.LoansController",
+    "Method": "GetLoanById",
+    "RelativePath": "api/loans/get/{id}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.LoansController",
+    "Method": "GetLoanInstallments",
+    "RelativePath": "api/loans/installments/{loanId}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "loanId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.LoansController",
+    "Method": "MarkInstallmentAsPaid",
+    "RelativePath": "api/loans/mark-paid",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "paymentDto",
+        "Type": "SaccoManagementSystem.Controllers.LoansController\u002BMarkPaymentDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.LoansController",
+    "Method": "RejectLoan",
+    "RelativePath": "api/loans/reject/{id}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "remarks",
+        "Type": "System.String",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.MembersController",
+    "Method": "GetMembers",
+    "RelativePath": "api/members",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.MembersController",
+    "Method": "AddMember",
+    "RelativePath": "api/members/add",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "member",
+        "Type": "SaccoManagementSystem.Models.MemberModel",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.MembersController",
+    "Method": "DeleteMember",
+    "RelativePath": "api/members/delete/{id}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.MembersController",
+    "Method": "GetAllMembers",
+    "RelativePath": "api/members/get-all",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.MembersController",
+    "Method": "GetMembersForDropdown",
+    "RelativePath": "api/members/get-dropdown",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.MembersController",
+    "Method": "GetLastMemberNumber",
+    "RelativePath": "api/members/get-last-member-number",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.MembersController",
+    "Method": "GetMemberById",
+    "RelativePath": "api/members/get/{id}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.MembersController",
+    "Method": "SearchMembers",
+    "RelativePath": "api/members/search",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "query",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.MembersController",
+    "Method": "UpdateMember",
+    "RelativePath": "api/members/update/{id}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "member",
+        "Type": "SaccoManagementSystem.Models.MemberModel",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SettingsController",
+    "Method": "Get",
+    "RelativePath": "api/Settings",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": [
+      {
+        "Type": "Sacco_Management_System.Models.SaccoSettings",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SettingsController",
+    "Method": "Put",
+    "RelativePath": "api/Settings",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "settings",
+        "Type": "Sacco_Management_System.Models.SaccoSettings",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SharesController",
+    "Method": "AddShare",
+    "RelativePath": "api/shares/add",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "purchaseDto",
+        "Type": "SaccoManagementSystem.Models.SharePurchaseDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SharesController",
+    "Method": "CancelShare",
+    "RelativePath": "api/shares/cancel/{id}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "remarks",
+        "Type": "System.String",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SharesController",
+    "Method": "GetAllShares",
+    "RelativePath": "api/shares/get-all",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SharesController",
+    "Method": "GetShareById",
+    "RelativePath": "api/shares/get/{id}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SharesController",
+    "Method": "GetMemberShares",
+    "RelativePath": "api/shares/member/{memberId}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "memberId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SharesController",
+    "Method": "GetSharesSummary",
+    "RelativePath": "api/shares/summary",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SharesController",
+    "Method": "TransferShares",
+    "RelativePath": "api/shares/transfer",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "transferDto",
+        "Type": "SaccoManagementSystem.Models.ShareTransferDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SharesController",
+    "Method": "UpdateShare",
+    "RelativePath": "api/shares/update/{id}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "updateDto",
+        "Type": "SaccoManagementSystem.Models.ShareUpdateDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  }
+]

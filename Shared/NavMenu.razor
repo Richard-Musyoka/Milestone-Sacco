@@ -1,0 +1,239 @@
+﻿<div class="sacco-navbar">
+    <div class="top-row navbar navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="">
+                <i class="bi bi-people-fill me-2"></i>
+                <span>Tajiri Sacco</span>
+            </a>
+            <button class="navbar-toggler" @onclick="ToggleNavMenu">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+        </div>
+    </div>
+
+    <div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+        <nav class="flex-column">
+            <!-- Dashboard -->
+            <div class="nav-item px-2">
+                <NavLink class="nav-link" href="dashboard" Match="NavLinkMatch.All">
+                    <div class="nav-link-content">
+                        <i class="bi bi-speedometer2 nav-icon"></i>
+                        <span class="nav-text">Dashboard</span>
+                    </div>
+                </NavLink>
+            </div>
+
+            <!-- Members -->
+            <div class="nav-item px-2">
+                <NavLink class="nav-link" href="members">
+                    <div class="nav-link-content">
+                        <i class="bi bi-person-lines-fill nav-icon"></i>
+                        <span class="nav-text">Members</span>
+                    </div>
+                </NavLink>
+            </div>
+            <!-- Guarantors -->
+            <div class="nav-item px-2">
+                <NavLink class="nav-link" href="guarantors">
+                    <div class="nav-link-content">
+                        <i class="bi bi-person-lines-fill nav-icon"></i>
+                        <span class="nav-text">Guarantors</span>
+                    </div>
+                </NavLink>
+            </div>
+
+            <!-- Contributions -->
+            <div class="nav-item px-2">
+                <NavLink class="nav-link" href="contributions">
+                    <div class="nav-link-content">
+                        <i class="bi bi-cash-stack nav-icon"></i>
+                        <span class="nav-text">Contributions</span>
+                    </div>
+                </NavLink>
+            </div>
+
+            <!-- Loans -->
+            <div class="nav-item px-2">
+                <NavLink class="nav-link" href="loans">
+                    <div class="nav-link-content">
+                        <i class="bi bi-bank nav-icon"></i>
+                        <span class="nav-text">Loans</span>
+                    </div>
+                </NavLink>
+            </div>
+
+            <!-- Shares -->
+            <div class="nav-item px-2">
+                <NavLink class="nav-link" href="shares">
+                    <div class="nav-link-content">
+                        <i class="bi bi-pie-chart-fill nav-icon"></i>
+                        <span class="nav-text">Shares</span>
+                    </div>
+                </NavLink>
+            </div>
+
+            <!-- Dividends -->
+            <div class="nav-item px-2">
+                <NavLink class="nav-link" href="dividends">
+                    <div class="nav-link-content">
+                        <i class="bi bi-currency-exchange nav-icon"></i>
+                        <span class="nav-text">Dividends</span>
+                    </div>
+                </NavLink>
+            </div>
+
+            <!-- Reports Section -->
+            <div class="nav-item px-2">
+                <NavLink class="nav-link" href="reports">
+                    <div class="nav-link-content">
+                        <i class="bi bi-graph-up nav-icon"></i>
+                        <span class="nav-text">Reports</span>
+                    </div>
+                </NavLink>
+            </div>
+
+            <!-- Settings Section -->
+            <div class="nav-item px-2">
+                <NavLink class="nav-link" href="settings">
+                    <div class="nav-link-content">
+                        <i class="bi bi-gear nav-icon"></i>
+                        <span class="nav-text">Settings</span>
+                    </div>
+                </NavLink>
+            </div>
+
+            <!-- Audit Trail -->
+            <div class="nav-item px-2 mt-auto">
+                <NavLink class="nav-link" href="audit-trail">
+                    <div class="nav-link-content">
+                        <i class="bi bi-clipboard2-data-fill nav-icon"></i>
+                        <span class="nav-text">Audit Trail</span>
+                    </div>
+                </NavLink>
+            </div>
+        </nav>
+    </div>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+}
+
+<style>
+    .sacco-navbar {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .top-row {
+        background: linear-gradient(135deg, #3a4f6a 0%, #1e2b3a 100%) !important;
+        padding: 1rem;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .navbar-brand {
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: white !important;
+        letter-spacing: 0.5px;
+    }
+
+    .nav-scrollable {
+        flex-grow: 1;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        padding: 0.5rem 0;
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    }
+
+    .nav-link {
+        padding: 0.75rem 1.25rem;
+        color: #4a5568;
+        border-radius: 8px;
+        margin: 0.25rem 0.5rem;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+        .nav-link:before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 4px;
+            background: linear-gradient(to bottom, #4299e1, #3182ce);
+            transform: scaleY(0);
+            transition: transform 0.2s ease;
+        }
+
+        .nav-link:hover {
+            background: rgba(66, 153, 225, 0.1);
+            color: #2b6cb0;
+            transform: translateX(3px);
+        }
+
+            .nav-link:hover:before {
+                transform: scaleY(1);
+            }
+
+        .nav-link.active {
+            background: rgba(66, 153, 225, 0.15);
+            color: #2b6cb0;
+            font-weight: 500;
+        }
+
+            .nav-link.active:before {
+                transform: scaleY(1);
+            }
+
+    .nav-link-content {
+        display: flex;
+        align-items: center;
+    }
+
+    .nav-icon {
+        font-size: 1.1rem;
+        margin-right: 0.75rem;
+        width: 20px;
+        text-align: center;
+        color: #4a5568;
+    }
+
+    .nav-link:hover .nav-icon,
+    .nav-link.active .nav-icon {
+        color: #2b6cb0;
+    }
+
+    .nav-text {
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .navbar-toggler {
+        border: none;
+        outline: none;
+    }
+
+        .navbar-toggler:focus {
+            box-shadow: none;
+        }
+
+    .mt-auto {
+        margin-top: auto !important;
+        border-top: 1px solid rgba(0, 0, 0, 0.05);
+        padding-top: 0.5rem;
+    }
+</style>

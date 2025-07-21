@@ -1,0 +1,202 @@
+﻿@page "/dividends/declarations/financial-year/{FinancialYear}"
+@using SaccoManagementSystem.Models
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS
+
+
+@if (isLoading)
+{
+    <div class="text-center py-4">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (errorMessage != null)
+{
+    <div class="alert alert-danger">
+        @errorMessage
+    </div>
+}
+else if (declaration == null)
+{
+    <div class="alert alert-warning">
+        No dividend declaration found for @FinancialYearDisplay
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h3>@declaration.DeclarationNumber</h3>
+            <p class="mb-0">Financial Year: @declaration.FinancialYear</p>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Declaration Details</h5>
+                    <dl class="row">
+                        <dt class="col-sm-4">Declaration Date</dt>
+                        <dd class="col-sm-8">@declaration.DeclarationDate.ToString("d")</dd>
+
+                        <dt class="col-sm-4">Record Date</dt>
+                        <dd class="col-sm-8">@declaration.RecordDate.ToString("d")</dd>
+
+                        <dt class="col-sm-4">Payment Date</dt>
+                        <dd class="col-sm-8">@(declaration.PaymentDate?.ToString("d") ?? "Not set")</dd>
+                    </dl>
+                </div>
+                <div class="col-md-6">
+                    <h5>Financial Details</h5>
+                    <dl class="row">
+                        <dt class="col-sm-4">Dividend Rate</dt>
+                        <dd class="col-sm-8">@declaration.Rate.ToString("P2")</dd>
+
+                        <dt class="col-sm-4">Total Amount</dt>
+                        <dd class="col-sm-8">@declaration.TotalAmount.ToString("C")</dd>
+
+                        <dt class="col-sm-4">Status</dt>
+                        <dd class="col-sm-8">
+                            <span class="badge @GetStatusClass(declaration.Status)">
+                                @declaration.Status
+                            </span>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="mt-4">
+              
+                <button class="btn btn-outline-secondary ms-2" @onclick="NavigateToList">
+                    <i class="bi bi-arrow-left"></i> Back to List
+                </button>
+
+                @if (declaration.Status == "Pending")
+                {
+                    <button class="btn btn-success ms-2" @onclick="ApproveDeclarationAsync" disabled="@isApproving">
+                        @if (isApproving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                        }
+                        <i class="bi bi-check-circle"></i> Approve
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string FinancialYear { get; set; }
+
+    private DividendDeclarationDto declaration;
+    private bool isLoading = true;
+    private string errorMessage;
+    private string FinancialYearDisplay => FinancialYear?.Replace("-", "/") ?? string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(FinancialYear))
+        {
+            errorMessage = "Financial year parameter is required";
+            isLoading = false;
+            return;
+        }
+
+        try
+        {
+            // Encode the financial year for URL safety
+            var encodedYear = Uri.EscapeDataString(FinancialYear);
+            var client = HttpClientFactory.CreateClient("ApiClient");
+            var response = await client.GetAsync($"api/dividends/declarations/financial-year/{encodedYear}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                declaration = await response.Content.ReadFromJsonAsync<DividendDeclarationDto>();
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = response.StatusCode == System.Net.HttpStatusCode.NotFound
+                    ? $"No declaration found for financial year {FinancialYearDisplay}"
+                    : $"Error loading declaration: {response.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load declaration: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetStatusClass(string status) => status switch
+    {
+        "Processed" => "bg-success",
+        "Approved" => "bg-primary",
+        "Pending" => "bg-warning",
+        _ => "bg-secondary"
+    };
+
+    private void NavigateToEdit()
+    {
+        if (declaration != null)
+        {
+            NavigationManager.NavigateTo($"/dividends/declarations/{FinancialYear}/edit");
+        }
+    }
+    private bool isApproving = false;
+
+    private async Task ApproveDeclarationAsync()
+    {
+        if (declaration == null)
+            return;
+
+        var confirmed = await JS.InvokeAsync<bool>("confirm", "Are you sure you want to approve this declaration?");
+        if (!confirmed)
+            return;
+
+        isApproving = true;
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("ApiClient");
+            var response = await client.PostAsync($"api/dividends/declarations/{declaration.DeclarationId}/approve", null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                await JS.InvokeVoidAsync("alert", "Declaration approved successfully.");
+                await OnInitializedAsync(); // Refresh the data
+            }
+            else
+            {
+                var error = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                errorMessage = error.TryGetProperty("message", out var msg)
+                    ? msg.GetString()
+                    : "Failed to approve declaration.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error approving declaration: {ex.Message}";
+        }
+        finally
+        {
+            isApproving = false;
+            StateHasChanged();
+        }
+    }
+
+
+    private void NavigateToList()
+    {
+        NavigationManager.NavigateTo("/dividends");
+    }
+}

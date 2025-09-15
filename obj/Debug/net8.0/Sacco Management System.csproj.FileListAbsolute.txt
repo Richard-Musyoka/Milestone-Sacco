@@ -93,3 +93,4 @@ C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\rjimswa.ds
 C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\rjsmrazor.dswa.cache.json
 C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\rjsmcshtml.dswa.cache.json
 C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\staticwebassets.build.json.cache
+C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\Sacco Management System.sourcelink.json

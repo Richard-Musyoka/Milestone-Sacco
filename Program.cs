@@ -1,6 +1,10 @@
-﻿using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
 using SaccoManagementSystem.Data;
+using SaccoManagementSystem.Security;
+using SaccoManagementSystem.Services;
+using Sacco_Management_System.Shared;
 using ChartJs.Blazor;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,44 +13,76 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                      .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true);
 
-// Get the connection string from appsettings.json
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+Brand.Name = builder.Configuration["Brand:Name"] ?? "Tajiri Sacco";
+Brand.Tagline = builder.Configuration["Brand:Tagline"] ?? "Together we build wealth";
 
-// Add services to the container
+// ------------------------------------------------------------------ framework
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
+builder.Services.AddControllers();
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
+
+// ------------------------------------------------------------ authentication
+builder.Services.AddSingleton<IDbFactory, SqlDbFactory>();
+builder.Services.AddSingleton<SecurityStore>();
+builder.Services.AddSingleton<IOtpSender, LoggingOtpSender>();   // swap for a real email / SMS gateway
+builder.Services.AddSingleton<AuthService>();
+builder.Services.AddSingleton<InternalApiKey>();
+builder.Services.AddTransient<SessionCookieEvents>();
+builder.Services.AddTransient<InternalKeyHandler>();
+
+builder.Services.AddAuthentication(AuthDefaults.Scheme)
+    .AddCookie(AuthDefaults.Scheme, o =>
+    {
+        o.Cookie.Name = ".Tajiri.Auth";
+        o.Cookie.HttpOnly = true;
+        o.Cookie.SameSite = SameSiteMode.Lax;
+        o.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        o.LoginPath = "/login";
+        o.SlidingExpiration = true;
+        o.ExpireTimeSpan = TimeSpan.FromDays(14);   // the real idle limit is the server-side session (Security settings)
+        o.EventsType = typeof(SessionCookieEvents);
+    });
 builder.Services.AddAuthorization();
-builder.Services.AddControllers();  // 
+builder.Services.AddScoped<AuthenticationStateProvider, SessionAuthenticationStateProvider>();
 
+// --------------------------------------------------------------------- data
+builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(connectionString));
+builder.Services.AddScoped<DashboardService>();
 
-// 🔑 Register your Authentication State Provider
-builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();
-builder.Services.AddScoped<CustomAuthStateProvider>();
-
-// 🔑 Register Entity Framework DbContext
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString));
-
-// ✅ FIX: Register HttpClient so Blazor components can inject it
+// Server-side calls from Razor pages to the API controllers carry an internal key (see ApiGuardMiddleware).
+builder.Services.ConfigureHttpClientDefaults(b => b.AddHttpMessageHandler<InternalKeyHandler>());
 builder.Services.AddHttpClient("ApiClient", client =>
 {
-    client.BaseAddress = new Uri("https://localhost:7074/");  
+    client.BaseAddress = new Uri(builder.Configuration["ApiBaseUrl"] ?? "https://localhost:7074/");
 });
-
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline
 if (!app.Environment.IsDevelopment())
-{    
+{
     app.UseExceptionHandler("/Error");
     app.UseHsts();
 }
 
 app.UseHttpsRedirection();
+app.Use(async (ctx, next) =>
+{
+    var h = ctx.Response.Headers;
+    h["X-Content-Type-Options"] = "nosniff";
+    h["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    h["X-Frame-Options"] = "SAMEORIGIN";
+    h["Permissions-Policy"] = "publickey-credentials-get=(self), publickey-credentials-create=(self)";
+    await next();
+});
 app.UseStaticFiles();
 app.UseRouting();
-app.MapControllers();  // ✅ This maps the controllers like AuthController
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseMiddleware<ApiGuardMiddleware>();
+app.MapControllers();
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 

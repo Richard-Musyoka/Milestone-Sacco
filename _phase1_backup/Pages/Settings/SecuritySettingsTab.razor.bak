@@ -1,0 +1,69 @@
+﻿@using System.ComponentModel.DataAnnotations
+@using Sacco_Management_System.Models
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="passwordExpiryDays" class="form-label">Password Expiry (Days) *</label>
+            <InputNumber id="passwordExpiryDays" @bind-Value="Settings.PasswordExpiryDays" class="form-control"
+                         @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.PasswordExpiryDays)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="failedAttemptsLockout" class="form-label">Failed Attempts Before Lockout *</label>
+            <InputNumber id="failedAttemptsLockout" @bind-Value="Settings.FailedAttemptsBeforeLockout" class="form-control"
+                         @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.FailedAttemptsBeforeLockout)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="sessionTimeout" class="form-label">Session Timeout (Minutes) *</label>
+            <InputNumber id="sessionTimeout" @bind-Value="Settings.SessionTimeoutMinutes" class="form-control"
+                         @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.SessionTimeoutMinutes)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="twoFactorAuth" class="form-label">Require Two-Factor Authentication</label>
+            <InputCheckbox id="twoFactorAuth" @bind-Value="Settings.TwoFactorAuthenticationRequired" class="form-check-input"
+                           @onchange="() => OnSettingsChanged?.Invoke()" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="passwordComplexity" class="form-label">Password Complexity Requirements *</label>
+            <InputSelect id="passwordComplexity" @bind-Value="Settings.PasswordComplexity" class="form-select"
+                         @onchange="() => OnSettingsChanged?.Invoke()">
+                <option value="Low">Low (Minimum 6 characters)</option>
+                <option value="Medium">Medium (Minimum 8 characters with numbers)</option>
+                <option value="High">High (Minimum 10 characters with numbers and special characters)</option>
+            </InputSelect>
+            <ValidationMessage For="@(() => Settings.PasswordComplexity)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="passwordHistory" class="form-label">Password History Remembered *</label>
+            <InputNumber id="passwordHistory" @bind-Value="Settings.PasswordHistoryCount" class="form-control"
+                         @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.PasswordHistoryCount)" />
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public SaccoSettings Settings { get; set; } = new();
+
+    [Parameter]
+    public Action? OnSettingsChanged { get; set; }
+}

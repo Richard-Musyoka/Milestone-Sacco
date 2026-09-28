@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "rjGRr8M1RdI=",
+  "dgSpecHash": "U1DOsUqDp0U=",
   "success": true,
-  "projectFilePath": "C:\\Users\\Attain\\source\\repos\\Sacco Management System\\Sacco Management System.csproj",
+  "projectFilePath": "C:\\Users\\Attain\\source\\repos\\Personal Projects\\Sacco Management System\\Sacco Management System.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Attain\\.nuget\\packages\\azure.core\\1.35.0\\azure.core.1.35.0.nupkg.sha512",
     "C:\\Users\\Attain\\.nuget\\packages\\azure.identity\\1.10.3\\azure.identity.1.10.3.nupkg.sha512",

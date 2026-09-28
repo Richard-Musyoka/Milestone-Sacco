@@ -1,153 +1,121 @@
-@page "/register"
 @layout DefaultLayout
-@using SaccoManagementSystem.Models
+@page "/register"
+@attribute [AllowAnonymous]
+@using System.Text.Json
+@using SaccoManagementSystem.Security
 @inject NavigationManager Navigation
-@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS
+@inject SecurityStore Store
+@inject IConfiguration Config
 
-<div class="split-container">
-    <div class="split-left d-flex align-items-center justify-content-center">
-        <img src="/images/register-illustration.png" alt="Illustration" class="img-fluid" />
-    </div>
+<PageTitle>Create account · @Brand.Name</PageTitle>
 
-    <div class="split-right d-flex align-items-center justify-content-center">
-        <div class="register-card card p-5 shadow rounded-4" style="max-width: 700px; width: 100%;">
-            <div class="login-header text-center mb-4">
-                <img src="/images/logo.png" alt="Sacco Logo" style="max-height: 80px;" />
-                <h2 class="mt-3 fw-bold">Tajiri Sacco Portal</h2>
-            </div>
-
-            <h3 class="text-center mb-3 fw-semibold">Create Account</h3>
-
-            @if (!string.IsNullOrEmpty(successMessage))
-            {
-                <div class="alert alert-success text-center">@successMessage</div>
-            }
-            @if (!string.IsNullOrEmpty(errorMessage))
-            {
-                <div class="alert alert-danger text-center">@errorMessage</div>
-            }
-
-            <EditForm Model="@registerModel" OnValidSubmit="HandleRegister">
-                <DataAnnotationsValidator />
-                <ValidationSummary />
-
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">First Name <span class="text-danger">*</span></label>
-                        <InputText @bind-Value="registerModel.FirstName" class="form-control" placeholder="Enter first name" />
-                        <ValidationMessage For="@(() => registerModel.FirstName)" />
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Middle Name</label>
-                        <InputText @bind-Value="registerModel.MiddleName" class="form-control" placeholder="Enter middle name (optional)" />
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Last Name <span class="text-danger">*</span></label>
-                        <InputText @bind-Value="registerModel.LastName" class="form-control" placeholder="Enter last name" />
-                        <ValidationMessage For="@(() => registerModel.LastName)" />
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Username</label>
-                        <InputText @bind-Value="registerModel.UserName" class="form-control" placeholder="Enter username (optional)" />
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Phone Number</label>
-                        <InputText @bind-Value="registerModel.PhoneNumber" class="form-control" placeholder="Enter phone number (optional)" />
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Email <span class="text-danger">*</span></label>
-                        <InputText @bind-Value="registerModel.Email" class="form-control" placeholder="Enter email address" />
-                        <ValidationMessage For="@(() => registerModel.Email)" />
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Password <span class="text-danger">*</span></label>
-                        <InputText @bind-Value="registerModel.Password" type="password" class="form-control" placeholder="Enter password" />
-                        <ValidationMessage For="@(() => registerModel.Password)" />
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Confirm Password <span class="text-danger">*</span></label>
-                        <InputText @bind-Value="registerModel.ConfirmPassword" type="password" class="form-control" placeholder="Confirm password" />
-                        <ValidationMessage For="@(() => registerModel.ConfirmPassword)" />
-                    </div>
-                </div>
-
-                <button type="submit" class="btn btn-success w-100 py-2 d-flex align-items-center justify-content-center">
-                    @if (isSubmitting)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                        <span>Submitting...</span>
-                    }
-                    else
-                    {
-                        <span>Register</span>
-                    }
-                </button>
-
-                <div class="text-center mt-3">
-                    <small>
-                        Already have an account? <a href="/login" class="text-primary">Login</a>
-                    </small>
-                </div>
-            </EditForm>
+<div class="ms-auth">
+    <section class="ms-auth-hero">
+        <div class="ms-brand" style="padding:0">
+            <div class="ms-brand-mark"><i class="bi bi-people-fill"></i></div>
+            <div><div class="ms-brand-name" style="font-size:18px">@Brand.Name</div><div class="ms-brand-tag">@Brand.Tagline</div></div>
         </div>
-    </div>
-</div>
+        <h1>Set up your workspace in minutes.</h1>
+        <p>@(isFirstUser ? "You're the first person here, so you'll be the administrator." : "Create your staff account to get started.")</p>
+        <ul class="ms-auth-points">
+            <li><i class="bi bi-shield-lock"></i> Passwords are hashed — never stored in plain text</li>
+            <li><i class="bi bi-phone"></i> Add an authenticator app or passkey after you sign in</li>
+        </ul>
+    </section>
 
-@code {
-    private RegisterModel registerModel = new();
-    private string successMessage = string.Empty;
-    private string errorMessage = string.Empty;
-    private bool isSubmitting = false;
-
-    private async Task HandleRegister()
-    {
-        successMessage = string.Empty;
-        errorMessage = string.Empty;
-        isSubmitting = true;
-
-        try
-        {
-            var client = HttpClientFactory.CreateClient("ApiClient");
-            var response = await client.PostAsJsonAsync("api/Auth/register", registerModel);
-
-            if (response.IsSuccessStatusCode)
+    <section class="ms-auth-side">
+        <div class="ms-auth-card">
+            @if (!loaded)
             {
-                successMessage = "Registration successful! Redirecting...";
-                await Task.Delay(1500);
-                Navigation.NavigateTo("/login", true);
+                <div class="ms-skel" style="height:320px"></div>
+            }
+            else if (!open)
+            {
+                <h2>Registration is closed</h2>
+                <p>Ask an administrator to create your account.</p>
+                <a class="ms-btn block" href="login">Back to sign in</a>
             }
             else
             {
-                var result = await response.Content.ReadFromJsonAsync<ApiResponse>();
-                errorMessage = result?.Message ?? "Registration failed. Please try again.";
+                <h2>Create your account</h2>
+                <p>It only takes a moment.</p>
+
+                @if (!string.IsNullOrEmpty(error)) { <div class="ms-alert bad" role="alert"><i class="bi bi-exclamation-circle-fill"></i><div>@error</div></div> }
+
+                <form @onsubmit="Submit" @onsubmit:preventDefault="true">
+                    <div class="ms-grid two" style="gap:14px">
+                        <div class="ms-field"><label class="ms-label" for="fn">First name</label><input id="fn" class="ms-input" autocomplete="given-name" @bind="first" @bind:event="oninput" /></div>
+                        <div class="ms-field"><label class="ms-label" for="ln">Last name</label><input id="ln" class="ms-input" autocomplete="family-name" @bind="last" @bind:event="oninput" /></div>
+                    </div>
+                    <div class="ms-field"><label class="ms-label" for="em">Email</label><input id="em" class="ms-input" type="email" autocomplete="email" placeholder="you@sacco.co.ke" @bind="email" @bind:event="oninput" /></div>
+                    <div class="ms-field"><label class="ms-label" for="ph">Phone <span class="ms-muted">(for SMS codes)</span></label><input id="ph" class="ms-input" type="tel" autocomplete="tel" placeholder="+254 7…" @bind="phone" @bind:event="oninput" /></div>
+                    <div class="ms-field">
+                        <label class="ms-label" for="pw">Password</label>
+                        <input id="pw" class="ms-input" type="password" autocomplete="new-password" @bind="password" @bind:event="oninput" />
+                        <div class="ms-strength" aria-hidden="true">
+                            @for (int i = 1; i <= 4; i++) { <i class="@(Strength >= i ? "on" + Strength : "")"></i> }
+                        </div>
+                        <span class="ms-hint">@StrengthLabel</span>
+                    </div>
+                    <div class="ms-field"><label class="ms-label" for="pw2">Confirm password</label><input id="pw2" class="ms-input" type="password" autocomplete="new-password" @bind="confirm" @bind:event="oninput" /></div>
+
+                    <button type="submit" class="ms-btn primary block @(busy ? "busy" : "")" style="height:46px;margin-top:20px">@if (busy) { <span class="ms-spin"></span> } Create account</button>
+                </form>
+                <p class="ms-hint" style="text-align:center;margin-top:20px">Already have an account? <a href="login" style="color:var(--ms-accent);font-weight:700">Sign in</a></p>
             }
-        }
-        catch (Exception ex)
+        </div>
+    </section>
+</div>
+
+@code {
+    private string first = "", last = "", email = "", phone = "", password = "", confirm = "";
+    private bool busy, loaded, open, isFirstUser;
+    private string? error;
+
+    private int Strength
+    {
+        get
         {
-            errorMessage = $"Something went wrong: {ex.Message}";
-        }
-        finally
-        {
-            isSubmitting = false;
+            int s = 0;
+            if (password.Length >= 8) s++;
+            if (password.Any(char.IsUpper) && password.Any(char.IsLower)) s++;
+            if (password.Any(char.IsDigit)) s++;
+            if (password.Any(c => !char.IsLetterOrDigit(c)) || password.Length >= 14) s++;
+            return password.Length == 0 ? 0 : Math.Max(1, s);
         }
     }
 
-    public class ApiResponse
+    private string StrengthLabel => Strength switch { 0 => "Use at least 8 characters with upper case, lower case and a number.", 1 => "Weak", 2 => "Fair", 3 => "Good", _ => "Strong" };
+
+    protected override async Task OnInitializedAsync()
     {
-        public bool Success { get; set; }
-        public string Message { get; set; } = string.Empty;
+        try
+        {
+            var n = await Store.CountUsersAsync();
+            isFirstUser = n == 0;
+            open = isFirstUser || Config.GetValue<bool>("Security:AllowSelfRegistration");
+        }
+        catch { open = false; }
+        loaded = true;
+    }
+
+    private async Task Submit()
+    {
+        error = null;
+        if (string.IsNullOrWhiteSpace(first) || string.IsNullOrWhiteSpace(last) || string.IsNullOrWhiteSpace(email)) { error = "Please fill in your name and email."; return; }
+        if (!email.Contains('@')) { error = "Enter a valid email address."; return; }
+        if (password != confirm) { error = "Passwords don't match."; return; }
+        busy = true;
+        try
+        {
+            var el = await JS.InvokeAsync<JsonElement>("ms.api", "POST", "/api/auth/register",
+                new { firstName = first.Trim(), lastName = last.Trim(), email = email.Trim(), phoneNumber = phone.Trim(), password });
+            bool ok = el.GetProperty("ok").GetBoolean();
+            if (ok) { Navigation.NavigateTo("/login?notice=registered", forceLoad: true); return; }
+            var body = el.GetProperty("body");
+            error = body.ValueKind == JsonValueKind.Object && body.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String ? m.GetString() : "Couldn't create your account.";
+        }
+        finally { busy = false; }
     }
 }

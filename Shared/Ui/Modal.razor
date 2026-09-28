@@ -1,0 +1,24 @@
+@if (Open)
+{
+    <div class="ms-modal-bg" @onclick="Close">
+        <div class="ms-modal" role="dialog" aria-modal="true" aria-label="@Title" @onclick:stopPropagation="true">
+            <div class="ms-modal-head">
+                <div style="flex:1"><h3>@Title</h3>@if (!string.IsNullOrEmpty(Subtitle)) { <p>@Subtitle</p> }</div>
+                <button type="button" class="ms-icon-btn" style="width:34px;height:34px" @onclick="Close" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="ms-modal-body">@ChildContent</div>
+            @if (Footer != null) { <div class="ms-modal-foot">@Footer</div> }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Footer { get; set; }
+
+    private Task Close() => OnClose.InvokeAsync();
+}

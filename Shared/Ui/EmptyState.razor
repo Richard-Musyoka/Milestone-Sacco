@@ -1,0 +1,13 @@
+<div class="ms-empty">
+    <i class="bi @Icon"></i>
+    <b>@Title</b>
+    @Text
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public string Icon { get; set; } = "bi-inbox";
+    [Parameter] public string Title { get; set; } = "Nothing here yet";
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

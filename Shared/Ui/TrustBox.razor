@@ -1,0 +1,12 @@
+@using SaccoManagementSystem.Security
+<label class="ms-check" style="margin:14px 0 18px">
+    <input type="checkbox" checked="@Value" @onchange="OnChange" />
+    Trust this device for @AuthDefaults.TrustDays days
+</label>
+
+@code {
+    [Parameter] public bool Value { get; set; }
+    [Parameter] public EventCallback<bool> ValueChanged { get; set; }
+
+    private Task OnChange(ChangeEventArgs e) { Value = e.Value is bool b && b; return ValueChanged.InvokeAsync(Value); }
+}

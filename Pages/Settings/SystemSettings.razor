@@ -1,203 +1,177 @@
 @page "/settings"
 @using Sacco_Management_System.Models
-@using System.ComponentModel.DataAnnotations
 @inject HttpClient Http
 @inject IJSRuntime JsRuntime
 @inject NavigationManager NavigationManager
 
-<div class="settings-container">
-    <EditForm Model="settings" OnValidSubmit="HandleValidSubmit" @ref="editForm">
-        <DataAnnotationsValidator />
-        <ValidationSummary />
+<PageTitle>Settings · @Brand.Name</PageTitle>
 
-        <div class="row">
-            <div class="col-md-3">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0">
-                            <i class="bi bi-gear me-2"></i>
-                            Settings Menu
-                        </h5>
-                    </div>
-                    <div class="list-group list-group-flush">
-                        <button type="button" class="list-group-item list-group-item-action @(activeTab == "general" ? "active" : "")"
-                                @onclick='() => SetActiveTab("general")'>
-                            <i class="bi bi-building me-2"></i> General
-                        </button>
-                        <button type="button" class="list-group-item list-group-item-action @(activeTab == "financial" ? "active" : "")"
-                                @onclick='() => SetActiveTab("financial")'>
-                            <i class="bi bi-cash-stack me-2"></i> Financial
-                        </button>
-                        <button type="button" class="list-group-item list-group-item-action @(activeTab == "loan" ? "active" : "")"
-                                @onclick='() => SetActiveTab("loan")'>
-                            <i class="bi bi-bank2 me-2"></i> Loan
-                        </button>
-                        <button type="button" class="list-group-item list-group-item-action @(activeTab == "notification" ? "active" : "")"
-                                @onclick='() => SetActiveTab("notification")'>
-                            <i class="bi bi-bell me-2"></i> Notifications
-                        </button>
-                        <button type="button" class="list-group-item list-group-item-action @(activeTab == "security" ? "active" : "")"
-                                @onclick='() => SetActiveTab("security")'>
-                            <i class="bi bi-shield-lock me-2"></i> Security
-                        </button>
-                    </div>
+<div class="ms-page">
+    <PageHeader Title="Settings" Subtitle="Everything about how your SACCO runs — organised so you can find it." />
+
+    <div class="ms-settings">
+        <nav class="ms-card ms-set-nav" aria-label="Settings sections">
+            <input class="ms-input ms-set-search" type="search" placeholder="Search settings…" aria-label="Search settings" @bind="filter" @bind:event="oninput" />
+            @foreach (var group in Groups)
+            {
+                var items = Tabs.Where(t => t.Group == group && Matches(t)).ToList();
+                if (items.Count == 0) continue;
+                <div class="ms-set-group">@group</div>
+                @foreach (var t in items)
+                {
+                    <button type="button" class="ms-set-item @(activeTab == t.Key ? "active" : "")" @onclick="() => SetActiveTab(t.Key)" aria-current="@(activeTab == t.Key ? "page" : null)">
+                        <i class="bi @t.Icon"></i>
+                        <span>@t.Title<small>@t.Hint</small></span>
+                    </button>
+                }
+            }
+        </nav>
+
+        <div>
+            <div class="ms-card">
+                <div class="ms-set-panel-head">
+                    <span class="ms-stat-ico"><i class="bi @Current.Icon"></i></span>
+                    <div style="flex:1"><h2>@Current.Title</h2><p>@Current.Description</p></div>
+                    @if (IsPolicyTab)
+                    {
+                        <span class="ms-pill @(isDirty ? "warn dot" : "ok dot")">@(isDirty ? "Unsaved changes" : "All changes saved")</span>
+                    }
                 </div>
-            </div>
 
-            <div class="col-md-9">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            <i class="@GetActiveTabIcon() me-2"></i>
-                            @GetActiveTabTitle()
-                        </h5>
-                        <div class="badge @(isDirty ? "bg-warning" : "bg-success")">
-                            @(isDirty ? "Unsaved Changes" : "All Changes Saved")
+                <div class="ms-set-panel-body">
+                    @if (activeTab == "security-center")
+                    {
+                        <SecurityCenter />
+                    }
+                    else if (activeTab == "appearance")
+                    {
+                        <AppearanceSettings />
+                    }
+                    else if (isLoading)
+                    {
+                        <div style="padding-top:22px;display:flex;flex-direction:column;gap:14px">
+                            <div class="ms-skel" style="height:44px;width:40%"></div><div class="ms-skel" style="height:90px"></div><div class="ms-skel" style="height:90px"></div>
                         </div>
-                    </div>
-
-                    <div class="card-body">
-                        @if (isLoading)
+                    }
+                    else
+                    {
+                        @if (!string.IsNullOrEmpty(errorMessage))
                         {
-                            <div class="text-center py-5">
-                                <div class="spinner-border text-primary" role="status">
-                                    <span class="visually-hidden">Loading...</span>
+                            <div class="ms-alert bad" style="margin-top:22px"><i class="bi bi-exclamation-triangle-fill"></i><div>@errorMessage</div></div>
+                        }
+                        <EditForm Model="settings" OnValidSubmit="HandleValidSubmit" @ref="editForm">
+                            <DataAnnotationsValidator />
+                            <div class="ms-legacy-form">
+                                <CascadingValue Value="editForm?.EditContext">
+                                    @if (activeTab == "general")
+                                    {
+                                        <div class="ms-section" style="padding-top:22px"><GeneralSettingsTab Settings="@settings" OnSettingsChanged="@HandleSettingsChange" /></div>
+                                    }
+                                    else if (activeTab == "financial")
+                                    {
+                                        <div class="ms-section" style="padding-top:22px"><FinancialSettingsTab Settings="@settings" OnSettingsChanged="@HandleSettingsChange" /></div>
+                                    }
+                                    else if (activeTab == "loan")
+                                    {
+                                        <div class="ms-section" style="padding-top:22px"><LoanSettingsTab Settings="@settings" OnSettingsChanged="@HandleSettingsChange" /></div>
+                                    }
+                                    else if (activeTab == "notification")
+                                    {
+                                        <div class="ms-section" style="padding-top:22px"><NotificationSettingsTab Settings="@settings" OnSettingsChanged="@HandleSettingsChange" /></div>
+                                    }
+                                    else if (activeTab == "security")
+                                    {
+                                        <SecuritySettingsTab Settings="@settings" OnSettingsChanged="@HandleSettingsChange" />
+                                    }
+                                </CascadingValue>
+                            </div>
+
+                            @if (isDirty)
+                            {
+                                <div class="ms-savebar" role="status">
+                                    <i class="bi bi-pencil-square"></i>
+                                    <span>You have unsaved changes</span>
+                                    <button type="button" class="ms-btn" @onclick="CancelChanges">Discard</button>
+                                    <button type="submit" class="ms-btn primary @(isSaving ? "busy" : "")">@if (isSaving) { <span class="ms-spin"></span> } Save changes</button>
                                 </div>
-                                <p class="mt-3">Loading settings...</p>
-                            </div>
-                        }
-                        else if (!string.IsNullOrEmpty(errorMessage))
-                        {
-                            <div class="alert alert-danger">
-                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                                @errorMessage
-                            </div>
-                        }
-                        else
-                        {
-                            <CascadingValue Value="editForm?.EditContext">
-                                @if (activeTab == "general")
-                                {
-                                    <GeneralSettingsTab Settings="@settings" OnSettingsChanged="@HandleSettingsChange" />
-                                }
-                                else if (activeTab == "financial")
-                                {
-                                    <FinancialSettingsTab Settings="@settings" OnSettingsChanged="@HandleSettingsChange" />
-                                }
-                                else if (activeTab == "loan")
-                                {
-                                    <LoanSettingsTab Settings="@settings" OnSettingsChanged="@HandleSettingsChange" />
-                                }
-                                else if (activeTab == "notification")
-                                {
-                                    <NotificationSettingsTab Settings="@settings" OnSettingsChanged="@HandleSettingsChange" />
-                                }
-                                else if (activeTab == "security")
-                                {
-                                    <SecuritySettingsTab Settings="@settings" OnSettingsChanged="@HandleSettingsChange" />
-                                }
-                            </CascadingValue>
-                        }
-                    </div>
-
-                    <div class="card-footer bg-light d-flex justify-content-between">
-                        <button type="button" class="btn btn-outline-danger"
-                                @onclick="ResetToDefaults" disabled="@isLoading">
-                            <i class="bi bi-arrow-counterclockwise me-1"></i> Reset to Defaults
-                        </button>
-                        <div>
-                            <button type="button" class="btn btn-secondary me-2"
-                                    @onclick="CancelChanges" disabled="@(!isDirty || isLoading)">
-                                Cancel
-                            </button>
-                            <button type="submit" class="btn btn-primary"
-                                    disabled="@(!isDirty || isLoading || isSaving)">
-                                @if (isSaving)
-                                {
-                                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                                }
-                                else
-                                {
-                                    <i class="bi bi-save me-1"></i>
-                                }
-                                Save Changes
-                            </button>
-                        </div>
-                    </div>
+                            }
+                            else
+                            {
+                                <div style="padding-top:18px;text-align:right">
+                                    <button type="button" class="ms-btn sm ghost danger" @onclick="ResetToDefaults" disabled="@isSaving"><i class="bi bi-arrow-counterclockwise"></i> Reset this organisation to defaults</button>
+                                </div>
+                            }
+                        </EditForm>
+                    }
                 </div>
             </div>
         </div>
-    </EditForm>
+    </div>
 </div>
 
 @code {
+    private sealed record Tab(string Key, string Group, string Title, string Hint, string Icon, string Description);
+
+    private static readonly string[] Groups = { "Organisation", "Finance", "Communication", "Security & access", "Personal" };
+
+    private static readonly Tab[] Tabs =
+    {
+        new("general", "Organisation", "General", "Name, contact, branding", "bi-building", "Your SACCO's identity and how it appears across the system."),
+        new("financial", "Finance", "Financial", "Currency, shares, fees", "bi-cash-stack", "Currency, share pricing, contributions and financial year."),
+        new("loan", "Finance", "Loans", "Limits, rates, terms", "bi-bank2", "Lending rules used when members apply for loans."),
+        new("notification", "Communication", "Notifications", "Email & SMS", "bi-bell", "Choose how the SACCO talks to members and staff."),
+        new("security", "Security & access", "Security policy", "Passwords, lockout, 2-step", "bi-shield-lock", "Organisation-wide sign-in rules for everyone."),
+        new("security-center", "Security & access", "My security", "Authenticator, passkeys, devices", "bi-shield-check", "Manage how you sign in, your trusted devices and active sessions."),
+        new("appearance", "Personal", "Appearance", "Theme, colour, density", "bi-palette", "Make the workspace look and feel the way you like."),
+    };
+
     private string activeTab = "general";
-    private bool isDirty = false;
-    private bool isLoading = true;
-    private bool isSaving = false;
+    private string filter = "";
+    private bool isDirty, isLoading = true, isSaving;
     private string errorMessage = string.Empty;
     private SaccoSettings settings = new();
     private SaccoSettings originalSettings = new();
     private EditForm? editForm;
 
+    [SupplyParameterFromQuery(Name = "tab")] public string? TabParam { get; set; }
+
+    private Tab Current => Tabs.First(t => t.Key == activeTab);
+    private bool IsPolicyTab => activeTab is not ("security-center" or "appearance");
+    private bool Matches(Tab t) => string.IsNullOrWhiteSpace(filter) ||
+        t.Title.Contains(filter, StringComparison.OrdinalIgnoreCase) || t.Hint.Contains(filter, StringComparison.OrdinalIgnoreCase) || t.Description.Contains(filter, StringComparison.OrdinalIgnoreCase);
+
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrEmpty(TabParam) && Tabs.Any(t => t.Key == TabParam)) activeTab = TabParam;
+    }
+
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            // Use NavigationManager to ensure proper base address
-            var requestUri = $"{NavigationManager.BaseUri}api/settings";
-            var response = await Http.GetAsync(requestUri);
-
+            var response = await Http.GetAsync($"{NavigationManager.BaseUri}api/settings");
             if (response.IsSuccessStatusCode)
-            {
-                settings = await response.Content.ReadFromJsonAsync<SaccoSettings>() ??
-                          SaccoSettings.GetDefaultSettings();
-            }
+                settings = await response.Content.ReadFromJsonAsync<SaccoSettings>() ?? SaccoSettings.GetDefaultSettings();
             else
             {
                 settings = SaccoSettings.GetDefaultSettings();
-                errorMessage = "Failed to load settings from server";
+                errorMessage = "Couldn't load settings from the server — showing defaults.";
             }
-
-            originalSettings = (SaccoSettings)settings.Clone();
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to load settings: {ex.Message}";
+            errorMessage = $"Couldn't load settings: {ex.Message}";
             settings = SaccoSettings.GetDefaultSettings();
-            originalSettings = (SaccoSettings)settings.Clone();
         }
-        finally
-        {
-            isLoading = false;
-        }
+        originalSettings = (SaccoSettings)settings.Clone();
+        isLoading = false;
     }
 
     private void SetActiveTab(string tab)
     {
         activeTab = tab;
-        StateHasChanged();
+        NavigationManager.NavigateTo($"settings?tab={tab}", replace: true);
     }
-
-    private string GetActiveTabTitle() => activeTab switch
-    {
-        "general" => "General Settings",
-        "financial" => "Financial Settings",
-        "loan" => "Loan Settings",
-        "notification" => "Notification Settings",
-        "security" => "Security Settings",
-        _ => "Settings"
-    };
-
-    private string GetActiveTabIcon() => activeTab switch
-    {
-        "general" => "bi-building",
-        "financial" => "bi-cash-stack",
-        "loan" => "bi-bank2",
-        "notification" => "bi-bell",
-        "security" => "bi-shield-lock",
-        _ => "bi-gear"
-    };
 
     private void HandleSettingsChange()
     {
@@ -205,133 +179,50 @@
         StateHasChanged();
     }
 
-    private async Task HandleValidSubmit()
-    {
-        await SaveSettings();
-    }
+    private async Task HandleValidSubmit() => await SaveSettings();
 
     private void CancelChanges()
     {
         settings = (SaccoSettings)originalSettings.Clone();
         isDirty = false;
-        StateHasChanged();
     }
 
     private async Task SaveSettings()
     {
         isSaving = true;
         errorMessage = string.Empty;
-
         try
         {
-            var requestUri = $"{NavigationManager.BaseUri}api/settings";
-            var response = await Http.PutAsJsonAsync(requestUri, settings);
-
+            var response = await Http.PutAsJsonAsync($"{NavigationManager.BaseUri}api/settings", settings);
             if (response.IsSuccessStatusCode)
             {
                 originalSettings = (SaccoSettings)settings.Clone();
                 isDirty = false;
-                await JsRuntime.InvokeVoidAsync("showToast", "success", "Settings saved successfully");
+                await JsRuntime.InvokeVoidAsync("ms.toast", "success", "Settings saved");
             }
             else
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                errorMessage = $"Server error: {response.StatusCode} - {errorContent}";
-                await JsRuntime.InvokeVoidAsync("showToast", "error", "Failed to save settings");
+                var body = await response.Content.ReadAsStringAsync();
+                errorMessage = $"The server rejected the change ({(int)response.StatusCode}). {body}";
+                await JsRuntime.InvokeVoidAsync("ms.toast", "error", "Couldn't save settings");
             }
         }
         catch (Exception ex)
         {
             errorMessage = $"Network error: {ex.Message}";
-            await JsRuntime.InvokeVoidAsync("showToast", "error", "Error saving settings");
+            await JsRuntime.InvokeVoidAsync("ms.toast", "error", "Couldn't save settings");
         }
         finally
         {
             isSaving = false;
-            StateHasChanged();
         }
     }
 
     private async Task ResetToDefaults()
     {
-        if (!await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to reset all settings to defaults?"))
+        if (!await JsRuntime.InvokeAsync<bool>("confirm", "Reset all organisation settings to their defaults? You can still discard before saving."))
             return;
-
         settings = SaccoSettings.GetDefaultSettings();
-        isDirty = true;
-        StateHasChanged();
+        isDirty = !settings.Equals(originalSettings);
     }
 }
-
-<style>
-    .settings-container {
-        padding: 1.5rem;
-    }
-
-    .card {
-        border-radius: 0.5rem;
-        border: 1px solid rgba(0, 0, 0, 0.125);
-    }
-
-    .card-header {
-        border-radius: 0.5rem 0.5rem 0 0 !important;
-    }
-
-    .list-group-item {
-        border-left: 0;
-        border-right: 0;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-
-        .list-group-item:first-child {
-            border-top: 0;
-        }
-
-        .list-group-item:last-child {
-            border-bottom: 0;
-        }
-
-        .list-group-item.active {
-            background-color: #0d6efd;
-            border-color: #0d6efd;
-            color: white;
-        }
-
-    .form-label {
-        font-weight: 500;
-        margin-bottom: 0.5rem;
-    }
-
-    .form-control, .form-select {
-        border-radius: 0.375rem;
-    }
-
-    .form-check-input {
-        cursor: pointer;
-    }
-
-    .badge {
-        font-size: 0.85rem;
-        font-weight: 500;
-        padding: 0.35em 0.65em;
-    }
-
-    .spinner-border {
-        width: 3rem;
-        height: 3rem;
-    }
-
-    .validation-message {
-        color: #dc3545;
-        font-size: 0.875rem;
-    }
-
-    .alert {
-        border-radius: 0.5rem;
-    }
-
-    .btn {
-        border-radius: 0.375rem;
-    }
-</style>

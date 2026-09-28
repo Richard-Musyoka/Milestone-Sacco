@@ -1,0 +1,15 @@
+﻿@page "/"
+@inject NavigationManager Navigation
+
+@code {
+    private bool _hasRedirected = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_hasRedirected)
+        {
+            _hasRedirected = true;
+            Navigation.NavigateTo("/login", true);
+        }
+    }
+}

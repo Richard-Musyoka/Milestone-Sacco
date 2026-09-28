@@ -1,15 +1,7 @@
-﻿@page "/"
+@page "/"
 @inject NavigationManager Navigation
 
 @code {
-    private bool _hasRedirected = false;
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender && !_hasRedirected)
-        {
-            _hasRedirected = true;
-            Navigation.NavigateTo("/login", true);
-        }
-    }
+    // Signed-in users land on the dashboard; anonymous users are sent to /login by the router.
+    protected override void OnInitialized() => Navigation.NavigateTo("/dashboard", replace: true);
 }

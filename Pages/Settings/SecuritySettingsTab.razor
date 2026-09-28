@@ -1,69 +1,72 @@
-﻿@using System.ComponentModel.DataAnnotations
+@using System.ComponentModel.DataAnnotations
 @using Sacco_Management_System.Models
 
-<div class="row g-3">
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="passwordExpiryDays" class="form-label">Password Expiry (Days) *</label>
-            <InputNumber id="passwordExpiryDays" @bind-Value="Settings.PasswordExpiryDays" class="form-control"
-                         @oninput="() => OnSettingsChanged?.Invoke()" />
-            <ValidationMessage For="@(() => Settings.PasswordExpiryDays)" />
-        </div>
-    </div>
+<div class="ms-section" style="padding-top:22px">
+    <h4>Sign-in requirements</h4>
+    <p class="sub">Applies to everyone who signs in. Each person sets up their own methods in the Security Center.</p>
 
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="failedAttemptsLockout" class="form-label">Failed Attempts Before Lockout *</label>
-            <InputNumber id="failedAttemptsLockout" @bind-Value="Settings.FailedAttemptsBeforeLockout" class="form-control"
-                         @oninput="() => OnSettingsChanged?.Invoke()" />
-            <ValidationMessage For="@(() => Settings.FailedAttemptsBeforeLockout)" />
+    <div class="ms-row">
+        <div class="ms-row-main">
+            <b>Require two-step verification</b>
+            <small>Everyone must use an authenticator app or passkey. Anyone without one is asked to set it up right after signing in.</small>
         </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="sessionTimeout" class="form-label">Session Timeout (Minutes) *</label>
-            <InputNumber id="sessionTimeout" @bind-Value="Settings.SessionTimeoutMinutes" class="form-control"
-                         @oninput="() => OnSettingsChanged?.Invoke()" />
-            <ValidationMessage For="@(() => Settings.SessionTimeoutMinutes)" />
-        </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="twoFactorAuth" class="form-label">Require Two-Factor Authentication</label>
-            <InputCheckbox id="twoFactorAuth" @bind-Value="Settings.TwoFactorAuthenticationRequired" class="form-check-input"
-                           @onchange="() => OnSettingsChanged?.Invoke()" />
-        </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="passwordComplexity" class="form-label">Password Complexity Requirements *</label>
-            <InputSelect id="passwordComplexity" @bind-Value="Settings.PasswordComplexity" class="form-select"
-                         @onchange="() => OnSettingsChanged?.Invoke()">
-                <option value="Low">Low (Minimum 6 characters)</option>
-                <option value="Medium">Medium (Minimum 8 characters with numbers)</option>
-                <option value="High">High (Minimum 10 characters with numbers and special characters)</option>
-            </InputSelect>
-            <ValidationMessage For="@(() => Settings.PasswordComplexity)" />
-        </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="passwordHistory" class="form-label">Password History Remembered *</label>
-            <InputNumber id="passwordHistory" @bind-Value="Settings.PasswordHistoryCount" class="form-control"
-                         @oninput="() => OnSettingsChanged?.Invoke()" />
-            <ValidationMessage For="@(() => Settings.PasswordHistoryCount)" />
+        <div class="ms-row-end">
+            <ToggleSwitch Value="Settings.TwoFactorAuthenticationRequired" ValueChanged="SetTwoFactor" AriaLabel="Require two-step verification" />
         </div>
     </div>
 </div>
 
-@code {
-    [Parameter]
-    public SaccoSettings Settings { get; set; } = new();
+<div class="ms-section">
+    <h4>Passwords</h4>
+    <p class="sub">Existing passwords are checked at the next change.</p>
 
-    [Parameter]
-    public Action? OnSettingsChanged { get; set; }
+    <div class="ms-row">
+        <div class="ms-row-main"><b>Complexity</b><small>@ComplexityHelp</small></div>
+        <div class="ms-row-end" style="min-width:230px">
+            <InputSelect Value="Settings.PasswordComplexity" ValueChanged="@((string v) => Update(() => Settings.PasswordComplexity = v))" ValueExpression="@(() => Settings.PasswordComplexity)" class="ms-select">
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+            </InputSelect>
+        </div>
+    </div>
+    <div class="ms-row">
+        <div class="ms-row-main"><b>Password expires after</b><small>Days before people must choose a new password (30–365).</small></div>
+        <div class="ms-row-end"><InputNumber Value="Settings.PasswordExpiryDays" ValueChanged="@((int v) => Update(() => Settings.PasswordExpiryDays = v))" ValueExpression="@(() => Settings.PasswordExpiryDays)" class="ms-input" style="width:110px" /><span class="ms-muted">days</span></div>
+    </div>
+    <div class="ms-row">
+        <div class="ms-row-main"><b>Remember previous passwords</b><small>Blocks reuse of the last few (0–24).</small></div>
+        <div class="ms-row-end"><InputNumber Value="Settings.PasswordHistoryCount" ValueChanged="@((int v) => Update(() => Settings.PasswordHistoryCount = v))" ValueExpression="@(() => Settings.PasswordHistoryCount)" class="ms-input" style="width:110px" /></div>
+    </div>
+    <ValidationMessage For="@(() => Settings.PasswordExpiryDays)" />
+    <ValidationMessage For="@(() => Settings.PasswordHistoryCount)" />
+</div>
+
+<div class="ms-section">
+    <h4>Protection</h4>
+    <div class="ms-row">
+        <div class="ms-row-main"><b>Lock the account after</b><small>Failed password attempts before a 15-minute lockout (1–10).</small></div>
+        <div class="ms-row-end"><InputNumber Value="Settings.FailedAttemptsBeforeLockout" ValueChanged="@((int v) => Update(() => Settings.FailedAttemptsBeforeLockout = v))" ValueExpression="@(() => Settings.FailedAttemptsBeforeLockout)" class="ms-input" style="width:110px" /><span class="ms-muted">attempts</span></div>
+    </div>
+    <div class="ms-row">
+        <div class="ms-row-main"><b>Sign out after inactivity</b><small>Idle minutes before a session ends (5–1440).</small></div>
+        <div class="ms-row-end"><InputNumber Value="Settings.SessionTimeoutMinutes" ValueChanged="@((int v) => Update(() => Settings.SessionTimeoutMinutes = v))" ValueExpression="@(() => Settings.SessionTimeoutMinutes)" class="ms-input" style="width:110px" /><span class="ms-muted">minutes</span></div>
+    </div>
+    <ValidationMessage For="@(() => Settings.FailedAttemptsBeforeLockout)" />
+    <ValidationMessage For="@(() => Settings.SessionTimeoutMinutes)" />
+</div>
+
+@code {
+    [Parameter] public SaccoSettings Settings { get; set; } = new();
+    [Parameter] public Action? OnSettingsChanged { get; set; }
+
+    private string ComplexityHelp => Settings.PasswordComplexity switch
+    {
+        "Low" => "At least 6 characters.",
+        "High" => "At least 12 characters with upper case, lower case, a number and a symbol.",
+        _ => "At least 8 characters with upper case, lower case and a number."
+    };
+
+    private void Update(Action set) { set(); OnSettingsChanged?.Invoke(); }
+    private void SetTwoFactor(bool v) => Update(() => Settings.TwoFactorAuthenticationRequired = v);
 }

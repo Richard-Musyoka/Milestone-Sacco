@@ -1,0 +1,212 @@
+/* Tajiri Sacco – UI + security interop (Phase 1). Loaded after blazor.server.js. */
+(function () {
+  'use strict';
+  var ms = (window.ms = window.ms || {});
+  var LS = 'ms.prefs';
+
+  // ------------------------------------------------------------ preferences
+  function readPrefs() { try { return JSON.parse(localStorage.getItem(LS)) || {}; } catch (e) { return {}; } }
+  ms.getPrefs = function () { return readPrefs(); };
+  ms.applyPrefs = function (p) {
+    p = p || readPrefs();
+    var root = document.documentElement;
+    var theme = p.theme || 'light';
+    if (theme === 'system') theme = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    root.setAttribute('data-theme', theme);
+    root.setAttribute('data-accent', p.accent || 'emerald');
+    root.setAttribute('data-density', p.density || 'comfortable');
+    var app = document.querySelector('.ms-app');
+    if (app) app.classList.toggle('collapsed', !!p.collapsed && window.innerWidth > 992);
+  };
+  ms.setPrefs = function (patch) {
+    var p = Object.assign(readPrefs(), patch || {});
+    try { localStorage.setItem(LS, JSON.stringify(p)); } catch (e) { }
+    ms.applyPrefs(p);
+    return p;
+  };
+  ms.applyPrefs();
+
+  // -------------------------------------------------------------- HTTP helper
+  ms.api = async function (method, url, body) {
+    var opts = { method: method, credentials: 'same-origin', headers: { 'X-Requested-With': 'milestone', 'Accept': 'application/json' } };
+    if (body !== undefined && body !== null) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+    try {
+      var r = await fetch(url, opts);
+      var j = null; try { j = await r.json(); } catch (e) { }
+      return { ok: r.ok, status: r.status, body: j };
+    } catch (e) {
+      return { ok: false, status: 0, body: { message: 'Network problem. Check your connection and try again.' } };
+    }
+  };
+
+  // ------------------------------------------------------------------ toasts
+  function box() {
+    var c = document.getElementById('ms-toasts');
+    if (!c) { c = document.createElement('div'); c.id = 'ms-toasts'; c.className = 'ms-toasts'; c.setAttribute('aria-live', 'polite'); document.body.appendChild(c); }
+    return c;
+  }
+  var icons = { success: 'bi-check-circle-fill', error: 'bi-x-octagon-fill', danger: 'bi-x-octagon-fill', warning: 'bi-exclamation-triangle-fill', info: 'bi-info-circle-fill' };
+  ms.toast = function (type, title, message) {
+    type = (type === 'danger') ? 'error' : (type || 'info');
+    var t = document.createElement('div');
+    t.className = 'ms-toast ' + type;
+    var i = document.createElement('i'); i.className = 'bi ' + (icons[type] || icons.info);
+    var d = document.createElement('div');
+    var b = document.createElement('b'); b.textContent = title || '';
+    d.appendChild(b);
+    if (message) { var s = document.createElement('span'); s.textContent = message; d.appendChild(s); }
+    t.appendChild(i); t.appendChild(d);
+    t.addEventListener('click', function () { t.remove(); });
+    box().appendChild(t);
+    setTimeout(function () { t.remove(); }, 5200);
+  };
+  // Keep the legacy signature working: showToast(type, title, message)
+  window.showToast = function (type, title, message) { ms.toast(type, title, message); };
+
+  // ---------------------------------------------------------- shell behaviour
+  document.addEventListener('click', function (e) {
+    var dd = e.target.closest('[data-ms-dd] > .ms-dd-trigger');
+    var open = document.querySelectorAll('[data-ms-dd].open');
+    if (dd) {
+      var host = dd.parentElement;
+      var was = host.classList.contains('open');
+      open.forEach(function (o) { o.classList.remove('open'); });
+      if (!was) host.classList.add('open');
+      return;
+    }
+    if (!e.target.closest('.ms-dd-menu') || e.target.closest('.ms-dd-item')) open.forEach(function (o) { o.classList.remove('open'); });
+
+    if (e.target.closest('[data-ms-nav-toggle]')) {
+      var app = document.querySelector('.ms-app'); if (!app) return;
+      if (window.innerWidth <= 992) app.classList.toggle('nav-open');
+      else { var c = !app.classList.contains('collapsed'); app.classList.toggle('collapsed', c); ms.setPrefs({ collapsed: c }); }
+      return;
+    }
+    if (e.target.closest('.ms-scrim')) { var a = document.querySelector('.ms-app'); if (a) a.classList.remove('nav-open'); return; }
+    if (e.target.closest('.ms-nav-link')) { var a2 = document.querySelector('.ms-app'); if (a2) a2.classList.remove('nav-open'); }
+    if (e.target.closest('[data-ms-cmd]')) { ms.cmd.open(); return; }
+    if (e.target.closest('.ms-cmd-bg') && !e.target.closest('.ms-cmd')) ms.cmd.close();
+  });
+
+  // ------------------------------------------------------------ command palette
+  var cmd = (ms.cmd = { idx: 0, items: [] });
+  function ensureCmd() {
+    var bg = document.getElementById('ms-cmd');
+    if (bg) return bg;
+    bg = document.createElement('div'); bg.id = 'ms-cmd'; bg.className = 'ms-cmd-bg';
+    bg.innerHTML = '<div class="ms-cmd" role="dialog" aria-label="Quick navigation"><input id="ms-cmd-in" placeholder="Jump to a page or action…" autocomplete="off" /><ul id="ms-cmd-list"></ul></div>';
+    document.body.appendChild(bg);
+    var inp = bg.querySelector('input');
+    inp.addEventListener('input', function () { cmd.idx = 0; render(inp.value); });
+    inp.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') { cmd.idx = Math.min(cmd.idx + 1, cmd.items.length - 1); mark(); e.preventDefault(); }
+      else if (e.key === 'ArrowUp') { cmd.idx = Math.max(cmd.idx - 1, 0); mark(); e.preventDefault(); }
+      else if (e.key === 'Enter') { var it = cmd.items[cmd.idx]; if (it) go(it.href); }
+      else if (e.key === 'Escape') cmd.close();
+    });
+    return bg;
+  }
+  function all() {
+    var list = [];
+    document.querySelectorAll('.ms-nav-link').forEach(function (a) {
+      var ic = a.querySelector('i'), sp = a.querySelector('span');
+      list.push({ label: (sp ? sp.textContent : a.textContent).trim(), href: a.getAttribute('href'), icon: ic ? ic.className : 'bi bi-arrow-right' });
+    });
+    [['Add member', 'members/add-member', 'bi bi-person-plus'], ['Apply for a loan', 'loans/apply', 'bi bi-cash-coin'], ['Record contribution', 'contributions/add', 'bi bi-plus-circle'],
+     ['Purchase shares', 'shares/purchase', 'bi bi-graph-up-arrow'], ['Declare dividend', 'dividends/declare', 'bi bi-percent'], ['Security Center', 'settings?tab=security-center', 'bi bi-shield-lock'],
+     ['My profile', 'profile', 'bi bi-person-circle']].forEach(function (x) { list.push({ label: x[0], href: x[1], icon: x[2] }); });
+    return list;
+  }
+  function render(q) {
+    q = (q || '').toLowerCase().trim();
+    cmd.items = all().filter(function (i) { return !q || i.label.toLowerCase().indexOf(q) >= 0; }).slice(0, 12);
+    var ul = document.getElementById('ms-cmd-list');
+    if (!cmd.items.length) { ul.innerHTML = '<div class="empty">Nothing matches “' + q.replace(/</g, '&lt;') + '”.</div>'; return; }
+    ul.innerHTML = cmd.items.map(function (i, n) {
+      return '<li class="' + (n === cmd.idx ? 'sel' : '') + '"><a href="' + i.href + '"><i class="' + i.icon + '"></i>' + i.label.replace(/</g, '&lt;') + '</a></li>';
+    }).join('');
+  }
+  function mark() { document.querySelectorAll('#ms-cmd-list li').forEach(function (li, n) { li.classList.toggle('sel', n === cmd.idx); }); }
+  function go(href) { cmd.close(); if (window.Blazor && Blazor.navigateTo) Blazor.navigateTo(href); else location.href = href; }
+  cmd.open = function () { var bg = ensureCmd(); bg.classList.add('open'); var i = document.getElementById('ms-cmd-in'); i.value = ''; cmd.idx = 0; render(''); setTimeout(function () { i.focus(); }, 10); };
+  cmd.close = function () { var bg = document.getElementById('ms-cmd'); if (bg) bg.classList.remove('open'); };
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); cmd.open(); }
+    else if (e.key === 'Escape') cmd.close();
+  });
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest('#ms-cmd-list a'); if (a) { e.preventDefault(); go(a.getAttribute('href')); }
+  });
+
+  // ------------------------------------------------------------------- helpers
+  ms.focus = function (id) { var el = document.getElementById(id); if (el) el.focus(); };
+  ms.copy = async function (text) { try { await navigator.clipboard.writeText(text); return true; } catch (e) { return false; } };
+  ms.download = function (name, text) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' })); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+  ms.print = function () { window.print(); };
+  ms.confirm = function (msg) { return window.confirm(msg); };
+  ms.navigate = function (url) { location.href = url; };
+  ms.qr = function (id, text) {
+    var el = document.getElementById(id); if (!el) return false;
+    el.innerHTML = '';
+    if (!window.QRCode) return false;
+    new QRCode(el, { text: text, width: 170, height: 170, correctLevel: QRCode.CorrectLevel.M });
+    return true;
+  };
+  ms.supportsPasskeys = function () { return !!(window.PublicKeyCredential && navigator.credentials && navigator.credentials.create); };
+
+  // -------------------------------------------------------------------- passkeys
+  function b64u(buf) { var s = ''; var b = new Uint8Array(buf); for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  function unb64u(s) { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; var bin = atob(s); var b = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i); return b.buffer; }
+  function friendly(e) {
+    if (e && e.name === 'NotAllowedError') return 'The request was cancelled or timed out.';
+    if (e && e.name === 'InvalidStateError') return 'This device already has a passkey saved for your account.';
+    if (e && e.name === 'SecurityError') return 'Passkeys need a secure (https) address.';
+    return (e && e.message) || 'Passkey request failed.';
+  }
+
+  // Sign in with a passkey (usernameless, or as the second factor when mfaToken is given).
+  ms.passkeyLogin = async function (mfaToken, remember, trust) {
+    if (!ms.supportsPasskeys()) return { ok: false, body: { message: 'This browser does not support passkeys.' } };
+    var o = await ms.api('POST', '/api/auth/passkey/options', { mfaToken: mfaToken || null });
+    if (!o.ok) return o;
+    var pk = o.body.data.publicKey;
+    pk.challenge = unb64u(pk.challenge);
+    pk.allowCredentials = (pk.allowCredentials || []).map(function (c) { return { type: c.type, id: unb64u(c.id) }; });
+    var cred;
+    try { cred = await navigator.credentials.get({ publicKey: pk }); }
+    catch (e) { return { ok: false, body: { message: friendly(e) }, cancelled: true }; }
+    var r = cred.response;
+    return ms.api('POST', '/api/auth/passkey/verify', {
+      challengeId: o.body.data.challengeId, id: b64u(cred.rawId),
+      clientDataJSON: b64u(r.clientDataJSON), authenticatorData: b64u(r.authenticatorData), signature: b64u(r.signature),
+      mfaToken: mfaToken || null, remember: !!remember, trustDevice: !!trust
+    });
+  };
+
+  // Register a new passkey for the signed-in user.
+  ms.passkeyRegister = async function (name) {
+    if (!ms.supportsPasskeys()) return { ok: false, body: { message: 'This browser does not support passkeys.' } };
+    var o = await ms.api('POST', '/api/security/passkeys/options');
+    if (!o.ok) return o;
+    var pk = o.body.data.publicKey;
+    pk.challenge = unb64u(pk.challenge);
+    pk.user.id = unb64u(pk.user.id);
+    pk.excludeCredentials = (pk.excludeCredentials || []).map(function (c) { return { type: c.type, id: unb64u(c.id) }; });
+    var cred;
+    try { cred = await navigator.credentials.create({ publicKey: pk }); }
+    catch (e) { return { ok: false, body: { message: friendly(e) }, cancelled: true }; }
+    var r = cred.response;
+    return ms.api('POST', '/api/security/passkeys/verify', {
+      challengeId: o.body.data.challengeId, clientDataJSON: b64u(r.clientDataJSON), attestationObject: b64u(r.attestationObject), name: name || null
+    });
+  };
+
+  document.addEventListener('DOMContentLoaded', function () { ms.applyPrefs(); });
+  if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { if ((readPrefs().theme || '') === 'system') ms.applyPrefs(); });
+  // Blazor re-renders the shell after navigation; re-assert the collapsed state on the first paint of the layout.
+  ms.afterShell = function () { ms.applyPrefs(); };
+})();

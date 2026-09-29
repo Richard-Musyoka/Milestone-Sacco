@@ -1,7 +1,0 @@
-@page "/"
-@inject NavigationManager Navigation
-
-@code {
-    // Signed-in users land on the dashboard; anonymous users are sent to /login by the router.
-    protected override void OnInitialized() => Navigation.NavigateTo("/dashboard", replace: true);
-}

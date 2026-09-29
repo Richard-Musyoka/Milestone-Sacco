@@ -1,313 +1,228 @@
 @page "/audit-trail"
-@inject NavigationManager Navigation
+@using System.Text
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS
 
-<div class="card">
-    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-        <h5>System Audit Trail</h5>
-        <div>
-            <button class="btn btn-sm btn-light me-2" @onclick="ExportToExcel">
-                <i class="bi bi-file-excel"></i> Export
-            </button>
-            <button class="btn btn-sm btn-light" @onclick="RefreshLogs">
-                <i class="bi bi-arrow-clockwise"></i> Refresh
-            </button>
+<PageTitle>Audit trail · @Brand.Name</PageTitle>
+
+<div class="ms-page">
+    <PageHeader Title="Audit trail" Subtitle="Who did what, when and from where — every change and sign-in event.">
+        <button class="ms-btn" @onclick="Load"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+        <button class="ms-btn primary" @onclick="Export" disabled="@(data == null || data.Total == 0)"><i class="bi bi-download"></i> Export CSV</button>
+    </PageHeader>
+
+    @if (data != null)
+    {
+        <div class="ms-mini">
+            <div><small>Events (24h)</small><b>@data.Stats.Last24h.ToString("N0")</b></div>
+            <div><small>Data changes (24h)</small><b>@data.Stats.Changes24h.ToString("N0")</b></div>
+            <div><small>Failures (24h)</small><b style="@(data.Stats.Failed24h > 0 ? "color:var(--ms-red, #c0392b)" : "")">@data.Stats.Failed24h.ToString("N0")</b></div>
+            <div><small>Active people (24h)</small><b>@data.Stats.Users24h.ToString("N0")</b></div>
         </div>
-    </div>
+    }
 
-    <div class="card-body">
-        <!-- Filter Controls -->
-        <div class="row mb-4 g-3">
-            <div class="col-md-3">
-                <label class="form-label">Action Type</label>
-                <select class="form-select" @bind="selectedActionType">
-                    <option value="">All Actions</option>
-                    @foreach (var action in actionTypes)
-                    {
-                        <option value="@action">@action</option>
-                    }
-                </select>
+    <div class="ms-card">
+        <div class="ms-toolbar" style="flex-wrap:wrap">
+            <div class="ms-searchbox">
+                <i class="bi bi-search"></i>
+                <input class="ms-input" type="search" placeholder="Search user, action, record or IP…" aria-label="Search audit trail" @bind="q" @bind:event="oninput" @bind:after="Debounced" />
             </div>
-            <div class="col-md-3">
-                <label class="form-label">User</label>
-                <select class="form-select" @bind="selectedUserId">
-                    <option value="">All Users</option>
-                    @foreach (var user in users)
-                    {
-                        <option value="@user.Id">@user.Name</option>
-                    }
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">From Date</label>
-                <input type="date" class="form-control" @bind="fromDate" />
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">To Date</label>
-                <input type="date" class="form-control" @bind="toDate" />
+            <div class="ms-chips" role="group" aria-label="Source">
+                @foreach (var s in new[] { ("", "All"), ("Activity", "Changes"), ("Security", "Sign-ins") })
+                {
+                    var val = s.Item1;
+                    <button type="button" class="ms-chip @(source == val ? "on" : "")" @onclick="() => SetSource(val)">@s.Item2</button>
+                }
             </div>
         </div>
+        <div class="ms-toolbar" style="flex-wrap:wrap;border-top:1px solid var(--ms-border)">
+            <select class="ms-select" style="width:auto" aria-label="Area" @bind="entity" @bind:after="Reload">
+                <option value="">All areas</option>
+                @if (data != null) { @foreach (var e in data.Entities) { <option value="@e">@Title(e)</option> } }
+            </select>
+            <select class="ms-select" style="width:auto" aria-label="User" @bind="user" @bind:after="Reload">
+                <option value="">Everyone</option>
+                @if (data != null) { @foreach (var u in data.Users) { <option value="@u">@u</option> } }
+            </select>
+            <select class="ms-select" style="width:auto" aria-label="Outcome" @bind="status" @bind:after="Reload">
+                <option value="">Any outcome</option><option value="ok">Succeeded</option><option value="failed">Failed</option>
+            </select>
+            <div class="ms-toolbar-end" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <div class="ms-seg" role="group" aria-label="Quick range">
+                    <button type="button" class="@(range == "today" ? "on" : "")" @onclick='() => Quick("today")'>Today</button>
+                    <button type="button" class="@(range == "7" ? "on" : "")" @onclick='() => Quick("7")'>7 days</button>
+                    <button type="button" class="@(range == "30" ? "on" : "")" @onclick='() => Quick("30")'>30 days</button>
+                </div>
+                <input class="ms-input" style="width:auto" type="date" aria-label="From date" @bind="from" @bind:after="CustomRange" />
+                <span class="ms-hint">to</span>
+                <input class="ms-input" style="width:auto" type="date" aria-label="To date" @bind="to" @bind:after="CustomRange" />
+            </div>
+        </div>
 
-        <!-- Logs Table -->
-        <div class="table-responsive">
-            <table class="table table-striped table-hover">
-                <thead class="table-light">
-                    <tr>
-                        <th>Timestamp</th>
-                        <th>Action</th>
-                        <th>User</th>
-                        <th>Details</th>
-                        <th>IP Address</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (filteredLogs.Count == 0)
-                    {
-                        <tr>
-                            <td colspan="6" class="text-center text-muted py-4">No log entries found</td>
-                        </tr>
-                    }
-                    else
-                    {
-                        @foreach (var log in paginatedLogs)
+        @if (loading && data == null)
+        {
+            <div class="ms-card-body">@for (int i = 0; i < 8; i++) { <div class="ms-skel" style="height:48px;margin-bottom:10px"></div> }</div>
+        }
+        else if (failed)
+        {
+            <EmptyState Icon="bi-wifi-off" Title="Couldn't load the audit trail" Text="@error">
+                <div style="margin-top:14px"><button class="ms-btn" @onclick="Load"><i class="bi bi-arrow-clockwise"></i> Retry</button></div>
+            </EmptyState>
+        }
+        else if (data == null || data.Items.Count == 0)
+        {
+            <EmptyState Icon="bi-journal-text" Title="No events found" Text="Nothing matches these filters yet. Changes made from now on are recorded here." />
+        }
+        else
+        {
+            <div class="ms-table-wrap" style="@(loading ? "opacity:.55" : "")">
+                <table class="ms-table">
+                    <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Area</th><th>Record</th><th>Outcome</th><th>IP</th></tr></thead>
+                    <tbody>
+                        @foreach (var e in data.Items)
                         {
-                            <tr>
-                                <td>@log.Timestamp.ToString("yyyy-MM-dd HH:mm")</td>
-                                <td>
-                                    <span class="badge @GetActionBadgeClass(log.ActionType)">
-                                        @log.ActionType
-                                    </span>
-                                </td>
-                                <td>@log.UserName</td>
-                                <td>
-                                    <div class="log-details">
-                                        @log.Details
-                                        @if (!string.IsNullOrEmpty(log.RecordId))
-                                        {
-                                            <small class="text-muted d-block">Record ID: @log.RecordId</small>
-                                        }
-                                    </div>
-                                </td>
-                                <td>@log.IpAddress</td>
-                                <td>
-                                    <span class="badge @(log.IsSuccess ? "bg-success" : "bg-danger")">
-                                        @(log.IsSuccess ? "Success" : "Failed")
-                                    </span>
-                                </td>
+                            var row = e;
+                            var key = row.Source + row.Id;
+                            <tr class="clickable" @onclick="() => Toggle(key)">
+                                <td class="ms-num" title="@row.When.ToLocalTime().ToString("dddd d MMMM yyyy HH:mm:ss")">@row.When.ToLocalTime().ToString("d MMM, HH:mm")</td>
+                                <td><div class="ms-cell-person"><Avatar Name="@row.User" Size="sm" /><div><b>@row.User</b><small>@(row.Source == "Security" ? "Sign-in event" : "Data change")</small></div></div></td>
+                                <td><span class="ms-pill @Tone(row.Action)">@Title(row.Action)</span></td>
+                                <td>@Title(row.Entity)</td>
+                                <td class="ms-num">@(string.IsNullOrEmpty(row.RecordId) ? "—" : "#" + row.RecordId)</td>
+                                <td><StatusPill Status="@(row.Success ? "Success" : "Failed")" /></td>
+                                <td class="ms-num">@(row.Ip ?? "—")</td>
                             </tr>
+                            @if (open == key)
+                            {
+                                <tr><td colspan="7" style="background:var(--ms-surface-2)"><div class="ms-kv" style="padding:6px 4px">
+                                    <div><small>Exact time</small><b>@row.When.ToLocalTime().ToString("dddd d MMMM yyyy, HH:mm:ss")</b></div>
+                                    <div><small>Request / detail</small><b>@(row.Detail ?? "—")</b></div>
+                                </div></td></tr>
+                            }
                         }
-                    }
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Pagination -->
-        <div class="d-flex justify-content-between align-items-center mt-3">
-            <div class="text-muted">
-                Showing @((currentPage - 1) * pageSize + 1) to @Math.Min(currentPage * pageSize, filteredLogs.Count) of @filteredLogs.Count entries
+                    </tbody>
+                </table>
             </div>
-            <nav>
-                <ul class="pagination">
-                    <li class="page-item @(currentPage == 1 ? "disabled" : "")">
-                        <button class="page-link" @onclick="@(() => ChangePage(currentPage - 1))">
-                            &laquo; Previous
-                        </button>
-                    </li>
-                    @for (int i = 1; i <= totalPages; i++)
-                    {
-                        <li class="page-item @(i == currentPage ? "active" : "")">
-                            <button class="page-link" @onclick="@(() => ChangePage(i))">@i</button>
-                        </li>
-                    }
-                    <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
-                        <button class="page-link" @onclick="@(() => ChangePage(currentPage + 1))">
-                            Next &raquo;
-                        </button>
-                    </li>
-                </ul>
-            </nav>
-        </div>
+            <Pager Total="data.Total" Page="page" PageChanged="OnPage" PageSize="size" PageSizeChanged="OnSize" />
+        }
     </div>
 </div>
 
 @code {
-    // Sample data - in real app, this would come from API/database
-    private List<AuditLog> logs = new()
+    private AuditPage? data;
+    private string q = "", source = "", entity = "", user = "", status = "", range = "7", error = "";
+    private DateTime? from = DateTime.Today.AddDays(-6), to;
+    private int page = 1, size = 25;
+    private bool loading = true, failed;
+    private string? open;
+    private CancellationTokenSource? cts;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private string Url(int p, int s)
     {
-        new AuditLog {
-            Id = 1,
-            Timestamp = DateTime.Now.AddHours(-1),
-            ActionType = "Login",
-            UserId = "U001",
-            UserName = "Admin User",
-            Details = "User logged in successfully",
-            IpAddress = "192.168.1.100",
-            IsSuccess = true
-        },
-        new AuditLog {
-            Id = 2,
-            Timestamp = DateTime.Now.AddHours(-2),
-            ActionType = "Member Update",
-            UserId = "U002",
-            UserName = "Data Clerk",
-            Details = "Updated member details for MEM10025",
-            RecordId = "MEM10025",
-            IpAddress = "192.168.1.101",
-            IsSuccess = true
-        },
-        new AuditLog {
-            Id = 3,
-            Timestamp = DateTime.Now.AddHours(-3),
-            ActionType = "Loan Approval",
-            UserId = "U001",
-            UserName = "Admin User",
-            Details = "Approved loan application LOAN2023-045",
-            RecordId = "LOAN2023-045",
-            IpAddress = "192.168.1.100",
-            IsSuccess = true
-        },
-        new AuditLog {
-            Id = 4,
-            Timestamp = DateTime.Now.AddHours(-4),
-            ActionType = "Failed Login",
-            UserId = "U003",
-            UserName = "Trial User",
-            Details = "Invalid password attempt",
-            IpAddress = "192.168.1.105",
-            IsSuccess = false
-        },
-        new AuditLog {
-            Id = 5,
-            Timestamp = DateTime.Now.AddHours(-5),
-            ActionType = "Dividend Declaration",
-            UserId = "U001",
-            UserName = "Admin User",
-            Details = "Declared dividends for FY 2023 at 5.75% rate",
-            RecordId = "DIV2023",
-            IpAddress = "192.168.1.100",
-            IsSuccess = true
-        },
-        new AuditLog {
-            Id = 6,
-            Timestamp = DateTime.Now.AddHours(-6),
-            ActionType = "System Settings",
-            UserId = "U001",
-            UserName = "Admin User",
-            Details = "Updated system interest rates",
-            IpAddress = "192.168.1.100",
-            IsSuccess = true
-        },
-        new AuditLog {
-            Id = 7,
-            Timestamp = DateTime.Now.AddHours(-7),
-            ActionType = "Report Generation",
-            UserId = "U002",
-            UserName = "Data Clerk",
-            Details = "Generated monthly contributions report",
-            IpAddress = "192.168.1.101",
-            IsSuccess = true
-        },
-        new AuditLog {
-            Id = 8,
-            Timestamp = DateTime.Now.AddHours(-8),
-            ActionType = "Data Export",
-            UserId = "U001",
-            UserName = "Admin User",
-            Details = "Exported member data to Excel",
-            IpAddress = "192.168.1.100",
-            IsSuccess = true
-        }
-    };
-
-    private List<string> actionTypes = new()
-    {
-        "Login", "Logout", "Member Update", "Member Registration",
-        "Loan Approval", "Loan Disbursement", "Payment Processing",
-        "Dividend Declaration", "System Settings", "Report Generation",
-        "Data Export", "User Management"
-    };
-
-    private List<User> users = new()
-    {
-        new User { Id = "U001", Name = "Admin User" },
-        new User { Id = "U002", Name = "Data Clerk" },
-        new User { Id = "U003", Name = "Trial User" }
-    };
-
-    // Filter controls
-    private string selectedActionType = "";
-    private string selectedUserId = "";
-    private DateTime? fromDate = DateTime.Today.AddDays(-7);
-    private DateTime? toDate = DateTime.Today;
-
-    // Pagination
-    private int currentPage = 1;
-    private int pageSize = 10;
-    private int totalPages => (int)Math.Ceiling((double)filteredLogs.Count / pageSize);
-
-    private List<AuditLog> filteredLogs => logs
-        .Where(log =>
-            (string.IsNullOrEmpty(selectedActionType) || log.ActionType == selectedActionType) &&
-            (string.IsNullOrEmpty(selectedUserId) || log.UserId == selectedUserId) &&
-            (fromDate == null || log.Timestamp >= fromDate) &&
-            (toDate == null || log.Timestamp <= toDate?.AddDays(1))
-        )
-        .OrderByDescending(log => log.Timestamp)
-        .ToList();
-
-    private List<AuditLog> paginatedLogs => filteredLogs
-        .Skip((currentPage - 1) * pageSize)
-        .Take(pageSize)
-        .ToList();
-
-    private void ChangePage(int page)
-    {
-        currentPage = page;
+        var sb = new StringBuilder($"api/audit?page={p}&size={s}");
+        void Add(string k, string? v) { if (!string.IsNullOrWhiteSpace(v)) sb.Append('&').Append(k).Append('=').Append(Uri.EscapeDataString(v)); }
+        Add("q", q); Add("source", source); Add("entity", entity); Add("user", user); Add("status", status);
+        if (from.HasValue) Add("from", from.Value.ToString("yyyy-MM-dd"));
+        if (to.HasValue) Add("to", to.Value.ToString("yyyy-MM-dd"));
+        return sb.ToString();
     }
 
-    private void RefreshLogs()
+    private async Task Load()
     {
-        // In real app, this would fetch fresh data from API
-        currentPage = 1;
-    }
-
-    private void ExportToExcel()
-    {
-        // TODO: Implement Excel export functionality
-        Navigation.NavigateTo("/logs/export");
-    }
-
-    private string GetActionBadgeClass(string actionType)
-    {
-        return actionType switch
+        loading = true; failed = false; error = ""; open = null;
+        try
         {
-            "Login" or "Logout" => "bg-info",
-            "Member Update" or "Member Registration" => "bg-primary",
-            "Loan Approval" or "Loan Disbursement" => "bg-warning text-dark",
-            "Payment Processing" => "bg-success",
-            "Dividend Declaration" => "bg-purple",
-            "System Settings" => "bg-danger",
-            "Report Generation" or "Data Export" => "bg-secondary",
-            _ => "bg-dark"
-        };
+            var http = HttpClientFactory.CreateClient("ApiClient");
+            var r = await http.GetAsync(Url(page, size));
+            if (r.IsSuccessStatusCode) data = await r.Content.ReadFromJsonAsync<AuditPage>();
+            else { failed = true; error = r.StatusCode == System.Net.HttpStatusCode.InternalServerError ? "The server couldn't read the audit tables — has Database\\002_audit.sql been run?" : $"The server answered {(int)r.StatusCode}."; }
+        }
+        catch (Exception ex) { failed = true; error = ex.Message; }
+        finally { loading = false; }
     }
 
-    private class AuditLog
+    private async Task Reload() { page = 1; await Load(); }
+
+    private async Task Debounced()
     {
-        public int Id { get; set; }
-        public DateTime Timestamp { get; set; }
-        public string ActionType { get; set; }
-        public string UserId { get; set; }
-        public string UserName { get; set; }
-        public string Details { get; set; }
-        public string RecordId { get; set; }
-        public string IpAddress { get; set; }
-        public bool IsSuccess { get; set; }
+        cts?.Cancel(); cts = new CancellationTokenSource();
+        var token = cts.Token;
+        try { await Task.Delay(350, token); } catch (TaskCanceledException) { return; }
+        await Reload();
     }
 
-    private class User
+    private async Task SetSource(string s) { source = s; await Reload(); }
+
+    private async Task Quick(string r)
     {
-        public string Id { get; set; }
-        public string Name { get; set; }
+        range = r; to = null;
+        from = r == "today" ? DateTime.Today : DateTime.Today.AddDays(-(int.Parse(r) - 1));
+        await Reload();
+    }
+
+    private async Task CustomRange() { range = ""; await Reload(); }
+    private async Task OnPage(int p) { page = p; await Load(); }
+    private async Task OnSize(int s) { size = s; page = 1; await Load(); }
+    private void Toggle(string key) => open = open == key ? null : key;
+
+    private async Task Export()
+    {
+        try
+        {
+            var http = HttpClientFactory.CreateClient("ApiClient");
+            var r = await http.GetAsync(Url(1, 200));
+            if (!r.IsSuccessStatusCode) { await JS.InvokeVoidAsync("ms.toast", "error", "Couldn't export"); return; }
+            var d = await r.Content.ReadFromJsonAsync<AuditPage>();
+            var sb = new StringBuilder("When,Who,Source,Area,Action,Record,Outcome,IP,Detail\n");
+            static string C(string? s) => "\"" + (s ?? "").Replace("\"", "\"\"") + "\"";
+            foreach (var e in d!.Items)
+                sb.AppendLine(string.Join(',', C(e.When.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")), C(e.User), C(e.Source), C(e.Entity), C(e.Action), C(e.RecordId), C(e.Success ? "Success" : "Failed"), C(e.Ip), C(e.Detail)));
+            await JS.InvokeVoidAsync("ms.download", $"audit-trail-{DateTime.Now:yyyyMMdd-HHmm}.csv", sb.ToString());
+            await JS.InvokeVoidAsync("ms.toast", "success", "Exported", $"{d.Items.Count} rows (up to 200 per export)");
+        }
+        catch (Exception ex) { await JS.InvokeVoidAsync("ms.toast", "error", "Couldn't export", ex.Message); }
+    }
+
+    private static string Title(string? s)
+    {
+        if (string.IsNullOrEmpty(s)) return "—";
+        var t = s.Replace('-', ' ').Replace('_', ' ');
+        return char.ToUpper(t[0]) + t[1..];
+    }
+
+    private static string Tone(string? action)
+    {
+        var a = (action ?? "").ToLowerInvariant();
+        if (a.Contains("fail") || a.Contains("delete") || a.Contains("cancel") || a.Contains("reject") || a.Contains("revoke") || a.Contains("disable") || a.Contains("lock")) return "bad";
+        if (a.Contains("update") || a.Contains("edit") || a.Contains("transfer") || a.Contains("password") || a.Contains("profile")) return "info";
+        if (a.Contains("approve") || a.Contains("process") || a.Contains("disburse") || a.Contains("add") || a.Contains("create") || a.Contains("sign") || a.Contains("login") || a.Contains("declar") || a.Contains("apply")) return "ok";
+        return "warn";
+    }
+
+    private sealed class AuditPage
+    {
+        public int Total { get; set; }
+        public List<AuditItem> Items { get; set; } = new();
+        public List<string> Entities { get; set; } = new();
+        public List<string> Users { get; set; } = new();
+        public AuditStats Stats { get; set; } = new();
+    }
+
+    private sealed class AuditStats { public int Last24h { get; set; } public int Failed24h { get; set; } public int Users24h { get; set; } public int Changes24h { get; set; } }
+
+    private sealed class AuditItem
+    {
+        public string Source { get; set; } = "";
+        public long Id { get; set; }
+        public DateTime When { get; set; }
+        public string User { get; set; } = "";
+        public string Entity { get; set; } = "";
+        public string Action { get; set; } = "";
+        public string? RecordId { get; set; }
+        public string? Detail { get; set; }
+        public bool Success { get; set; }
+        public string? Ip { get; set; }
     }
 }

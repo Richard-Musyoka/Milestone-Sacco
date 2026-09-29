@@ -1,0 +1,53 @@
+@using SaccoManagementSystem.Services
+@inject SiteStore Site
+@inject IHttpContextAccessor Http
+
+@if (sent)
+{
+    <div class="ws-msg ok"><i class="bi bi-check-circle-fill"></i><div>Asante, @name! We've received your message and will get back to you within one working day.</div></div>
+}
+else
+{
+    <form class="ws-form" @onsubmit="Submit" @onsubmit:preventDefault="true">
+        @if (!string.IsNullOrEmpty(error)) { <div class="ws-msg bad"><i class="bi bi-exclamation-circle-fill"></i><div>@error</div></div> }
+        <div class="two">
+            <div><label for="@(Id)n">Full name</label><input id="@(Id)n" @bind="name" autocomplete="name" maxlength="120" /></div>
+            <div><label for="@(Id)p">Phone</label><input id="@(Id)p" type="tel" @bind="phone" autocomplete="tel" placeholder="07XX XXX XXX" maxlength="40" /></div>
+        </div>
+        <div class="two">
+            <div><label for="@(Id)e">Email (optional)</label><input id="@(Id)e" type="email" @bind="email" autocomplete="email" maxlength="200" /></div>
+            <div><label for="@(Id)k">I'm interested in</label>
+                <select id="@(Id)k" @bind="kind"><option value="Membership">Becoming a member</option><option value="Loan">A loan</option><option value="General">Something else</option></select></div>
+        </div>
+        <div><label for="@(Id)m">Message</label><textarea id="@(Id)m" @bind="message" maxlength="2000" placeholder="@Placeholder"></textarea></div>
+        <div class="hp" aria-hidden="true"><label>Leave this empty<input tabindex="-1" autocomplete="off" @bind="trap" /></label></div>
+        <button type="submit" class="ws-btn primary lg" disabled="@busy">@if (busy) { <span class="ms-spin"></span> } Send message <i class="bi bi-send"></i></button>
+        <small style="color:var(--ms-text-3)">We use your details only to reply to you.</small>
+    </form>
+}
+
+@code {
+    [Parameter] public string Kind { get; set; } = "General";
+    private string Id { get; } = "f" + Guid.NewGuid().ToString("N")[..6];
+    private string name = "", phone = "", email = "", message = "", trap = "", kind = "General";
+    private string? error;
+    private bool sent, busy;
+    private string Placeholder => kind == "Loan" ? "Which loan, roughly how much, and when do you need it?" : kind == "Membership" ? "Tell us a little about yourself and where you work or live." : "How can we help?";
+
+    protected override void OnInitialized() => kind = Kind;
+
+    private async Task Submit()
+    {
+        error = null;
+        if (!string.IsNullOrEmpty(trap)) { sent = true; return; }      // bots fill hidden fields
+        busy = true;
+        try
+        {
+            var ip = Http.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            error = await Site.AddEnquiryAsync(kind, name, phone, email, message, ip);
+            sent = error == null;
+        }
+        catch { error = "We couldn't send that just now. Please call us instead."; }
+        finally { busy = false; }
+    }
+}

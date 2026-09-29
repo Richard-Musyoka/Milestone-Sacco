@@ -1,0 +1,48 @@
+@using System.Globalization
+@using SaccoManagementSystem.Services
+<div class="ws-calc ws-save">
+    <div class="in">
+        <div>
+            <label style="display:block;font-weight:800;margin-bottom:8px">I can save every month</label>
+            <div class="rng"><input type="range" min="500" max="50000" step="500" value="@monthly" @oninput="e => monthly = Num(e, monthly)" aria-label="Monthly saving" /><b>@Sym @monthly.ToString("N0")</b></div>
+        </div>
+        <div>
+            <label style="display:block;font-weight:800;margin-bottom:8px">For</label>
+            <div class="rng"><input type="range" min="1" max="10" value="@years" @oninput="e => years = (int)Num(e, years)" aria-label="Years" /><b>@years year@(years == 1 ? "" : "s")</b></div>
+        </div>
+        <p style="margin:0;color:var(--ms-text-3);font-size:13px">Uses @Cfg.DepositInterestPct.ToString("0.#")% interest on deposits a year, less @Cfg.WhtInterestPct.ToString("0.#")% withholding tax. Past rates don't promise future ones.</p>
+    </div>
+    <div class="out">
+        <small>You could have</small>
+        <b class="big">@Sym @Total.ToString("N0")</b>
+        <div class="row"><span>You put in</span><b>@Sym @((monthly * 12 * years).ToString("N0"))</b></div>
+        <div class="row"><span>Interest earned</span><b>@Sym @((Total - monthly * 12 * years).ToString("N0"))</b></div>
+        <div class="row"><span>You could borrow up to</span><b>@Sym @((Total * Multiple).ToString("N0"))</b></div>
+        <p class="note">An illustration only, not an offer.</p>
+    </div>
+</div>
+
+@code {
+    [Parameter] public OrgConfig Cfg { get; set; } = new();
+    [Parameter] public int Multiple { get; set; } = 3;
+    private decimal monthly = 2000;
+    private int years = 3;
+    private string Sym => Cfg.CurrencySymbol;
+    private static decimal Num(ChangeEventArgs e, decimal fallback) => decimal.TryParse(e.Value?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : fallback;
+
+    // Interest credited once a year on the average balance, net of withholding tax.
+    private decimal Total
+    {
+        get
+        {
+            var rate = Cfg.DepositInterestPct / 100m * (1 - Cfg.WhtInterestPct / 100m);
+            decimal bal = 0;
+            for (var y = 0; y < years; y++)
+            {
+                var opening = bal; bal += monthly * 12;
+                bal += (opening + monthly * 6.5m) * rate;
+            }
+            return Math.Round(bal, 0);
+        }
+    }
+}

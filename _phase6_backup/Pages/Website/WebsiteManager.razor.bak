@@ -1,0 +1,418 @@
+@page "/website"
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Forms
+@using SaccoManagementSystem.Services
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject SiteStore Store
+
+<PageTitle>Website · @Brand.Name</PageTitle>
+
+<div class="ms-page">
+    @if (s == null)
+    {
+        <div class="ms-skel" style="height:180px;border-radius:26px;margin-bottom:18px"></div>
+        <div class="ms-skel" style="height:420px;border-radius:24px"></div>
+    }
+    else
+    {
+        <section class="cc-hero">
+            <div class="cc-logo" style="background:var(--ms-accent);border:0"><i class="bi bi-globe2" style="font-size:32px;color:var(--ms-accent-ink)"></i></div>
+            <div>
+                <span class="cc-kicker"><i class="bi bi-window-sidebar"></i> Website manager</span>
+                <h1>Your public website</h1>
+                <p>Edit what members and the public see. Branding, contacts, fees, M-Pesa and loan products come from Settings, so they are always in step.</p>
+                <div class="cc-actions">
+                    <a class="ms-btn primary" href="/" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Open website</a>
+                    <a class="ms-btn" href="settings?tab=loan-products"><i class="bi bi-collection"></i> Loan products</a>
+                    <a class="ms-btn" href="settings?tab=branding"><i class="bi bi-palette2"></i> Branding</a>
+                </div>
+            </div>
+            <div class="cc-health">
+                <div class="cc-ring" style="--v:@(s.Published ? 100 : 0)"><b><i class="bi @(s.Published ? "bi-broadcast" : "bi-eye-slash")"></i></b></div>
+                <div>
+                    <b class="big">@(s.Published ? "Live" : "Unpublished")</b>
+                    <small>@(s.Published ? "Anyone can visit the website." : "Visitors see a coming-soon page.")</small>
+                    <div style="margin-top:8px"><ToggleSwitch Value="s.Published" ValueChanged="@((bool v) => { s.Published = v; Dirty(); })" AriaLabel="Publish website" /></div>
+                </div>
+            </div>
+        </section>
+
+        <div class="cc-chips">
+            <div class="cc-chip"><span class="cc-ico" style="--t:#f97316"><i class="bi bi-inbox"></i></span><div><small>New enquiries</small><b>@newCount</b></div></div>
+            <div class="cc-chip"><span class="cc-ico" style="--t:#2559C7"><i class="bi bi-newspaper"></i></span><div><small>News stories</small><b>@s.News.Count(n => n.Published) published</b></div></div>
+            <div class="cc-chip"><span class="cc-ico" style="--t:#0B7A52"><i class="bi bi-collection"></i></span><div><small>Products shown</small><b>@s.Savings.Count savings</b></div></div>
+            <div class="cc-chip"><span class="cc-ico" style="--t:#8b5cf6"><i class="bi bi-clock-history"></i></span><div><small>Last updated</small><b>@(s.UpdatedUtc?.ToLocalTime().ToString("d MMM, HH:mm") ?? "Never")</b></div></div>
+        </div>
+
+        <div class="cc-shell">
+            <nav class="cc-rail" aria-label="Website sections">
+                <div class="cc-group">Pages</div>
+                @foreach (var t in Tabs)
+                {
+                    if (t.Key == "enquiries") { <div class="cc-group">Inbox</div> }
+                    <button type="button" class="cc-item @(tab == t.Key ? "on" : "")" @onclick="() => Go(t.Key)">
+                        <span class="cc-ico" style="--t:@t.Color"><i class="bi @t.Icon"></i></span>
+                        <span><b>@t.Title</b><small>@t.Hint</small></span>
+                        @if (t.Key == "enquiries" && newCount > 0) { <span class="ms-pill warn" style="margin-left:auto">@newCount</span> }
+                    </button>
+                }
+            </nav>
+
+            <div class="cc-main" @key="tab">
+                @if (!string.IsNullOrEmpty(error)) { <div class="ms-alert bad"><i class="bi bi-exclamation-triangle-fill"></i><div>@error</div></div> }
+
+                @if (tab == "home")
+                {
+                    <div class="cc-card">
+                        <h3><i class="bi bi-megaphone"></i> Announcement bar</h3>
+                        <p class="sub">A strip across the top of every page. Leave empty to hide it.</p>
+                        <div class="cc-two">
+                            <div class="ms-field"><label class="ms-label">Message</label><input class="ms-input" @bind="s.Announcement" @bind:after="Dirty" maxlength="200" placeholder="e.g. AGM on Saturday 25 April at the county hall" /></div>
+                            <div class="ms-field"><label class="ms-label">Link (optional)</label><input class="ms-input" @bind="s.AnnouncementLink" @bind:after="Dirty" placeholder="/news or https://…" /></div>
+                        </div>
+                    </div>
+                    <div class="cc-card">
+                        <h3><i class="bi bi-window"></i> Hero</h3>
+                        <p class="sub">The first thing visitors see.</p>
+                        <div class="cc-two">
+                            <div class="ms-field"><label class="ms-label">Small label</label><input class="ms-input" @bind="s.HeroKicker" @bind:after="Dirty" maxlength="60" /></div>
+                            <div class="ms-field full"><label class="ms-label">Headline</label><input class="ms-input" @bind="s.HeroTitle" @bind:after="Dirty" maxlength="140" /></div>
+                            <div class="ms-field full"><label class="ms-label">Supporting text</label><textarea class="ms-input" rows="3" style="height:auto;padding-top:10px" @bind="s.HeroText" @bind:after="Dirty" maxlength="400"></textarea></div>
+                        </div>
+                        <div class="cc-img-row" style="margin-top:14px">
+                            <div class="cc-img">
+                                @if (!string.IsNullOrEmpty(s.HeroImage)) { <img src="@s.HeroImage" alt="Home picture" /> } else { <span><i class="bi bi-card-image"></i>Add a picture</span> }
+                                <InputFile OnChange="OnHero" accept="image/png,image/jpeg,image/webp" aria-label="Upload home picture" />
+                            </div>
+                            <div><p class="sub" style="margin:0 0 10px">A real photo of your members or office works best. JPG, PNG or WebP up to 1.5 MB. Without one, a drawing in your brand colour is shown.</p>
+                                @if (!string.IsNullOrEmpty(s.HeroImage)) { <button type="button" class="ms-btn sm" @onclick="() => { s.HeroImage = string.Empty; Dirty(); }"><i class="bi bi-trash3"></i> Remove picture</button> }</div>
+                        </div>
+                    </div>
+                    <div class="cc-card">
+                        <h3><i class="bi bi-123"></i> Figures strip</h3>
+                        <p class="sub">Use <b>{members}</b>, <b>{years}</b>, <b>{products}</b>, <b>{dividend}</b> or <b>{paybill}</b> for live numbers, or type your own.</p>
+                        <div class="cc-row"><div class="m"><b>Show figures</b></div><div class="e"><ToggleSwitch Value="s.ShowStats" ValueChanged="@((bool v) => { s.ShowStats = v; Dirty(); })" AriaLabel="Show figures" /></div></div>
+                        @for (var i = 0; i < s.Stats.Count; i++)
+                        {
+                            var st = s.Stats[i]; var ix = i;
+                            <div class="cc-two" style="grid-template-columns:1fr 1.4fr auto;margin-top:10px">
+                                <input class="ms-input" @bind="st.Value" @bind:after="Dirty" placeholder="Value" />
+                                <input class="ms-input" @bind="st.Label" @bind:after="Dirty" placeholder="Label" />
+                                <button type="button" class="ms-icon-btn" @onclick="() => { s.Stats.RemoveAt(ix); Dirty(); }" aria-label="Remove"><i class="bi bi-trash3"></i></button>
+                            </div>
+                        }
+                        @if (s.Stats.Count < 6) { <button type="button" class="ms-btn sm" style="margin-top:12px" @onclick="() => { s.Stats.Add(new()); Dirty(); }"><i class="bi bi-plus-lg"></i> Add figure</button> }
+                    </div>
+                    <div class="cc-card">
+                        <h3><i class="bi bi-hand-thumbs-up"></i> Why join us</h3>
+                        <p class="sub">Short reasons shown as cards.</p>
+                        @FeatureEditor(s.Why, 8)
+                    </div>
+                }
+                else if (tab == "about")
+                {
+                    <div class="cc-card">
+                        <h3><i class="bi bi-book"></i> Our story</h3>
+                        <div class="cc-two">
+                            <div class="ms-field full"><label class="ms-label">Title</label><input class="ms-input" @bind="s.AboutTitle" @bind:after="Dirty" /></div>
+                            <div class="ms-field full"><label class="ms-label">Story</label><textarea class="ms-input" rows="6" style="height:auto;padding-top:10px" @bind="s.AboutText" @bind:after="Dirty" maxlength="4000"></textarea></div>
+                            <div class="ms-field"><label class="ms-label">Vision</label><textarea class="ms-input" rows="3" style="height:auto;padding-top:10px" @bind="s.Vision" @bind:after="Dirty"></textarea></div>
+                            <div class="ms-field"><label class="ms-label">Mission</label><textarea class="ms-input" rows="3" style="height:auto;padding-top:10px" @bind="s.Mission" @bind:after="Dirty"></textarea></div>
+                        </div>
+                    </div>
+                    <div class="cc-card">
+                        <h3><i class="bi bi-gem"></i> Core values</h3>
+                        @LinesEditor(s.Values, "Value", 10)
+                    </div>
+                    <div class="cc-card">
+                        <h3><i class="bi bi-people"></i> Board and management</h3>
+                        <p class="sub">Group people by Board, Supervisory committee or Management.</p>
+                        @for (var i = 0; i < s.Team.Count; i++)
+                        {
+                            var p = s.Team[i]; var ix = i;
+                            <div class="cc-two" style="grid-template-columns:1.3fr 1fr 1fr auto;margin-top:10px">
+                                <input class="ms-input" @bind="p.Name" @bind:after="Dirty" placeholder="Full name" />
+                                <input class="ms-input" @bind="p.Role" @bind:after="Dirty" placeholder="Role, e.g. Chairperson" />
+                                <select class="ms-select" @bind="p.Group" @bind:after="Dirty"><option>Board</option><option>Supervisory committee</option><option>Management</option><option>Staff</option></select>
+                                <button type="button" class="ms-icon-btn" @onclick="() => { s.Team.RemoveAt(ix); Dirty(); }" aria-label="Remove"><i class="bi bi-trash3"></i></button>
+                            </div>
+                        }
+                        <button type="button" class="ms-btn sm" style="margin-top:12px" @onclick="() => { s.Team.Add(new()); Dirty(); }"><i class="bi bi-person-plus"></i> Add person</button>
+                    </div>
+                }
+                else if (tab == "products")
+                {
+                    <div class="cc-card">
+                        <h3><i class="bi bi-piggy-bank"></i> Savings products</h3>
+                        <p class="sub">Loan products, rates and the calculator come from <a href="settings?tab=loan-products" style="color:var(--ms-accent);font-weight:700">Settings, Loan products</a>.</p>
+                        @FeatureEditor(s.Savings, 12)
+                    </div>
+                }
+                else if (tab == "membership")
+                {
+                    <div class="cc-card"><h3><i class="bi bi-card-checklist"></i> Requirements</h3><p class="sub">Fees and minimums come from Settings, Membership.</p>@LinesEditor(s.Requirements, "Requirement", 15)</div>
+                    <div class="cc-card"><h3><i class="bi bi-signpost-split"></i> Steps to join</h3>@LinesEditor(s.Steps, "Step", 8)</div>
+                    <div class="cc-card">
+                        <h3><i class="bi bi-question-circle"></i> Frequently asked questions</h3>
+                        @for (var i = 0; i < s.Faqs.Count; i++)
+                        {
+                            var f = s.Faqs[i]; var ix = i;
+                            <div style="display:grid;gap:8px;padding:12px 0;border-top:1px solid var(--ms-border)">
+                                <div style="display:flex;gap:8px"><input class="ms-input" @bind="f.Q" @bind:after="Dirty" placeholder="Question" /><button type="button" class="ms-icon-btn" @onclick="() => { s.Faqs.RemoveAt(ix); Dirty(); }" aria-label="Remove"><i class="bi bi-trash3"></i></button></div>
+                                <textarea class="ms-input" rows="2" style="height:auto;padding-top:10px" @bind="f.A" @bind:after="Dirty" placeholder="Answer"></textarea>
+                            </div>
+                        }
+                        <button type="button" class="ms-btn sm" style="margin-top:12px" @onclick="() => { s.Faqs.Add(new()); Dirty(); }"><i class="bi bi-plus-lg"></i> Add question</button>
+                    </div>
+                }
+                else if (tab == "news")
+                {
+                    <div class="cc-card">
+                        <h3><i class="bi bi-newspaper"></i> News and notices</h3>
+                        <p class="sub">AGM notices, dividend payouts, new products. Newest first.</p>
+                        <button type="button" class="ms-btn primary sm" @onclick="AddNews"><i class="bi bi-plus-lg"></i> New story</button>
+                        @foreach (var n in s.News.OrderByDescending(x => x.Date).ToList())
+                        {
+                            var item = n;
+                            <div style="display:grid;gap:10px;padding:16px 0;border-top:1px solid var(--ms-border);margin-top:14px">
+                                <div class="cc-two" style="grid-template-columns:1fr 170px auto auto">
+                                    <input class="ms-input" @bind="item.Title" @bind:after="Dirty" placeholder="Headline" style="font-weight:700" />
+                                    <input class="ms-input" type="date" value="@item.Date.ToString("yyyy-MM-dd")" @onchange="e => SetDate(item, e)" />
+                                    <ToggleSwitch Value="item.Published" ValueChanged="@((bool v) => { item.Published = v; Dirty(); })" AriaLabel="Published" />
+                                    <button type="button" class="ms-icon-btn" @onclick="() => { s.News.Remove(item); Dirty(); }" aria-label="Delete story"><i class="bi bi-trash3"></i></button>
+                                </div>
+                                <input class="ms-input" @bind="item.Summary" @bind:after="Dirty" placeholder="One-line summary" />
+                                <textarea class="ms-input" rows="4" style="height:auto;padding-top:10px" @bind="item.Body" @bind:after="Dirty" placeholder="Full story"></textarea>
+                            </div>
+                        }
+                    </div>
+                }
+                else if (tab == "contact")
+                {
+                    <div class="cc-card">
+                        <h3><i class="bi bi-geo-alt"></i> Contact page</h3>
+                        <p class="sub">Phone, email, address and Paybill come from Settings.</p>
+                        <div class="cc-two">
+                            <div class="ms-field full"><label class="ms-label">Office hours</label><input class="ms-input" @bind="s.OfficeHours" @bind:after="Dirty" /></div>
+                            <div class="ms-field full"><label class="ms-label">Map location</label><input class="ms-input" @bind="s.MapQuery" @bind:after="Dirty" placeholder="e.g. Tajiri Plaza, Moi Avenue, Nairobi" /><span class="ms-hint">Shown as a Google map. Leave empty to hide.</span></div>
+                        </div>
+                    </div>
+                    <div class="cc-card">
+                        <h3><i class="bi bi-share"></i> Social and WhatsApp</h3>
+                        <div class="cc-two">
+                            <div class="ms-field"><label class="ms-label">WhatsApp number</label><input class="ms-input" @bind="s.WhatsApp" @bind:after="Dirty" placeholder="+254 7…" /></div>
+                            <div class="ms-field"><label class="ms-label">Facebook page</label><input class="ms-input" @bind="s.Facebook" @bind:after="Dirty" placeholder="https://facebook.com/…" /></div>
+                            <div class="ms-field"><label class="ms-label">X (Twitter) handle</label><input class="ms-input" @bind="s.XHandle" @bind:after="Dirty" placeholder="@@yoursacco" /></div>
+                            <div class="ms-field"><label class="ms-label">Instagram</label><input class="ms-input" @bind="s.Instagram" @bind:after="Dirty" placeholder="https://instagram.com/…" /></div>
+                        </div>
+                    </div>
+                }
+                else if (tab == "enquiries")
+                {
+                    <div class="cc-card">
+                        <h3><i class="bi bi-inbox"></i> Enquiries from the website</h3>
+                        <div class="ms-seg" style="margin:8px 0 14px;display:inline-flex">
+                            @foreach (var f in new[] { "New", "Contacted", "Closed", "" })
+                            {
+                                var ff = f;
+                                <button type="button" class="@(enqFilter == ff ? "on" : "")" @onclick="() => LoadEnquiries(ff)">@(ff == "" ? "All" : ff)</button>
+                            }
+                        </div>
+                        @if (enquiries == null) { <div class="ms-skel" style="height:120px"></div> }
+                        else if (enquiries.Count == 0) { <EmptyState Icon="bi-inbox" Title="Nothing here" Text="Messages sent from the website's forms show up here." /> }
+                        else
+                        {
+                            @foreach (var q in enquiries)
+                            {
+                                var eq = q;
+                                <div class="cc-row" style="align-items:flex-start">
+                                    <span class="cc-ico" style="--t:@(eq.Kind == "Loan" ? "#D4A62A" : eq.Kind == "Membership" ? "#0B7A52" : "#2559C7")"><i class="bi @(eq.Kind == "Loan" ? "bi-cash-coin" : eq.Kind == "Membership" ? "bi-person-plus" : "bi-chat-dots")"></i></span>
+                                    <div class="m">
+                                        <b>@eq.Name <span class="ms-muted" style="font-weight:600;font-size:12.5px">· @eq.Kind · @eq.CreatedUtc.ToLocalTime().ToString("d MMM, HH:mm")</span></b>
+                                        <small style="white-space:pre-line;color:var(--ms-text-2);font-size:13.5px;margin-top:4px">@eq.Message</small>
+                                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+                                            @if (!string.IsNullOrWhiteSpace(eq.Phone)) { <a class="ms-btn sm" href="@("tel:" + eq.Phone.Replace(" ", ""))"><i class="bi bi-telephone"></i> @eq.Phone</a>
+                                                <a class="ms-btn sm" href="@WaFor(eq.Phone)" target="_blank" rel="noopener"><i class="bi bi-whatsapp"></i> WhatsApp</a> }
+                                            @if (!string.IsNullOrWhiteSpace(eq.Email)) { <a class="ms-btn sm" href="@("mailto:" + eq.Email)"><i class="bi bi-envelope"></i> @eq.Email</a> }
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(eq.HandledBy)) { <small style="margin-top:6px">Handled by @eq.HandledBy</small> }
+                                    </div>
+                                    <div class="e">
+                                        <select class="ms-select" style="width:140px" value="@eq.Status" @onchange="e => SetStatus(eq, e)"><option>New</option><option>Contacted</option><option>Closed</option></select>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+
+                @if (dirty && tab != "enquiries")
+                {
+                    <div class="ms-savebar" role="status">
+                        <i class="bi bi-pencil-square"></i>
+                        <span>Unsaved website changes</span>
+                        <button type="button" class="ms-btn" @onclick="Discard">Discard</button>
+                        <button type="button" class="ms-btn primary @(saving ? "busy" : "")" disabled="@saving" @onclick="Save">@if (saving) { <span class="ms-spin"></span> } Save and publish</button>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private sealed record T(string Key, string Title, string Hint, string Icon, string Color);
+    private static readonly T[] Tabs =
+    {
+        new("home", "Home page", "Hero, figures, why join", "bi-house", "#0B7A52"),
+        new("about", "About us", "Story, vision, board", "bi-info-circle", "#2559C7"),
+        new("products", "Products", "Savings products", "bi-piggy-bank", "#D4A62A"),
+        new("membership", "Membership", "Requirements, steps, FAQs", "bi-person-plus", "#14a173"),
+        new("news", "News", "Notices and stories", "bi-newspaper", "#8b5cf6"),
+        new("contact", "Contact", "Hours, map, social", "bi-geo-alt", "#ec4899"),
+        new("enquiries", "Enquiries", "Messages from visitors", "bi-inbox", "#f97316"),
+    };
+    private static readonly string[] IconChoices = { "bi-star", "bi-graph-up-arrow", "bi-lightning-charge", "bi-phone", "bi-shield-check", "bi-piggy-bank", "bi-pie-chart", "bi-calendar2-heart", "bi-mortarboard", "bi-people", "bi-house-door", "bi-heart", "bi-cash-stack", "bi-bank", "bi-tree", "bi-trophy" };
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+
+    [SupplyParameterFromQuery(Name = "tab")] public string? TabParam { get; set; }
+    private string tab = "home";
+    private SiteContent? s;
+    private string original = "";
+    private bool dirty, saving;
+    private string? error;
+    private int newCount;
+    private List<Enquiry>? enquiries;
+    private string enqFilter = "New";
+
+    protected override void OnParametersSet() { if (Tabs.Any(t => t.Key == TabParam)) tab = TabParam!; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var r = await Http.GetAsync($"{Nav.BaseUri}api/site");
+            s = r.IsSuccessStatusCode ? await r.Content.ReadFromJsonAsync<SiteContent>(Json) : null;
+            if (s == null) error = "Couldn't load the website content (" + (int)r.StatusCode + ").";
+        }
+        catch (Exception ex) { error = ex.Message; }
+        s ??= JsonSerializer.Deserialize<SiteContent>(JsonSerializer.Serialize(Store.Current, Json), Json)!;
+        original = JsonSerializer.Serialize(s, Json);
+        newCount = await Store.NewEnquiryCountAsync();
+        if (tab == "enquiries") await LoadEnquiries("New");
+    }
+
+    private async Task Go(string key)
+    {
+        tab = key;
+        Nav.NavigateTo("website?tab=" + key, replace: true);
+        if (key == "enquiries" && enquiries == null) await LoadEnquiries(enqFilter);
+    }
+
+    private void Dirty() { dirty = s != null && JsonSerializer.Serialize(s, Json) != original; }
+
+    private void Discard() { s = JsonSerializer.Deserialize<SiteContent>(original, Json); dirty = false; error = null; }
+
+    private async Task Save()
+    {
+        if (s == null) return;
+        error = SiteStore.Validate(s);
+        if (error != null) return;
+        saving = true;
+        try
+        {
+            var r = await Http.PutAsJsonAsync($"{Nav.BaseUri}api/site", s, Json);
+            if (!r.IsSuccessStatusCode)
+            {
+                var body = await r.Content.ReadAsStringAsync();
+                try { using var d = JsonDocument.Parse(body); error = d.RootElement.GetProperty("message").GetString(); } catch { error = "The server rejected the change (" + (int)r.StatusCode + ")."; }
+                return;
+            }
+            s = await r.Content.ReadFromJsonAsync<SiteContent>(Json) ?? s;
+            original = JsonSerializer.Serialize(s, Json);
+            dirty = false;
+            await JS.InvokeVoidAsync("ms.toast", "success", "Website updated", s.Published ? "Changes are live." : "Saved. The website is still unpublished.");
+        }
+        catch (Exception ex) { error = "Network error: " + ex.Message; }
+        finally { saving = false; }
+    }
+
+    private async Task OnHero(InputFileChangeEventArgs e)
+    {
+        if (s == null) return;
+        var f = e.File;
+        if (f.ContentType is not ("image/png" or "image/jpeg" or "image/webp")) { error = "Please choose a JPG, PNG or WebP picture."; return; }
+        if (f.Size > 1_500_000) { error = "That picture is larger than 1.5 MB."; return; }
+        using var ms = new MemoryStream();
+        await f.OpenReadStream(1_500_000).CopyToAsync(ms);
+        s.HeroImage = "data:" + f.ContentType + ";base64," + Convert.ToBase64String(ms.ToArray());
+        error = null; Dirty();
+    }
+
+    private void AddNews() { s!.News.Insert(0, new SiteContent.NewsItem { Title = "New story", Date = DateTime.Today, Published = false }); Dirty(); }
+    private void SetDate(SiteContent.NewsItem n, ChangeEventArgs e) { if (DateTime.TryParse(e.Value?.ToString(), out var d)) { n.Date = d; Dirty(); } }
+
+    private async Task LoadEnquiries(string status)
+    {
+        enqFilter = status; enquiries = null;
+        try
+        {
+            var r = await Http.GetAsync($"{Nav.BaseUri}api/site/enquiries" + (status == "" ? "" : "?status=" + status));
+            enquiries = r.IsSuccessStatusCode ? await r.Content.ReadFromJsonAsync<List<Enquiry>>(Json) ?? new() : new();
+        }
+        catch { enquiries = new(); }
+    }
+
+    private async Task SetStatus(Enquiry q, ChangeEventArgs e)
+    {
+        var st = e.Value?.ToString() ?? "New";
+        var r = await Http.PostAsJsonAsync($"{Nav.BaseUri}api/site/enquiries/{q.Id}/status", new { status = st });
+        if (r.IsSuccessStatusCode) { await JS.InvokeVoidAsync("ms.toast", "success", "Marked " + st.ToLowerInvariant()); newCount = await Store.NewEnquiryCountAsync(); await LoadEnquiries(enqFilter); }
+        else await JS.InvokeVoidAsync("ms.toast", "error", "Couldn't update that enquiry");
+    }
+
+    private static string WaFor(string phone)
+    {
+        var d = new string(phone.Where(char.IsDigit).ToArray());
+        if (d.StartsWith("0")) d = "254" + d[1..];
+        return "https://wa.me/" + d;
+    }
+
+    private RenderFragment FeatureEditor(List<SiteContent.Feature> list, int max) => __builder =>
+    {
+        for (var i = 0; i < list.Count; i++)
+        {
+            var f = list[i]; var ix = i;
+            <div style="display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:start;padding:12px 0;border-top:1px solid var(--ms-border)">
+                <button type="button" class="cc-ico" style="border:0;cursor:pointer" title="Change icon" @onclick="() => { f.Icon = IconChoices[(Array.IndexOf(IconChoices, f.Icon) + 1) % IconChoices.Length]; Dirty(); }"><i class="bi @f.Icon"></i></button>
+                <div style="display:grid;gap:8px">
+                    <input class="ms-input" @bind="f.Title" @bind:after="Dirty" placeholder="Title" style="font-weight:700" />
+                    <input class="ms-input" @bind="f.Text" @bind:after="Dirty" placeholder="Short description" />
+                </div>
+                <button type="button" class="ms-icon-btn" @onclick="() => { list.RemoveAt(ix); Dirty(); }" aria-label="Remove"><i class="bi bi-trash3"></i></button>
+            </div>
+        }
+        if (list.Count < max)
+        {
+            <button type="button" class="ms-btn sm" style="margin-top:12px" @onclick="() => { list.Add(new SiteContent.Feature { Title = string.Empty }); Dirty(); }"><i class="bi bi-plus-lg"></i> Add</button>
+        }
+    };
+
+    private RenderFragment LinesEditor(List<string> list, string label, int max) => __builder =>
+    {
+        for (var i = 0; i < list.Count; i++)
+        {
+            var ix = i;
+            <div style="display:flex;gap:8px;margin-top:8px">
+                <input class="ms-input" value="@list[ix]" @onchange="e => { list[ix] = e.Value?.ToString() ?? string.Empty; Dirty(); }" placeholder="@label" />
+                <button type="button" class="ms-icon-btn" @onclick="() => { list.RemoveAt(ix); Dirty(); }" aria-label="Remove"><i class="bi bi-trash3"></i></button>
+            </div>
+        }
+        if (list.Count < max)
+        {
+            <button type="button" class="ms-btn sm" style="margin-top:12px" @onclick="() => { list.Add(string.Empty); Dirty(); }"><i class="bi bi-plus-lg"></i> Add @label.ToLowerInvariant()</button>
+        }
+    };
+}

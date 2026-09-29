@@ -1,0 +1,175 @@
+@using SaccoManagementSystem.Models
+@using SaccoManagementSystem.Services
+@using Microsoft.AspNetCore.Components.Forms
+@inject ConfigStore Cfg
+
+<EditForm Model="Model" OnValidSubmit="Submit">
+    <DataAnnotationsValidator />
+
+    @if (!string.IsNullOrEmpty(localError ?? ErrorMessage))
+    {
+        <div class="ms-alert bad" role="alert"><i class="bi bi-exclamation-circle-fill"></i><div>@(localError ?? ErrorMessage)</div></div>
+    }
+
+    <div class="ms-form mf">
+        <section class="mf-hero">
+            <div class="mf-photo">
+                <span class="ms-avatar xl">@if (!string.IsNullOrEmpty(PhotoSrc)) { <img src="@PhotoSrc" alt="" /> } else { @Initials }</span>
+                <label class="pf-cam" title="Add a photo"><i class="bi bi-camera-fill"></i><InputFile OnChange="OnPhoto" accept="image/png,image/jpeg,image/webp" aria-label="Member photo" /></label>
+            </div>
+            <div class="mf-who">
+                <small>@(IsEdit ? "Editing" : "New member")</small>
+                <b>@(string.IsNullOrWhiteSpace(Model.FirstName) ? "Member name" : Model.FirstName + " " + Model.LastName)</b>
+                <span><i class="bi bi-hash"></i>@Model.MemberNo · @(Model.Status ?? "Active")</span>
+                @if (!string.IsNullOrEmpty(Extras.Photo)) { <button type="button" class="pf-link" @onclick="() => Extras.Photo = string.Empty">Remove photo</button> }
+            </div>
+            <div class="mf-steps">
+                @foreach (var (label, ok) in Progress) { <span class="@(ok ? "ok" : "")"><i class="bi @(ok ? "bi-check-circle-fill" : "bi-circle")"></i>@label</span> }
+            </div>
+        </section>
+
+        <section class="ms-fs">
+            <div class="ms-fs-head"><i class="bi bi-person-vcard"></i><div><h3>Identity</h3><small>As it appears on the national ID</small></div></div>
+            <div class="ms-fs-body">
+                <div class="ms-grid-form">
+                    <Field Class="c6" Label="Member number" Hint="Assigned automatically"><InputText id="memberNo" class="ms-input" @bind-Value="Model.MemberNo" disabled /></Field>
+                    <Field Class="c6" Label="Status" Required="true" For="@(() => Model.Status)">
+                        <InputSelect id="status" class="ms-select" @bind-Value="Model.Status">
+                            <option value="">Select status</option><option value="Active">Active</option><option value="Pending">Pending</option>
+                            <option value="Inactive">Inactive</option><option value="Suspended">Suspended</option><option value="Exited">Exited</option>
+                        </InputSelect>
+                    </Field>
+                    <Field Class="c6" Label="First name(s)" Required="true" For="@(() => Model.FirstName)"><InputText id="firstName" class="ms-input" autocomplete="given-name" @bind-Value="Model.FirstName" /></Field>
+                    <Field Class="c6" Label="Surname" Required="true" For="@(() => Model.LastName)"><InputText id="lastName" class="ms-input" autocomplete="family-name" @bind-Value="Model.LastName" /></Field>
+                    <Field Class="c6" Label="National ID / Passport"><InputText id="nationalId" class="ms-input" inputmode="numeric" @bind-Value="Model.NationalID" /></Field>
+                    <Field Class="c6" Label="Date of birth" Hint="@($"Members must be {Cfg.Current.MinMemberAge}+" + (Age is int a ? $" · currently {a}" : ""))"><InputDate id="dob" class="ms-input" @bind-Value="Model.DateOfBirth" max="@DateTime.Today.AddYears(-Cfg.Current.MinMemberAge).ToString("yyyy-MM-dd")" /></Field>
+                    <Field Class="c6" Label="Gender">
+                        <InputSelect id="gender" class="ms-select" @bind-Value="Model.Gender"><option value="">Select gender</option><option value="Female">Female</option><option value="Male">Male</option></InputSelect>
+                    </Field>
+                    <Field Class="c6" Label="Marital status">
+                        <InputSelect id="maritalStatus" class="ms-select" @bind-Value="Model.MaritalStatus"><option value="">Select status</option><option value="Single">Single</option><option value="Married">Married</option><option value="Divorced">Divorced</option><option value="Widowed">Widowed</option></InputSelect>
+                    </Field>
+                    <Field Class="c6" Label="KRA PIN" Required="@Cfg.Current.RequireKraPin" Hint="11 characters, e.g. A001234567Z"><input class="ms-input" maxlength="11" style="text-transform:uppercase" @bind="Extras.KraPin" /></Field>
+                </div>
+            </div>
+        </section>
+
+        <section class="ms-fs">
+            <div class="ms-fs-head"><i class="bi bi-telephone"></i><div><h3>Contact</h3><small>How we reach them</small></div></div>
+            <div class="ms-fs-body">
+                <div class="ms-grid-form">
+                    <Field Class="c6" Label="Mobile (M-Pesa)" Required="true" For="@(() => Model.PhoneNumber)" Hint="Used for SMS alerts and M-Pesa matching"><InputText id="phone" type="tel" class="ms-input" autocomplete="tel" placeholder="0712 345 678" @bind-Value="Model.PhoneNumber" /></Field>
+                    <Field Class="c6" Label="Email" Required="true" For="@(() => Model.Email)"><InputText id="email" type="email" class="ms-input" autocomplete="email" placeholder="name@example.com" @bind-Value="Model.Email" /></Field>
+                    <Field Class="c6" Label="County">
+                        <select class="ms-select" @bind="Extras.County"><option value="">Choose county</option>@foreach (var c in ProfileStore.Counties) { <option>@c</option> }</select>
+                    </Field>
+                    <Field Class="c6" Label="Postal address"><input class="ms-input" @bind="Extras.PostalAddress" placeholder="P.O. Box 7000-90131, Tala" /></Field>
+                    <Field Class="c12" Label="Physical address"><InputTextArea id="address" class="ms-input" placeholder="Estate, village or building, town" @bind-Value="Model.Address" /></Field>
+                    <Field Class="c6" Label="Preferred channel">
+                        <div class="ms-seg" role="radiogroup">
+                            @foreach (var ch in new[] { "SMS", "WhatsApp", "Email", "Call" }) { var cc = ch; <button type="button" class="@(Extras.PreferredChannel == cc ? "on" : "")" @onclick="() => Extras.PreferredChannel = cc">@cc</button> }
+                        </div>
+                    </Field>
+                </div>
+            </div>
+        </section>
+
+        <section class="ms-fs">
+            <div class="ms-fs-head"><i class="bi bi-briefcase"></i><div><h3>Work and check-off</h3><small>For employer deductions</small></div></div>
+            <div class="ms-fs-body">
+                <div class="ms-grid-form">
+                    <Field Class="c6" Label="Occupation"><InputText id="occupation" class="ms-input" placeholder="e.g. Teacher, Trader, Boda boda rider" @bind-Value="Model.Occupation" /></Field>
+                    <Field Class="c6" Label="Employer / business"><InputText id="employer" class="ms-input" placeholder="e.g. TSC, Machakos County, Self-employed" @bind-Value="Model.Employer" /></Field>
+                    @if (Cfg.Current.CheckOffEnabled)
+                    {
+                        <div class="c6 mf-toggle"><ToggleSwitch Value="Extras.CheckOff" ValueChanged="@((bool v) => Extras.CheckOff = v)" AriaLabel="Pays by check-off" /><div><b>Pays by check-off</b><small>Deductions come from the employer's payroll.</small></div></div>
+                        <Field Class="c6" Label="Payroll number"><input class="ms-input" @bind="Extras.PayrollNo" disabled="@(!Extras.CheckOff)" /></Field>
+                    }
+                </div>
+            </div>
+        </section>
+
+        <section class="ms-fs">
+            <div class="ms-fs-head"><i class="bi bi-people"></i><div><h3>Next of kin</h3><small>@(Cfg.Current.RequireNextOfKin ? "Required · receives benefits if the member passes on" : "Receives benefits if the member passes on")</small></div></div>
+            <div class="ms-fs-body">
+                <div class="ms-grid-form">
+                    <Field Class="c6" Label="Full name" Required="@Cfg.Current.RequireNextOfKin"><input class="ms-input" @bind="Extras.NextOfKinName" /></Field>
+                    <Field Class="c6" Label="Relationship">
+                        <select class="ms-select" @bind="Extras.NextOfKinRelation"><option value="">Choose</option><option>Spouse</option><option>Child</option><option>Parent</option><option>Sibling</option><option>Relative</option><option>Guardian</option></select>
+                    </Field>
+                    <Field Class="c6" Label="Phone" Required="@Cfg.Current.RequireNextOfKin"><input class="ms-input" type="tel" @bind="Extras.NextOfKinPhone" placeholder="07…" /></Field>
+                    <Field Class="c6" Label="ID number"><input class="ms-input" inputmode="numeric" @bind="Extras.NextOfKinIdNo" /></Field>
+                </div>
+            </div>
+        </section>
+
+        <section class="ms-fs">
+            <div class="ms-fs-head"><i class="bi bi-card-checklist"></i><div><h3>Membership</h3><small>Joining</small></div></div>
+            <div class="ms-fs-body">
+                <div class="ms-grid-form">
+                    <Field Class="c6" Label="Join date"><InputDate id="joinDate" class="ms-input" @bind-Value="Model.JoinDate" /></Field>
+                    <div class="c6 ms-hint" style="align-self:center">@if (!IsEdit) { <span>Entrance fee <b>@Cfg.Current.CurrencySymbol @Cfg.Current.EntranceFee.ToString("N0")</b> · minimum monthly deposit <b>@Cfg.Current.CurrencySymbol @Cfg.Current.MinMonthlyDeposit.ToString("N0")</b>. Record them under Payments after saving.</span> }</div>
+                </div>
+            </div>
+        </section>
+
+        <div class="ms-formbar">
+            <span class="sp">@(IsEdit ? "Editing an existing member" : "Fields marked * are required")</span>
+            @if (!IsEdit) { <button type="button" class="ms-btn" @onclick="OnReset" disabled="@Busy">Reset</button> }
+            <button type="button" class="ms-btn" @onclick="OnCancel" disabled="@Busy">Cancel</button>
+            <button type="submit" class="ms-btn primary @(Busy ? "busy" : "")">@if (Busy) { <span class="ms-spin"></span> } else { <i class="bi bi-check2"></i> } @(IsEdit ? "Save changes" : "Save member")</button>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter, EditorRequired] public MemberModel Model { get; set; } = new();
+    [Parameter] public MemberExtras Extras { get; set; } = new();
+    [Parameter] public bool IsEdit { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
+    [Parameter] public EventCallback OnValidSubmit { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public EventCallback OnReset { get; set; }
+
+    private string? localError;
+    private string? PhotoSrc => !string.IsNullOrEmpty(Extras.Photo) ? Extras.Photo : (string.IsNullOrWhiteSpace(Model.ProfileImageUrl) ? null : Model.ProfileImageUrl);
+    private string Initials
+    {
+        get
+        {
+            var a = (Model.FirstName ?? "").Trim(); var b = (Model.LastName ?? "").Trim();
+            var s = ((a.Length > 0 ? a[..1] : "") + (b.Length > 0 ? b[..1] : "")).ToUpperInvariant();
+            return s.Length == 0 ? "?" : s;
+        }
+    }
+    private int? Age => Model.DateOfBirth is DateTime d ? DateTime.Today.Year - d.Year - (DateTime.Today.DayOfYear < d.DayOfYear ? 1 : 0) : null;
+    private IEnumerable<(string, bool)> Progress => new[]
+    {
+        ("Identity", !string.IsNullOrWhiteSpace(Model.FirstName) && !string.IsNullOrWhiteSpace(Model.NationalID)),
+        ("Contact", !string.IsNullOrWhiteSpace(Model.PhoneNumber)),
+        ("KRA PIN", !string.IsNullOrWhiteSpace(Extras.KraPin)),
+        ("Next of kin", !string.IsNullOrWhiteSpace(Extras.NextOfKinName)),
+        ("Photo", !string.IsNullOrEmpty(PhotoSrc)),
+    };
+
+    private async Task OnPhoto(InputFileChangeEventArgs e)
+    {
+        localError = null;
+        var f = e.File;
+        if (f.ContentType is not ("image/png" or "image/jpeg" or "image/webp")) { localError = "Please choose a JPG, PNG or WebP photo."; return; }
+        if (f.Size > 1_000_000) { localError = "That photo is larger than 1 MB. Try a smaller one."; return; }
+        using var ms = new MemoryStream();
+        await f.OpenReadStream(1_000_000).CopyToAsync(ms);
+        Extras.Photo = "data:" + f.ContentType + ";base64," + Convert.ToBase64String(ms.ToArray());
+    }
+
+    private async Task Submit()
+    {
+        localError = MemberExtrasStore.Check(Model, Extras, Cfg.Current);
+        if (localError != null) return;
+        Model.PhoneNumber = MemberExtrasStore.KenyanPhone(Model.PhoneNumber);
+        Extras.NextOfKinPhone = MemberExtrasStore.KenyanPhone(Extras.NextOfKinPhone);
+        await OnValidSubmit.InvokeAsync();
+    }
+}

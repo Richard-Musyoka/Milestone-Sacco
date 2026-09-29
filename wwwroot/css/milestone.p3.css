@@ -1,0 +1,20 @@
+/* ---------- Phase 3: theme toggle, roles, dark polish ---------- */
+.ms-theme-btn .ms-t-light{display:none}
+[data-theme="dark"] .ms-theme-btn .ms-t-dark{display:none}
+[data-theme="dark"] .ms-theme-btn .ms-t-light{display:block}
+.ms-role{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:12.5px;padding:3px 10px;border-radius:99px;background:var(--ms-surface-2);border:1px solid var(--ms-border);color:var(--ms-text-2)}
+.ms-role.admin{background:var(--ms-accent-soft);color:var(--ms-accent);border-color:transparent}
+.ms-role.manager{background:var(--ms-blue-soft);color:var(--ms-blue);border-color:transparent}
+.ms-role.teller{background:var(--ms-gold-soft);color:var(--ms-amber);border-color:transparent}
+.ms-role-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.ms-role-card{border:1px solid var(--ms-border);border-radius:var(--ms-radius-sm);padding:12px 14px;background:var(--ms-surface-2)}
+.ms-role-card b{display:block;margin-bottom:4px}
+.ms-role-card p{margin:0;color:var(--ms-text-3);font-size:12.5px;line-height:1.45}
+.ms-secret{display:flex;align-items:center;gap:10px;background:var(--ms-surface-2);border:1px dashed var(--ms-border-strong);border-radius:var(--ms-radius-sm);padding:12px 14px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:17px;font-weight:700;letter-spacing:.04em;word-break:break-all}
+.ms-secret span{flex:1}
+/* dark: things that used hard-coded light colours */
+[data-theme="dark"] .rp-chart circle{fill:var(--ms-surface)}
+[data-theme="dark"] .ms-table tbody tr:hover{background:rgba(255,255,255,.03)}
+[data-theme="dark"] .ms-input,[data-theme="dark"] .ms-select,[data-theme="dark"] select,[data-theme="dark"] textarea{background:var(--ms-surface-2);color:var(--ms-text);border-color:var(--ms-border)}
+[data-theme="dark"] .ms-input::placeholder{color:var(--ms-text-3)}
+[data-theme="dark"] ::-webkit-calendar-picker-indicator{filter:invert(.8)}

@@ -1,0 +1,656 @@
+﻿@page "/reports"
+@using System.Globalization
+@using System.Text
+@using Microsoft.Data.SqlClient
+@using Microsoft.Extensions.Configuration
+@using Microsoft.Extensions.Logging
+@inject IConfiguration Configuration
+@inject ILogger<Reports> Logger
+
+<PageTitle>Reports · @Brand.Name</PageTitle>
+
+<div class="ms-page">
+    <PageHeader Title="Reports" Subtitle="@Sub">
+        @if (!loading && tableRows.Count > 0)
+        {
+            <span class="rp-noprint" style="display:contents">
+                <a class="ms-btn" href="@CsvHref" download="@CsvFileName"><i class="bi bi-download"></i> Export CSV</a>
+                <button type="button" class="ms-btn" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
+            </span>
+        }
+    </PageHeader>
+
+    <div class="ms-card rp-noprint">
+        <div class="ms-toolbar" style="flex-wrap:wrap">
+            <div class="ms-chips" role="group" aria-label="Report type">
+                @foreach (var (value, text) in ReportTypes)
+                {
+                    var v = value;
+                    <button type="button" class="ms-chip @(model.ReportType == v ? "on" : "")" disabled="@loading" @onclick="() => Pick(v)">@text</button>
+                }
+            </div>
+        </div>
+        <div class="ms-toolbar" style="flex-wrap:wrap;border-top:1px solid var(--ms-border)">
+            <EditForm Model="@model" OnValidSubmit="@GenerateReport" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;width:100%">
+                <label class="ms-hint" for="startDate">From</label>
+                <InputDate @bind-Value="model.StartDate" class="ms-input" style="width:auto" id="startDate" />
+                <label class="ms-hint" for="endDate">to</label>
+                <InputDate @bind-Value="model.EndDate" class="ms-input" style="width:auto" id="endDate" />
+                <div class="ms-seg" role="group" aria-label="Quick range">
+                    <button type="button" @onclick="() => Preset(3)">3 mo</button>
+                    <button type="button" @onclick="() => Preset(6)">6 mo</button>
+                    <button type="button" @onclick="() => Preset(12)">12 mo</button>
+                </div>
+                <button type="submit" class="ms-btn primary @(loading ? "busy" : "")" style="margin-left:auto" disabled="@loading">@if (loading) { <span class="ms-spin"></span> } else { <i class="bi bi-arrow-repeat"></i> } Generate</button>
+            </EditForm>
+        </div>
+    </div>
+
+    @if (errors.Count > 0)
+    {
+        <div class="ms-alert warn ms-mt" role="alert"><i class="bi bi-exclamation-triangle-fill"></i>
+            <div><b>Some parts of this report couldn't load:</b>
+                <ul style="margin:6px 0 0 18px;padding:0">@foreach (var e in errors) { <li>@e</li> }</ul>
+            </div>
+        </div>
+    }
+
+    @if (loading)
+    {
+        <div class="ms-grid stats ms-mt">@for (int i = 0; i < 4; i++) { <div class="ms-skel" style="height:110px"></div> }</div>
+        <div class="ms-grid two ms-mt"><div class="ms-skel" style="height:300px"></div><div class="ms-skel" style="height:300px"></div></div>
+    }
+    else
+    {
+        @switch (shownReport)
+        {
+            case "FinancialSummary":
+                <div class="ms-grid stats ms-mt">
+                    @Kpi("Active members", data.ActiveMembers.ToString("N0"), "bi-people", "")
+                    @Kpi("Total contributions", Money(data.TotalContributions), "bi-piggy-bank-fill", "blue")
+                    @Kpi("Total savings (deposits)", Money(data.TotalSavings), "bi-safe", "gold")
+                    @Kpi("Total loans issued", Money(data.TotalLoansIssued), "bi-cash-coin", "red")
+                </div>
+                <div class="ms-grid two ms-mt">
+                    @ChartCard("Contributions trend", BarChart(data.ContributionsTrend, Blue, true))
+                    @ChartCard("Savings trend", LineChart(data.SavingsTrend, Green, true))
+                    @ChartCard("Loans issued", BarChart(data.LoansTrend, Gold, true))
+                    @ChartCard("Dividends paid", LineChart(data.DividendsTrend, Red, true))
+                </div>
+                break;
+
+            case "Contributions":
+                <div class="ms-grid two ms-mt">
+                    @ChartCard("Contributions by type", RankedBars(data.ByCategory, Blue, true))
+                    @ChartCard("Monthly contributions trend", LineChart(data.ContributionsTrend, Blue, true))
+                </div>
+                break;
+
+            case "Loans":
+                <div class="ms-grid two ms-mt">
+                    <section class="ms-card">
+                        <div class="ms-card-head"><div><h3>Loans by status</h3></div></div>
+                        @if (data.LoanStatus.Count == 0)
+                        {
+                            <div class="rp-empty">No loans disbursed in this period.</div>
+                        }
+                        else
+                        {
+                            <div class="ms-table-wrap">
+                                <table class="ms-table">
+                                    <thead><tr><th>Status</th><th class="r">Loans</th><th class="r">Total amount</th><th class="r">Share</th></tr></thead>
+                                    <tbody>
+                                        @foreach (var s in data.LoanStatus)
+                                        {
+                                            <tr>
+                                                <td><StatusPill Status="@s.Status" /></td>
+                                                <td class="r ms-num">@s.Count.ToString("N0")</td>
+                                                <td class="r ms-num">@Money(s.TotalAmount)</td>
+                                                <td class="r ms-num">@Pct(s.TotalAmount, data.LoanStatus.Sum(x => x.TotalAmount))</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                    <tfoot>
+                                        <tr style="font-weight:800">
+                                            <td>Total</td>
+                                            <td class="r ms-num">@data.LoanStatus.Sum(x => x.Count).ToString("N0")</td>
+                                            <td class="r ms-num">@Money(data.LoanStatus.Sum(x => x.TotalAmount))</td>
+                                            <td class="r ms-num">100%</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        }
+                    </section>
+                    @ChartCard("Loans disbursed by month", BarChart(data.LoansTrend, Gold, true))
+                </div>
+                break;
+
+            case "Dividends":
+                <div class="ms-grid two ms-mt">
+                    <section class="ms-card">
+                        <div class="ms-card-head"><div><h3>Dividends by financial year</h3></div></div>
+                        @if (data.DividendYears.Count == 0)
+                        {
+                            <div class="rp-empty">No dividends paid in this period.</div>
+                        }
+                        else
+                        {
+                            <div class="ms-table-wrap">
+                                <table class="ms-table">
+                                    <thead><tr><th>Financial year</th><th class="r">Total amount</th><th class="r">Members paid</th></tr></thead>
+                                    <tbody>
+                                        @foreach (var d in data.DividendYears)
+                                        {
+                                            <tr>
+                                                <td><b>@d.FinancialYear</b></td>
+                                                <td class="r ms-num">@Money(d.TotalAmount)</td>
+                                                <td class="r ms-num">@d.MemberCount.ToString("N0")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </section>
+                    @ChartCard("Top 10 dividend recipients", RankedBars(data.TopRecipients, Red, true))
+                </div>
+                break;
+
+            case "Savings":
+                <div class="ms-grid two ms-mt">
+                    @ChartCard("Savings by transaction type", RankedBars(data.ByCategory, Green, true))
+                    @ChartCard("Monthly deposits trend", LineChart(data.SavingsTrend, Green, true))
+                </div>
+                break;
+
+            case "Membership":
+                <div class="ms-grid stats ms-mt">
+                    @Kpi("Total members", data.MemberStatus.Sum(x => x.Value).ToString("N0"), "bi-people", "")
+                    @Kpi("New in period", data.MembershipGrowth.Sum(x => x.Value).ToString("N0"), "bi-person-plus", "blue")
+                    @Kpi("Active", (data.MemberStatus.FirstOrDefault(x => x.Label.Equals("Active", StringComparison.OrdinalIgnoreCase))?.Value ?? 0).ToString("N0"), "bi-person-check", "gold")
+                    @Kpi("Status groups", data.MemberStatus.Count.ToString("N0"), "bi-diagram-3", "red")
+                </div>
+                <div class="ms-grid two ms-mt">
+                    @ChartCard("Members by status", RankedBars(data.MemberStatus, Blue, false))
+                    @ChartCard("Members by gender", RankedBars(data.MemberGender, Gold, false))
+                </div>
+                <section class="ms-card ms-mt">
+                    <div class="ms-card-head"><div><h3>New members by month</h3></div></div>
+                    <div class="ms-card-body">@BarChart(data.MembershipGrowth, Green, false)</div>
+                </section>
+                break;
+        }
+    }
+</div>
+
+@code {
+    // ------------------------------------------------------------------ state
+
+    private static readonly (string Value, string Text)[] ReportTypes =
+    {
+        ("FinancialSummary", "Financial Summary"),
+        ("Contributions", "Contributions Analysis"),
+        ("Loans", "Loans Performance"),
+        ("Dividends", "Dividends Distribution"),
+        ("Savings", "Savings Trends"),
+        ("Membership", "Membership Statistics")
+    };
+
+    private readonly ReportFilter model = new()
+    {
+        StartDate = DateTime.Today.AddMonths(-6),
+        EndDate = DateTime.Today,
+        ReportType = "FinancialSummary"
+    };
+
+    private ReportData data = new();
+    private string shownReport = "FinancialSummary";
+    private bool loading;
+    private readonly List<string> errors = new();
+
+    /// <summary>Rows for the CSV export of whatever report is on screen.</summary>
+    private List<string[]> tableRows = new();
+
+    private string ReportTitle => ReportTypes.FirstOrDefault(r => r.Value == shownReport).Text ?? "Report";
+    private string CsvFileName => $"{shownReport}-{model.StartDate:yyyyMMdd}-{model.EndDate:yyyyMMdd}.csv";
+
+    private string CsvHref
+    {
+        get
+        {
+            var sb = new StringBuilder();
+            foreach (var row in tableRows)
+                sb.AppendLine(string.Join(",", row.Select(c => "\"" + (c ?? "").Replace("\"", "\"\"") + "\"")));
+            return "data:text/csv;charset=utf-8," + Uri.EscapeDataString(sb.ToString());
+        }
+    }
+
+    protected override async Task OnInitializedAsync() => await LoadReportData();
+
+    private async Task GenerateReport() => await LoadReportData();
+
+    // ------------------------------------------------------------------ loading
+
+    private async Task LoadReportData()
+    {
+        errors.Clear();
+        if (model.EndDate < model.StartDate)
+        {
+            errors.Add("The end date is before the start date.");
+            return;
+        }
+
+        loading = true;
+        data = new ReportData();
+        tableRows = new List<string[]>();
+        shownReport = model.ReportType;
+        StateHasChanged();
+
+        try
+        {
+            await using var connection = new SqlConnection(Configuration.GetConnectionString("DefaultConnection"));
+            await connection.OpenAsync();
+
+            switch (shownReport)
+            {
+                case "FinancialSummary": await LoadFinancialSummary(connection); break;
+                case "Contributions": await LoadContributionsReport(connection); break;
+                case "Loans": await LoadLoansReport(connection); break;
+                case "Dividends": await LoadDividendsReport(connection); break;
+                case "Savings": await LoadSavingsReport(connection); break;
+                case "Membership": await LoadMembershipReport(connection); break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading report {Report}", shownReport);
+            errors.Add("Could not connect to the database: " + ex.Message);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task LoadFinancialSummary(SqlConnection c)
+    {
+        await Safe("Active members", async () =>
+            data.ActiveMembers = (int)await ScalarAsync(c, "SELECT COUNT(*) FROM Members WHERE Status = 'Active'"));
+        await Safe("Contributions total", async () =>
+            data.TotalContributions = await ScalarAsync(c, "SELECT SUM(Amount) FROM Contributions WHERE ContributionDate >= @StartDate AND ContributionDate < @EndDate"));
+        await Safe("Savings total", async () =>
+            data.TotalSavings = await ScalarAsync(c, "SELECT SUM(Amount) FROM Savings WHERE TransactionType = 'Deposit' AND TransactionDate >= @StartDate AND TransactionDate < @EndDate"));
+        await Safe("Loans total", async () =>
+            data.TotalLoansIssued = await ScalarAsync(c, "SELECT SUM(LoanAmount) FROM Loans WHERE DisbursementDate >= @StartDate AND DisbursementDate < @EndDate"));
+
+        await Safe("Contributions trend", async () => data.ContributionsTrend = await MonthlyAsync(c, "Contributions", "ContributionDate", "SUM(Amount)"));
+        await Safe("Savings trend", async () => data.SavingsTrend = await MonthlyAsync(c, "Savings", "TransactionDate", "SUM(Amount)", "TransactionType = 'Deposit'"));
+        await Safe("Loans trend", async () => data.LoansTrend = await MonthlyAsync(c, "Loans", "DisbursementDate", "SUM(LoanAmount)"));
+        await Safe("Dividends trend", async () => data.DividendsTrend = await MonthlyAsync(c, "Dividends", "PaymentDate", "SUM(Amount)"));
+
+        tableRows.Add(new[] { "Month", "Contributions", "Savings deposits", "Loans issued", "Dividends paid" });
+        for (var i = 0; i < data.ContributionsTrend.Count; i++)
+        {
+            tableRows.Add(new[]
+            {
+                data.ContributionsTrend[i].Label,
+                Raw(data.ContributionsTrend[i].Value), Raw(At(data.SavingsTrend, i)), Raw(At(data.LoansTrend, i)), Raw(At(data.DividendsTrend, i))
+            });
+        }
+        tableRows.Add(new[] { "TOTAL", Raw(data.TotalContributions), Raw(data.TotalSavings), Raw(data.TotalLoansIssued), Raw(data.DividendsTrend.Sum(x => x.Value)) });
+    }
+
+    private async Task LoadContributionsReport(SqlConnection c)
+    {
+        await Safe("Contributions by type", async () => data.ByCategory = await CategoryAsync(c,
+            "SELECT ContributionType, SUM(Amount) FROM Contributions WHERE ContributionDate >= @StartDate AND ContributionDate < @EndDate GROUP BY ContributionType ORDER BY 2 DESC"));
+        await Safe("Contributions trend", async () => data.ContributionsTrend = await MonthlyAsync(c, "Contributions", "ContributionDate", "SUM(Amount)"));
+
+        tableRows.Add(new[] { "Contribution type", "Amount" });
+        tableRows.AddRange(data.ByCategory.Select(x => new[] { x.Label, Raw(x.Value) }));
+        tableRows.Add(new[] { "", "" });
+        tableRows.Add(new[] { "Month", "Amount" });
+        tableRows.AddRange(data.ContributionsTrend.Select(x => new[] { x.Label, Raw(x.Value) }));
+    }
+
+    private async Task LoadLoansReport(SqlConnection c)
+    {
+        await Safe("Loans by status", async () =>
+        {
+            await using var cmd = Command(c, "SELECT Status, COUNT(*), SUM(LoanAmount) FROM Loans WHERE DisbursementDate >= @StartDate AND DisbursementDate < @EndDate GROUP BY Status ORDER BY 3 DESC");
+            await using var r = await cmd.ExecuteReaderAsync();
+            while (await r.ReadAsync())
+                data.LoanStatus.Add(new LoanStatusRow(Text(r, 0), (int)Num(r, 1), Num(r, 2)));
+        });
+        await Safe("Loans trend", async () => data.LoansTrend = await MonthlyAsync(c, "Loans", "DisbursementDate", "SUM(LoanAmount)"));
+
+        tableRows.Add(new[] { "Status", "Loans", "Total amount" });
+        tableRows.AddRange(data.LoanStatus.Select(x => new[] { x.Status, x.Count.ToString(), Raw(x.TotalAmount) }));
+    }
+
+    private async Task LoadDividendsReport(SqlConnection c)
+    {
+        await Safe("Dividends by financial year", async () =>
+        {
+            await using var cmd = Command(c, "SELECT FinancialYear, SUM(Amount), COUNT(DISTINCT MemberId) FROM Dividends WHERE PaymentDate >= @StartDate AND PaymentDate < @EndDate GROUP BY FinancialYear ORDER BY FinancialYear DESC");
+            await using var r = await cmd.ExecuteReaderAsync();
+            while (await r.ReadAsync())
+                data.DividendYears.Add(new DividendYearRow(Text(r, 0), Num(r, 1), (int)Num(r, 2)));
+        });
+        await Safe("Top dividend recipients", async () => data.TopRecipients = await CategoryAsync(c,
+            "SELECT TOP 10 MemberName, SUM(Amount) FROM Dividends WHERE PaymentDate >= @StartDate AND PaymentDate < @EndDate GROUP BY MemberName ORDER BY 2 DESC"));
+
+        tableRows.Add(new[] { "Financial year", "Total amount", "Members paid" });
+        tableRows.AddRange(data.DividendYears.Select(x => new[] { x.FinancialYear, Raw(x.TotalAmount), x.MemberCount.ToString() }));
+    }
+
+    private async Task LoadSavingsReport(SqlConnection c)
+    {
+        await Safe("Savings by transaction type", async () => data.ByCategory = await CategoryAsync(c,
+            "SELECT TransactionType, SUM(Amount) FROM Savings WHERE TransactionDate >= @StartDate AND TransactionDate < @EndDate GROUP BY TransactionType ORDER BY 2 DESC"));
+        await Safe("Savings trend", async () => data.SavingsTrend = await MonthlyAsync(c, "Savings", "TransactionDate", "SUM(Amount)", "TransactionType = 'Deposit'"));
+
+        tableRows.Add(new[] { "Transaction type", "Amount" });
+        tableRows.AddRange(data.ByCategory.Select(x => new[] { x.Label, Raw(x.Value) }));
+        tableRows.Add(new[] { "", "" });
+        tableRows.Add(new[] { "Month", "Deposits" });
+        tableRows.AddRange(data.SavingsTrend.Select(x => new[] { x.Label, Raw(x.Value) }));
+    }
+
+    private async Task LoadMembershipReport(SqlConnection c)
+    {
+        await Safe("Members by status", async () => data.MemberStatus = await CategoryAsync(c,
+            "SELECT Status, COUNT(*) FROM Members GROUP BY Status ORDER BY 2 DESC", useDates: false));
+        await Safe("Members by gender", async () => data.MemberGender = await CategoryAsync(c,
+            "SELECT Gender, COUNT(*) FROM Members GROUP BY Gender ORDER BY 2 DESC", useDates: false));
+        await Safe("Membership growth", async () => data.MembershipGrowth = await MonthlyAsync(c, "Members", "JoinDate", "COUNT(*)"));
+
+        tableRows.Add(new[] { "Status", "Members" });
+        tableRows.AddRange(data.MemberStatus.Select(x => new[] { x.Label, Raw(x.Value) }));
+        tableRows.Add(new[] { "", "" });
+        tableRows.Add(new[] { "Gender", "Members" });
+        tableRows.AddRange(data.MemberGender.Select(x => new[] { x.Label, Raw(x.Value) }));
+        tableRows.Add(new[] { "", "" });
+        tableRows.Add(new[] { "Month", "New members" });
+        tableRows.AddRange(data.MembershipGrowth.Select(x => new[] { x.Label, Raw(x.Value) }));
+    }
+
+    // ------------------------------------------------------------------ SQL helpers
+
+    /// <summary>Runs one part of a report; a missing table/column only affects that part.</summary>
+    private async Task Safe(string part, Func<Task> work)
+    {
+        try { await work(); }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Report part {Part} failed", part);
+            errors.Add($"{part}: {ex.Message}");
+        }
+    }
+
+    /// <summary>Dates are inclusive of the whole end day: [StartDate, EndDate + 1 day).</summary>
+    private SqlCommand Command(SqlConnection c, string sql, bool useDates = true)
+    {
+        var cmd = new SqlCommand(sql, c);
+        if (useDates)
+        {
+            cmd.Parameters.Add("@StartDate", System.Data.SqlDbType.DateTime2).Value = model.StartDate.Date;
+            cmd.Parameters.Add("@EndDate", System.Data.SqlDbType.DateTime2).Value = model.EndDate.Date.AddDays(1);
+        }
+        return cmd;
+    }
+
+    private async Task<decimal> ScalarAsync(SqlConnection c, string sql)
+    {
+        await using var cmd = Command(c, sql);
+        var value = await cmd.ExecuteScalarAsync();
+        return value is null or DBNull ? 0m : Convert.ToDecimal(value, CultureInfo.InvariantCulture);
+    }
+
+    private async Task<List<ChartPoint>> CategoryAsync(SqlConnection c, string sql, bool useDates = true)
+    {
+        var list = new List<ChartPoint>();
+        await using var cmd = Command(c, sql, useDates);
+        await using var r = await cmd.ExecuteReaderAsync();
+        while (await r.ReadAsync()) list.Add(new ChartPoint(Text(r, 0), Num(r, 1)));
+        return list;
+    }
+
+    /// <summary>
+    /// Monthly totals for every month in the range (months with no rows show as 0, so trends are continuous).
+    /// </summary>
+    private async Task<List<ChartPoint>> MonthlyAsync(SqlConnection c, string table, string dateColumn, string aggregate, string? extraWhere = null)
+    {
+        var filter = extraWhere is null ? "" : " AND " + extraWhere;
+        var sql = "SELECT YEAR(" + dateColumn + "), MONTH(" + dateColumn + "), " + aggregate + " FROM " + table
+                  + " WHERE " + dateColumn + " >= @StartDate AND " + dateColumn + " < @EndDate" + filter
+                  + " GROUP BY YEAR(" + dateColumn + "), MONTH(" + dateColumn + ")";
+
+        var found = new Dictionary<(int, int), decimal>();
+        await using (var cmd = Command(c, sql))
+        await using (var r = await cmd.ExecuteReaderAsync())
+        {
+            while (await r.ReadAsync())
+                found[((int)Num(r, 0), (int)Num(r, 1))] = Num(r, 2);
+        }
+
+        var list = new List<ChartPoint>();
+        var month = new DateTime(model.StartDate.Year, model.StartDate.Month, 1);
+        var last = new DateTime(model.EndDate.Year, model.EndDate.Month, 1);
+        while (month <= last)
+        {
+            list.Add(new ChartPoint(month.ToString("MMM yy", CultureInfo.InvariantCulture), found.GetValueOrDefault((month.Year, month.Month))));
+            month = month.AddMonths(1);
+        }
+        return list;
+    }
+
+    /// <summary>Any numeric SQL type (int, bigint, decimal, money, float) → decimal; NULL → 0.</summary>
+    private static decimal Num(SqlDataReader r, int i) =>
+        r.IsDBNull(i) ? 0m : Convert.ToDecimal(r.GetValue(i), CultureInfo.InvariantCulture);
+
+    private static string Text(SqlDataReader r, int i) =>
+        r.IsDBNull(i) ? "Unspecified" : Convert.ToString(r.GetValue(i), CultureInfo.InvariantCulture) is { Length: > 0 } s ? s : "Unspecified";
+
+    // ------------------------------------------------------------------ formatting
+
+    private const string Green = "#0B7A52", Blue = "#2F6FEB", Gold = "#C99A2E", Red = "#D64545";
+
+    private async Task Pick(string value)
+    {
+        model.ReportType = value;
+        await LoadReportData();
+    }
+
+    private async Task Preset(int months)
+    {
+        model.EndDate = DateTime.Today;
+        model.StartDate = DateTime.Today.AddMonths(-months);
+        await LoadReportData();
+    }
+
+    private static string Money(decimal v) => "KES " + v.ToString("N0", CultureInfo.InvariantCulture);
+
+    private string Sub => ReportTitle + " · " + model.StartDate.ToString("d MMM yyyy", CultureInfo.InvariantCulture) + " – " + model.EndDate.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
+    private static string Raw(decimal v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+    private static string Pct(decimal part, decimal whole) => whole == 0 ? "0%" : (part * 100 / whole).ToString("0.#", CultureInfo.InvariantCulture) + "%";
+    private static decimal At(List<ChartPoint> list, int i) => i < list.Count ? list[i].Value : 0;
+    private static string F(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static string Short(decimal v) =>
+        Math.Abs(v) >= 1_000_000_000 ? (v / 1_000_000_000).ToString("0.#", CultureInfo.InvariantCulture) + "B"
+        : Math.Abs(v) >= 1_000_000 ? (v / 1_000_000).ToString("0.#", CultureInfo.InvariantCulture) + "M"
+        : Math.Abs(v) >= 1_000 ? (v / 1_000).ToString("0.#", CultureInfo.InvariantCulture) + "K"
+        : v.ToString("0.##", CultureInfo.InvariantCulture);
+
+    /// <summary>A "nice" axis maximum (1, 2, 2.5 or 5 × 10^n) so gridlines land on round numbers.</summary>
+    private static double NiceMax(decimal max)
+    {
+        var m = (double)max;
+        if (m <= 0) return 1;
+        var exp = Math.Pow(10, Math.Floor(Math.Log10(m)));
+        foreach (var step in new[] { 1, 2, 2.5, 5, 10 })
+            if (step * exp >= m) return step * exp;
+        return 10 * exp;
+    }
+
+    // ------------------------------------------------------------------ building blocks (no chart library needed)
+
+    private RenderFragment Kpi(string label, string value, string icon, string tone) => __builder =>
+    {
+        <StatCard Label="@label" Value="@value" Icon="@icon" Tone="@tone" />
+    };
+
+    private RenderFragment ChartCard(string title, RenderFragment body) => __builder =>
+    {
+        <section class="ms-card">
+            <div class="ms-card-head"><div><h3>@title</h3></div></div>
+            <div class="ms-card-body">@body</div>
+        </section>
+    };
+
+    /// <summary>SVG &lt;text&gt; built in code (Razor reserves the &lt;text&gt; tag inside code blocks).</summary>
+    private static RenderFragment SvgLabel(double x, double y, string anchor, string content) => b =>
+    {
+        b.OpenElement(0, "text");
+        b.AddAttribute(1, "x", F(x));
+        b.AddAttribute(2, "y", F(y));
+        b.AddAttribute(3, "text-anchor", anchor);
+        b.AddContent(4, content);
+        b.CloseElement();
+    };
+
+    private const double W = 620, H = 260, PadL = 56, PadR = 12, PadT = 12, PadB = 44;
+
+    /// <summary>Vertical bar chart drawn as SVG.</summary>
+    private RenderFragment BarChart(List<ChartPoint> points, string color, bool money) => __builder =>
+    {
+        if (points.Count == 0 || points.All(p => p.Value == 0))
+        {
+            <div class="rp-empty">No data for this period.</div>
+            return;
+        }
+        var max = NiceMax(points.Max(p => p.Value));
+        var plotW = W - PadL - PadR;
+        var plotH = H - PadT - PadB;
+        var slot = plotW / points.Count;
+        var barW = Math.Max(4, Math.Min(46, slot * 0.62));
+        var every = Math.Max(1, (int)Math.Ceiling(points.Count / 12.0));
+        <svg class="rp-chart" viewBox="0 0 @F(W) @F(H)" role="img">
+            @for (var g = 0; g <= 4; g++)
+            {
+                var y = PadT + plotH - plotH * g / 4;
+                <line class="rp-grid" x1="@F(PadL)" x2="@F(W - PadR)" y1="@F(y)" y2="@F(y)" />
+                @SvgLabel(PadL - 8, y + 4, "end", Short((decimal)(max * g / 4)))
+            }
+            <line class="rp-axis" x1="@F(PadL)" x2="@F(W - PadR)" y1="@F(PadT + plotH)" y2="@F(PadT + plotH)" />
+            @for (var i = 0; i < points.Count; i++)
+            {
+                var p = points[i];
+                var h = plotH * (double)p.Value / max;
+                var x = PadL + slot * i + (slot - barW) / 2;
+                <rect class="rp-bar" x="@F(x)" y="@F(PadT + plotH - h)" width="@F(barW)" height="@F(Math.Max(0, h))" rx="3" fill="@color">
+                    <title>@p.Label: @(money ? Money(p.Value) : p.Value.ToString("N0"))</title>
+                </rect>
+                @if (i % every == 0)
+                {
+                    @SvgLabel(PadL + slot * i + slot / 2, H - PadB + 18, "middle", p.Label)
+                }
+            }
+        </svg>
+    };
+
+    /// <summary>Line + area chart drawn as SVG.</summary>
+    private RenderFragment LineChart(List<ChartPoint> points, string color, bool money) => __builder =>
+    {
+        if (points.Count == 0 || points.All(p => p.Value == 0))
+        {
+            <div class="rp-empty">No data for this period.</div>
+            return;
+        }
+        var max = NiceMax(points.Max(p => p.Value));
+        var plotW = W - PadL - PadR;
+        var plotH = H - PadT - PadB;
+        var step = points.Count == 1 ? 0 : plotW / (points.Count - 1);
+        double X(int i) => points.Count == 1 ? PadL + plotW / 2 : PadL + step * i;
+        double Y(decimal v) => PadT + plotH - plotH * (double)v / max;
+        var line = string.Join(" ", points.Select((p, i) => $"{F(X(i))},{F(Y(p.Value))}"));
+        var area = $"{F(X(0))},{F(PadT + plotH)} {line} {F(X(points.Count - 1))},{F(PadT + plotH)}";
+        var every = Math.Max(1, (int)Math.Ceiling(points.Count / 12.0));
+        <svg class="rp-chart" viewBox="0 0 @F(W) @F(H)" role="img">
+            @for (var g = 0; g <= 4; g++)
+            {
+                var y = PadT + plotH - plotH * g / 4;
+                <line class="rp-grid" x1="@F(PadL)" x2="@F(W - PadR)" y1="@F(y)" y2="@F(y)" />
+                @SvgLabel(PadL - 8, y + 4, "end", Short((decimal)(max * g / 4)))
+            }
+            <polygon points="@area" fill="@color" fill-opacity="0.12" />
+            <polyline points="@line" fill="none" stroke="@color" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+            @for (var i = 0; i < points.Count; i++)
+            {
+                var p = points[i];
+                <circle cx="@F(X(i))" cy="@F(Y(p.Value))" r="4" fill="#fff" stroke="@color" stroke-width="2.5">
+                    <title>@p.Label: @(money ? Money(p.Value) : p.Value.ToString("N0"))</title>
+                </circle>
+                @if (i % every == 0)
+                {
+                    @SvgLabel(X(i), H - PadB + 18, "middle", p.Label)
+                }
+            }
+        </svg>
+    };
+
+    /// <summary>Ranked horizontal bars with share of total — used instead of pie/doughnut charts.</summary>
+    private RenderFragment RankedBars(List<ChartPoint> points, string color, bool money) => __builder =>
+    {
+        if (points.Count == 0 || points.All(p => p.Value == 0))
+        {
+            <div class="rp-empty">No data for this period.</div>
+            return;
+        }
+        var max = points.Max(p => p.Value);
+        var total = points.Sum(p => p.Value);
+        <div class="rp-rank">
+            @foreach (var p in points)
+            {
+                <div class="rp-name" title="@p.Label">@p.Label</div>
+                <div class="rp-track"><div class="rp-fill" style="width:@(max == 0 ? "0" : F((double)(p.Value * 100 / max)))%;background:@color"></div></div>
+                <div class="rp-num">@(money ? Money(p.Value) : p.Value.ToString("N0")) <span style="color:var(--ms-text-3);font-weight:500">· @Pct(p.Value, total)</span></div>
+            }
+        </div>
+        <div class="ms-hint" style="text-align:right;margin-top:14px">Total: <strong>@(money ? Money(total) : total.ToString("N0"))</strong></div>
+    };
+
+    // ------------------------------------------------------------------ types (kept inside the page so nothing else is needed)
+
+    private sealed class ReportFilter
+    {
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+        public string ReportType { get; set; } = "FinancialSummary";
+    }
+
+    private sealed record ChartPoint(string Label, decimal Value);
+    private sealed record LoanStatusRow(string Status, int Count, decimal TotalAmount);
+    private sealed record DividendYearRow(string FinancialYear, decimal TotalAmount, int MemberCount);
+
+    private sealed class ReportData
+    {
+        public int ActiveMembers { get; set; }
+        public decimal TotalContributions { get; set; }
+        public decimal TotalSavings { get; set; }
+        public decimal TotalLoansIssued { get; set; }
+        public List<ChartPoint> ContributionsTrend { get; set; } = new();
+        public List<ChartPoint> SavingsTrend { get; set; } = new();
+        public List<ChartPoint> LoansTrend { get; set; } = new();
+        public List<ChartPoint> DividendsTrend { get; set; } = new();
+        public List<ChartPoint> ByCategory { get; set; } = new();
+        public List<ChartPoint> TopRecipients { get; set; } = new();
+        public List<ChartPoint> MemberStatus { get; set; } = new();
+        public List<ChartPoint> MemberGender { get; set; } = new();
+        public List<ChartPoint> MembershipGrowth { get; set; } = new();
+        public List<LoanStatusRow> LoanStatus { get; set; } = new();
+        public List<DividendYearRow> DividendYears { get; set; } = new();
+    }
+}

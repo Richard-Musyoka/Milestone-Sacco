@@ -1,0 +1,503 @@
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+@if (loading)
+{
+    <div style="display:flex;flex-direction:column;gap:14px;padding-top:22px">
+        <div class="ms-skel" style="height:120px"></div><div class="ms-skel" style="height:90px"></div><div class="ms-skel" style="height:90px"></div>
+    </div>
+}
+else if (ov == null)
+{
+    <EmptyState Icon="bi-wifi-off" Title="Couldn't load your security settings" Text="@loadError">
+        <div style="margin-top:14px"><button class="ms-btn" @onclick="Load">Try again</button></div>
+    </EmptyState>
+}
+else
+{
+    <div class="ms-section" style="padding-top:22px">
+        <div class="ms-score">
+            <div class="ring" style="--v:@ov.Score"><b>@ov.Score</b></div>
+            <div>
+                <h3>@ScoreTitle</h3>
+                <p>@ScoreText</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="ms-section">
+        <h4>How you sign in</h4>
+        <p class="sub">Add more than one method so you can always get in — and so nobody else can.</p>
+
+        <div class="ms-method">
+            <span class="ms-method-ico"><i class="bi bi-key"></i></span>
+            <div class="ms-method-body">
+                <h5>Password <span class="ms-pill ok dot">On</span></h5>
+                <p>@(ov.PasswordChangedUtc.HasValue ? $"Last changed {Ago(ov.PasswordChangedUtc.Value)}." : "Set when you created your account.") Policy: @ov.Policy.PasswordComplexity complexity@(ov.Policy.PasswordExpiryDays > 0 ? $", expires every {ov.Policy.PasswordExpiryDays} days" : "").</p>
+                <div class="ms-method-actions"><button class="ms-btn sm" @onclick='() => Open("password")'><i class="bi bi-pencil"></i> Change password</button></div>
+            </div>
+        </div>
+
+        <div class="ms-method">
+            <span class="ms-method-ico" style="background:var(--ms-blue-soft);color:var(--ms-blue)"><i class="bi bi-phone"></i></span>
+            <div class="ms-method-body">
+                <h5>Authenticator app @if (ov.TotpEnabled) { <span class="ms-pill ok dot">On</span> } else { <span class="ms-pill">Off</span> }</h5>
+                <p>Use Google Authenticator, Microsoft Authenticator, Authy or 1Password to generate a 6-digit code each time you sign in.</p>
+
+                @if (setup != null)
+                {
+                    <div class="ms-setup">
+                        <div class="ms-qr" id="ms-qr" aria-label="QR code"></div>
+                        <div style="flex:1;min-width:230px">
+                            <b style="font-size:14px">1. Scan the QR code</b>
+                            <p class="ms-hint" style="margin:4px 0 12px">Or enter this key manually in your app:</p>
+                            <div class="ms-secret">@setup.GroupedSecret</div>
+                            <b style="font-size:14px;display:block;margin-top:16px">2. Enter the 6-digit code</b>
+                            <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
+                                <input id="ms-totp-code" class="ms-input ms-code" style="max-width:190px" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="000000" @bind="totpCode" @bind:event="oninput" @onkeydown="OnTotpKey" />
+                                <button class="ms-btn primary @(busy ? "busy" : "")" @onclick="ConfirmTotp">Turn on</button>
+                                <button class="ms-btn ghost" @onclick="CancelSetup">Cancel</button>
+                            </div>
+                            @if (!string.IsNullOrEmpty(formError)) { <div class="ms-err" style="margin-top:8px">@formError</div> }
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="ms-method-actions">
+                        @if (!ov.TotpEnabled)
+                        {
+                            <button class="ms-btn primary sm @(busy ? "busy" : "")" @onclick="BeginTotp"><i class="bi bi-qr-code"></i> Set up</button>
+                        }
+                        else
+                        {
+                            <button class="ms-btn sm" @onclick='() => Open("regen")'><i class="bi bi-arrow-repeat"></i> New backup codes (@ov.BackupCodesLeft left)</button>
+                            <button class="ms-btn sm danger" @onclick='() => Open("disable-totp")'>Turn off</button>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="ms-method">
+            <span class="ms-method-ico" style="background:var(--ms-gold-soft);color:var(--ms-gold)"><i class="bi bi-fingerprint"></i></span>
+            <div class="ms-method-body">
+                <h5>Passkeys &amp; biometrics @if (ov.Passkeys.Count > 0) { <span class="ms-pill ok dot">@ov.Passkeys.Count on</span> } else { <span class="ms-pill">Off</span> }</h5>
+                <p>Sign in with Face ID, Touch ID, Windows Hello or a security key — nothing to type, and impossible to phish.</p>
+
+                @if (ov.Passkeys.Count > 0)
+                {
+                    <div class="ms-list" style="margin-top:10px">
+                        @foreach (var k in ov.Passkeys)
+                        {
+                            <div class="ms-li" style="padding:10px 0">
+                                <span class="ms-li-ico blue" style="width:34px;height:34px;font-size:15px"><i class="bi bi-key-fill"></i></span>
+                                <span class="ms-li-main"><b>@k.Name</b><small>Added @Ago(k.CreatedUtc)@(k.LastUsedUtc.HasValue ? $" · used {Ago(k.LastUsedUtc.Value)}" : " · never used")</small></span>
+                                <button class="ms-btn sm ghost danger" @onclick="() => RemovePasskey(k)" aria-label="Remove @k.Name"><i class="bi bi-trash"></i></button>
+                            </div>
+                        }
+                    </div>
+                }
+                <div class="ms-method-actions">
+                    @if (passkeysSupported) { <button class="ms-btn sm primary" @onclick='() => Open("passkey-name")'><i class="bi bi-plus-lg"></i> Add a passkey</button> }
+                    else { <span class="ms-hint">This browser or address doesn't support passkeys (they need https or localhost).</span> }
+                </div>
+            </div>
+        </div>
+
+        <div class="ms-method">
+            <span class="ms-method-ico" style="background:var(--ms-surface-2);color:var(--ms-text-2)"><i class="bi bi-chat-dots"></i></span>
+            <div class="ms-method-body">
+                <h5>Email &amp; SMS codes <span class="ms-pill @(ov.OtpFallbackEnabled ? "ok dot" : "")">@(ov.OtpFallbackEnabled ? "On" : "Off")</span></h5>
+                <p>A backup for when your phone isn't with you. Codes go to <b>@(string.IsNullOrEmpty(ov.User.EmailMasked) ? "no email" : ov.User.EmailMasked)</b>@(string.IsNullOrEmpty(ov.User.PhoneMasked) ? " — add a phone number to use SMS." : $" and {ov.User.PhoneMasked}.")</p>
+                <div class="ms-method-actions">
+                    <label style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:13.5px"><ToggleSwitch Value="ov.OtpFallbackEnabled" ValueChanged="SetFallback" AriaLabel="Email and SMS codes" /> Allow email / SMS codes</label>
+                    <button class="ms-btn sm" @onclick='() => Open("phone")'><i class="bi bi-telephone"></i> @(string.IsNullOrEmpty(ov.User.Phone) ? "Add phone" : "Change phone")</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="ms-section">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div style="flex:1"><h4>Trusted devices</h4><p class="sub" style="margin-bottom:0">Trusted devices skip the second step for @AuthDefaultsDays days.</p></div>
+            @if (ov.Devices.Any(d => d.Trusted)) { <button class="ms-btn sm" @onclick="UntrustAll">Forget all trusted</button> }
+        </div>
+        <div class="ms-list" style="margin-top:8px">
+            @foreach (var d in ov.Devices)
+            {
+                <div class="ms-li">
+                    <span class="ms-li-ico @(d.Trusted ? "" : "blue")"><i class="bi @DeviceIcon(d.Label)"></i></span>
+                    <span class="ms-li-main">
+                        <b>@d.Label @if (d.IsCurrent) { <span class="ms-pill info" style="margin-left:6px">This device</span> } @if (d.Trusted) { <span class="ms-pill ok" style="margin-left:6px">Trusted</span> }</b>
+                        <small>@(string.IsNullOrEmpty(d.Ip) ? "" : d.Ip + " · ")Last active @Ago(d.LastSeenUtc)</small>
+                    </span>
+                    @if (!d.IsCurrent) { <button class="ms-btn sm ghost danger" @onclick="() => RemoveDevice(d)" aria-label="Remove device"><i class="bi bi-x-lg"></i></button> }
+                </div>
+            }
+            @if (ov.Devices.Count == 0) { <EmptyState Icon="bi-laptop" Title="No devices yet" /> }
+        </div>
+    </div>
+
+    <div class="ms-section">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div style="flex:1"><h4>Active sessions</h4><p class="sub" style="margin-bottom:0">Sessions end after @ov.Policy.SessionTimeoutMinutes minutes of inactivity.</p></div>
+            @if (ov.Sessions.Count > 1) { <button class="ms-btn sm danger" @onclick="RevokeOthers">Sign out everywhere else</button> }
+        </div>
+        <div class="ms-list" style="margin-top:8px">
+            @foreach (var s in ov.Sessions)
+            {
+                <div class="ms-li">
+                    <span class="ms-li-ico"><i class="bi @DeviceIcon(s.DeviceLabel)"></i></span>
+                    <span class="ms-li-main"><b>@s.DeviceLabel @if (s.IsCurrent) { <span class="ms-pill ok dot" style="margin-left:6px">Current</span> }</b><small>@(string.IsNullOrEmpty(s.Ip) ? "" : s.Ip + " · ")Started @Ago(s.CreatedUtc) · active @Ago(s.LastSeenUtc)</small></span>
+                    @if (!s.IsCurrent) { <button class="ms-btn sm ghost danger" @onclick="() => RevokeSession(s)">Sign out</button> }
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="ms-section">
+        <h4>Recent security activity</h4>
+        <p class="sub">The last @ov.History.Count events on your account. Don't recognise one? Change your password and sign out everywhere.</p>
+        <div class="ms-timeline">
+            @foreach (var e in ov.History)
+            {
+                <div class="ms-ev">
+                    <span class="ms-ev-dot @(e.Success ? "" : "bad")"><i class="bi @EventIcon(e)"></i></span>
+                    <div><b>@EventTitle(e)</b><small>@e.Device@(string.IsNullOrEmpty(e.Ip) ? "" : " · " + e.Ip) · @Ago(e.CreatedUtc)@(string.IsNullOrEmpty(e.Detail) ? "" : " · " + e.Detail)</small></div>
+                </div>
+            }
+            @if (ov.History.Count == 0) { <EmptyState Icon="bi-clock-history" Title="Nothing yet" /> }
+        </div>
+    </div>
+}
+
+@* ------------------------------------------------------------ modals *@
+<Modal Open="@(modal == "password")" OnClose="Close" Title="Change password" Subtitle="You'll stay signed in here; other sessions will be signed out.">
+    <ChildContent>
+        <div class="ms-field"><label class="ms-label">Current password</label><input class="ms-input" type="password" autocomplete="current-password" @bind="curPwd" @bind:event="oninput" /></div>
+        <div class="ms-field" style="margin-top:14px"><label class="ms-label">New password</label><input class="ms-input" type="password" autocomplete="new-password" @bind="newPwd" @bind:event="oninput" /><span class="ms-hint">Policy: @ov?.Policy.PasswordComplexity complexity.</span></div>
+        <div class="ms-field" style="margin-top:14px"><label class="ms-label">Confirm new password</label><input class="ms-input" type="password" autocomplete="new-password" @bind="newPwd2" @bind:event="oninput" /></div>
+        @if (!string.IsNullOrEmpty(formError)) { <div class="ms-err" style="margin-top:12px">@formError</div> }
+    </ChildContent>
+    <Footer><button class="ms-btn" @onclick="Close">Cancel</button><button class="ms-btn primary @(busy ? "busy" : "")" @onclick="ChangePassword">Update password</button></Footer>
+</Modal>
+
+<Modal Open="@(modal == "disable-totp" || modal == "regen")" OnClose="Close" Title="@(modal == "regen" ? "Generate new backup codes" : "Turn off authenticator app")"
+       Subtitle="@(modal == "regen" ? "Your old codes stop working immediately." : "Your account will be less protected.")">
+    <ChildContent>
+        <div class="ms-field"><label class="ms-label">Confirm with your password</label><input class="ms-input" type="password" autocomplete="current-password" @bind="curPwd" @bind:event="oninput" /></div>
+        @if (!string.IsNullOrEmpty(formError)) { <div class="ms-err" style="margin-top:12px">@formError</div> }
+    </ChildContent>
+    <Footer><button class="ms-btn" @onclick="Close">Cancel</button><button class="ms-btn @(modal == "regen" ? "primary" : "danger") @(busy ? "busy" : "")" @onclick="ConfirmSensitive">@(modal == "regen" ? "Generate" : "Turn off")</button></Footer>
+</Modal>
+
+<Modal Open="@(modal == "passkey-name")" OnClose="Close" Title="Add a passkey" Subtitle="Name it so you can recognise it later, then follow your device's prompt.">
+    <ChildContent>
+        <div class="ms-field"><label class="ms-label">Name</label><input class="ms-input" placeholder="e.g. Work laptop, iPhone" maxlength="60" @bind="passkeyName" @bind:event="oninput" /></div>
+        @if (!string.IsNullOrEmpty(formError)) { <div class="ms-err" style="margin-top:12px">@formError</div> }
+    </ChildContent>
+    <Footer><button class="ms-btn" @onclick="Close">Cancel</button><button class="ms-btn primary @(busy ? "busy" : "")" @onclick="AddPasskey"><i class="bi bi-fingerprint"></i> Continue</button></Footer>
+</Modal>
+
+<Modal Open="@(modal == "phone")" OnClose="Close" Title="Phone number" Subtitle="Used for SMS sign-in codes.">
+    <ChildContent>
+        <div class="ms-field"><label class="ms-label">Mobile number</label><input class="ms-input" type="tel" placeholder="+254 7…" @bind="phone" @bind:event="oninput" /></div>
+        @if (!string.IsNullOrEmpty(formError)) { <div class="ms-err" style="margin-top:12px">@formError</div> }
+    </ChildContent>
+    <Footer><button class="ms-btn" @onclick="Close">Cancel</button><button class="ms-btn primary @(busy ? "busy" : "")" @onclick="SavePhone">Save</button></Footer>
+</Modal>
+
+<Modal Open="@(codes != null)" OnClose="CloseCodes" Title="Save your backup codes" Subtitle="Each code works once if you lose your phone. They won't be shown again.">
+    <ChildContent>
+        <div class="ms-codes">@if (codes != null) { @foreach (var c in codes) { <code>@c</code> } }</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="ms-btn sm" @onclick="CopyCodes"><i class="bi bi-clipboard"></i> Copy</button>
+            <button class="ms-btn sm" @onclick="DownloadCodes"><i class="bi bi-download"></i> Download</button>
+            <button class="ms-btn sm" @onclick='() => JS.InvokeVoidAsync("ms.print")'><i class="bi bi-printer"></i> Print</button>
+        </div>
+    </ChildContent>
+    <Footer><button class="ms-btn primary" @onclick="CloseCodes">I've saved them</button></Footer>
+</Modal>
+
+@code {
+    private const int AuthDefaultsDays = 30;
+    private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
+
+    // ---- DTOs (mirror /api/security/overview)
+    private sealed class Overview
+    {
+        public UserDto User { get; set; } = new();
+        public bool TotpEnabled { get; set; }
+        public bool OtpFallbackEnabled { get; set; }
+        public int BackupCodesLeft { get; set; }
+        public DateTime? PasswordChangedUtc { get; set; }
+        public int Score { get; set; }
+        public PolicyDto Policy { get; set; } = new();
+        public List<PasskeyDto> Passkeys { get; set; } = new();
+        public List<DeviceDto> Devices { get; set; } = new();
+        public List<SessionDto> Sessions { get; set; } = new();
+        public List<EventDto> History { get; set; } = new();
+    }
+    private sealed class UserDto { public int Id { get; set; } public string FirstName { get; set; } = ""; public string LastName { get; set; } = ""; public string Email { get; set; } = ""; public string? Phone { get; set; } public string Role { get; set; } = ""; public string EmailMasked { get; set; } = ""; public string PhoneMasked { get; set; } = ""; }
+    private sealed class PolicyDto { public bool TwoFactorRequired { get; set; } public int SessionTimeoutMinutes { get; set; } = 30; public string PasswordComplexity { get; set; } = "Medium"; public int PasswordExpiryDays { get; set; } }
+    private sealed class PasskeyDto { public int Id { get; set; } public string Name { get; set; } = ""; public DateTime CreatedUtc { get; set; } public DateTime? LastUsedUtc { get; set; } }
+    private sealed class DeviceDto { public int Id { get; set; } public string Label { get; set; } = ""; public string Ip { get; set; } = ""; public bool Trusted { get; set; } public DateTime LastSeenUtc { get; set; } public bool IsCurrent { get; set; } }
+    private sealed class SessionDto { public Guid Id { get; set; } public string DeviceLabel { get; set; } = ""; public string Ip { get; set; } = ""; public DateTime CreatedUtc { get; set; } public DateTime LastSeenUtc { get; set; } public bool IsCurrent { get; set; } }
+    private sealed class EventDto { public long Id { get; set; } public string EventType { get; set; } = ""; public bool Success { get; set; } public string Ip { get; set; } = ""; public string Device { get; set; } = ""; public string? Detail { get; set; } public DateTime CreatedUtc { get; set; } }
+    private sealed class SetupDto { public string Secret { get; set; } = ""; public string GroupedSecret { get; set; } = ""; public string Uri { get; set; } = ""; }
+
+    private Overview? ov;
+    private bool loading = true, busy, passkeysSupported, needQr;
+    private string? loadError, formError;
+    private string modal = "";
+    private string curPwd = "", newPwd = "", newPwd2 = "", totpCode = "", passkeyName = "", phone = "";
+    private SetupDto? setup;
+    private List<string>? codes;
+
+    protected override async Task OnInitializedAsync() => await Task.CompletedTask;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try { passkeysSupported = await JS.InvokeAsync<bool>("ms.supportsPasskeys"); } catch { }
+            await Load();
+        }
+        if (needQr && setup != null)
+        {
+            needQr = false;
+            try { await JS.InvokeAsync<bool>("ms.qr", "ms-qr", setup.Uri); await JS.InvokeVoidAsync("ms.focus", "ms-totp-code"); } catch { }
+        }
+    }
+
+    // ------------------------------------------------------------------ plumbing
+    private sealed record Reply(bool Ok, int Status, string? Message, JsonElement Body, JsonElement Data);
+
+    private async Task<Reply> Call(string method, string url, object? body = null)
+    {
+        var el = await JS.InvokeAsync<JsonElement>("ms.api", method, url, body);
+        bool ok = el.TryGetProperty("ok", out var o) && o.GetBoolean();
+        int status = el.TryGetProperty("status", out var s) ? s.GetInt32() : 0;
+        string? msg = null; JsonElement data = default, b = default;
+        if (el.TryGetProperty("body", out b) && b.ValueKind == JsonValueKind.Object)
+        {
+            if (b.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String) msg = m.GetString();
+            if (b.TryGetProperty("data", out var d)) data = d;
+        }
+        if (status == 401) Navigation.NavigateTo("/login", forceLoad: true);
+        return new Reply(ok, status, msg, b, data);
+    }
+
+    private Task Toast(string type, string title, string? msg = null) => JS.InvokeVoidAsync("ms.toast", type, title, msg).AsTask();
+
+    private async Task Load()
+    {
+        loading = ov == null;
+        var r = await Call("GET", "/api/security/overview");
+        if (r.Ok) { ov = JsonSerializer.Deserialize<Overview>(r.Body.GetRawText(), Json); loadError = null; phone = ov?.User.Phone ?? ""; }
+        else loadError = r.Message ?? "Please try again.";
+        loading = false;
+        StateHasChanged();
+    }
+
+    private void Open(string m) { modal = m; formError = null; curPwd = newPwd = newPwd2 = ""; if (m == "passkey-name") passkeyName = ""; }
+    private void Close() { modal = ""; formError = null; }
+    private void CloseCodes() => codes = null;
+
+    // -------------------------------------------------------------------- password
+    private async Task ChangePassword()
+    {
+        formError = null;
+        if (string.IsNullOrEmpty(curPwd) || string.IsNullOrEmpty(newPwd)) { formError = "Fill in every field."; return; }
+        if (newPwd != newPwd2) { formError = "The new passwords don't match."; return; }
+        busy = true;
+        try
+        {
+            var r = await Call("POST", "/api/security/password", new { current = curPwd, next = newPwd });
+            if (!r.Ok) { formError = r.Message ?? "Couldn't change the password."; return; }
+            Close(); await Toast("success", "Password updated", "Other sessions were signed out.");
+            await Load();
+        }
+        finally { busy = false; }
+    }
+
+    // ------------------------------------------------------------------------ TOTP
+    private async Task BeginTotp()
+    {
+        busy = true; formError = null;
+        try
+        {
+            var r = await Call("POST", "/api/security/totp/begin");
+            if (!r.Ok) { await Toast("error", "Couldn't start setup", r.Message); return; }
+            setup = JsonSerializer.Deserialize<SetupDto>(r.Data.GetRawText(), Json);
+            totpCode = ""; needQr = true;
+        }
+        finally { busy = false; }
+    }
+
+    private void CancelSetup() { setup = null; formError = null; }
+
+    private async Task OnTotpKey(KeyboardEventArgs e) { if (e.Key == "Enter") await ConfirmTotp(); }
+
+    private async Task ConfirmTotp()
+    {
+        formError = null;
+        if (string.IsNullOrWhiteSpace(totpCode)) { formError = "Enter the 6-digit code from your app."; return; }
+        busy = true;
+        try
+        {
+            var r = await Call("POST", "/api/security/totp/confirm", new { code = totpCode });
+            if (!r.Ok) { formError = r.Message ?? "That code didn't work."; return; }
+            codes = r.Data.GetProperty("backupCodes").EnumerateArray().Select(x => x.GetString() ?? "").ToList();
+            setup = null;
+            await Toast("success", "Authenticator app is on");
+            await Load();
+        }
+        finally { busy = false; }
+    }
+
+    private async Task ConfirmSensitive()
+    {
+        formError = null;
+        if (string.IsNullOrEmpty(curPwd)) { formError = "Enter your password."; return; }
+        busy = true;
+        try
+        {
+            if (modal == "regen")
+            {
+                var r = await Call("POST", "/api/security/backup-codes/regenerate", new { password = curPwd });
+                if (!r.Ok) { formError = r.Message; return; }
+                codes = r.Data.GetProperty("backupCodes").EnumerateArray().Select(x => x.GetString() ?? "").ToList();
+                Close();
+            }
+            else
+            {
+                var r = await Call("POST", "/api/security/totp/disable", new { password = curPwd });
+                if (!r.Ok) { formError = r.Message; return; }
+                Close(); await Toast("info", "Authenticator app turned off");
+            }
+            await Load();
+        }
+        finally { busy = false; }
+    }
+
+    private Task CopyCodes() => JS.InvokeVoidAsync("ms.copy", string.Join("\n", codes ?? new())).AsTask().ContinueWith(_ => Toast("success", "Copied")).Unwrap();
+    private Task DownloadCodes() => JS.InvokeVoidAsync("ms.download", "tajiri-backup-codes.txt", "Tajiri Sacco backup codes\n(each works once)\n\n" + string.Join("\n", codes ?? new())).AsTask();
+
+    // -------------------------------------------------------------------- passkeys
+    private async Task AddPasskey()
+    {
+        formError = null; busy = true;
+        try
+        {
+            var el = await JS.InvokeAsync<JsonElement>("ms.passkeyRegister", string.IsNullOrWhiteSpace(passkeyName) ? null : passkeyName.Trim());
+            bool ok = el.GetProperty("ok").GetBoolean();
+            if (!ok)
+            {
+                var b = el.GetProperty("body");
+                formError = b.ValueKind == JsonValueKind.Object && b.TryGetProperty("message", out var m) ? m.GetString() : "Couldn't add the passkey.";
+                return;
+            }
+            Close(); await Toast("success", "Passkey added", "You can now sign in with it.");
+            await Load();
+        }
+        finally { busy = false; }
+    }
+
+    private async Task RemovePasskey(PasskeyDto k)
+    {
+        if (!await JS.InvokeAsync<bool>("ms.confirm", $"Remove the passkey “{k.Name}”?")) return;
+        var r = await Call("DELETE", $"/api/security/passkeys/{k.Id}");
+        if (!r.Ok) { await Toast("error", "Couldn't remove it", r.Message); return; }
+        await Toast("info", "Passkey removed"); await Load();
+    }
+
+    // -------------------------------------------------------------- fallback + phone
+    private async Task SetFallback(bool on)
+    {
+        var r = await Call("POST", "/api/security/otp-fallback", new { enabled = on });
+        if (!r.Ok) await Toast("error", "Couldn't change that", r.Message);
+        await Load();
+    }
+
+    private async Task SavePhone()
+    {
+        busy = true; formError = null;
+        try
+        {
+            var r = await Call("POST", "/api/security/profile", new { phone });
+            if (!r.Ok) { formError = r.Message ?? "Couldn't save."; return; }
+            Close(); await Toast("success", "Phone number saved"); await Load();
+        }
+        finally { busy = false; }
+    }
+
+    // ------------------------------------------------------------ devices / sessions
+    private async Task RemoveDevice(DeviceDto d) { await Call("DELETE", $"/api/security/devices/{d.Id}"); await Toast("info", "Device removed"); await Load(); }
+    private async Task UntrustAll() { await Call("POST", "/api/security/devices/untrust-all"); await Toast("info", "All devices will ask for a code next time"); await Load(); }
+
+    private async Task RevokeSession(SessionDto s) { await Call("DELETE", $"/api/security/sessions/{s.Id}"); await Toast("info", "Session signed out"); await Load(); }
+
+    private async Task RevokeOthers()
+    {
+        if (!await JS.InvokeAsync<bool>("ms.confirm", "Sign out of every other device?")) return;
+        await Call("POST", "/api/security/sessions/revoke-others"); await Toast("success", "Signed out everywhere else"); await Load();
+    }
+
+    // -------------------------------------------------------------------- display
+    private string ScoreTitle => ov == null ? "" : ov.Score >= 90 ? "Excellent protection" : ov.Score >= 70 ? "Good — one more step" : "Let's strengthen your account";
+    private string ScoreText => ov == null ? "" : ov.TotpEnabled && ov.Passkeys.Count > 0
+        ? "You have an authenticator app and a passkey. That's the strongest setup available."
+        : ov.TotpEnabled ? "Add a passkey for one-tap sign-in that can't be phished."
+        : ov.Passkeys.Count > 0 ? "Add an authenticator app as a second option, and keep your backup codes safe."
+        : "Turn on an authenticator app or add a passkey. Passwords alone are the most common way accounts are taken over.";
+
+    private static TimeZoneInfo Tz = FindTz();
+    private static TimeZoneInfo FindTz()
+    {
+        foreach (var id in new[] { "Africa/Nairobi", "E. Africa Standard Time" })
+            try { return TimeZoneInfo.FindSystemTimeZoneById(id); } catch { }
+        return TimeZoneInfo.CreateCustomTimeZone("EAT", TimeSpan.FromHours(3), "EAT", "EAT");
+    }
+
+    private static string Ago(DateTime utc)
+    {
+        var d = DateTime.UtcNow - utc;
+        if (d.TotalSeconds < 60) return "just now";
+        if (d.TotalMinutes < 60) return $"{(int)d.TotalMinutes} min ago";
+        if (d.TotalHours < 24) return $"{(int)d.TotalHours} h ago";
+        if (d.TotalDays < 7) return $"{(int)d.TotalDays} d ago";
+        return TimeZoneInfo.ConvertTimeFromUtc(utc, Tz).ToString("d MMM yyyy");
+    }
+
+    private static string DeviceIcon(string label) => label.Contains("Android") || label.Contains("iOS") ? "bi-phone" : label.Contains("Mac") ? "bi-laptop" : "bi-display";
+
+    private static string EventTitle(EventDto e) => e.EventType switch
+    {
+        "sign-in" => "Signed in",
+        "sign-out" => "Signed out",
+        "password" => e.Success ? "Password accepted" : "Failed sign-in",
+        "totp" => e.Success ? "Authenticator code accepted" : "Wrong authenticator code",
+        "passkey" => e.Success ? "Passkey used" : "Passkey check failed",
+        "backup-code" => e.Success ? "Backup code used" : "Wrong backup code",
+        "otp" => e.Success ? "One-time code accepted" : "Wrong one-time code",
+        "otp-sent" => "One-time code sent",
+        "totp-enabled" => "Authenticator app turned on",
+        "totp-disabled" => "Authenticator app turned off",
+        "passkey-added" => "Passkey added",
+        "passkey-removed" => "Passkey removed",
+        "backup-codes-regenerated" => "New backup codes generated",
+        "password-changed" => "Password changed",
+        "registered" => "Account created",
+        _ => e.EventType
+    };
+
+    private static string EventIcon(EventDto e) => !e.Success ? "bi-exclamation-triangle-fill" : e.EventType switch
+    {
+        "sign-in" => "bi-box-arrow-in-right", "sign-out" => "bi-box-arrow-right", "passkey" or "passkey-added" or "passkey-removed" => "bi-fingerprint",
+        "totp" or "totp-enabled" or "totp-disabled" => "bi-phone", "password-changed" or "password" => "bi-key", "otp" or "otp-sent" => "bi-chat-dots", _ => "bi-shield-check"
+    };
+}

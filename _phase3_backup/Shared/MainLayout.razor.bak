@@ -1,0 +1,106 @@
+@using System.Security.Claims
+@using SaccoManagementSystem.Security
+@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>@Brand.Name</PageTitle>
+
+<div class="ms-app">
+    <aside class="ms-sidebar" aria-label="Sidebar">
+        <NavMenu />
+    </aside>
+    <div class="ms-scrim"></div>
+
+    <div class="ms-main">
+        <header class="ms-topbar">
+            <button type="button" class="ms-icon-btn" data-ms-nav-toggle aria-label="Toggle navigation"><i class="bi bi-list" style="font-size:20px"></i></button>
+
+            <button type="button" class="ms-search" data-ms-cmd aria-label="Search">
+                <i class="bi bi-search"></i><span>Jump to a page or action…</span><kbd>Ctrl K</kbd>
+            </button>
+
+            <div class="ms-top-spacer"></div>
+
+            <div class="ms-greet">
+                <b>@Greeting, @FirstName</b>
+                <span>@DateTime.Now.ToString("dddd, d MMM yyyy")</span>
+            </div>
+
+            <a class="ms-icon-btn" href="audit-trail" title="Activity" aria-label="Activity"><i class="bi bi-bell"></i></a>
+
+            <div class="ms-dd" data-ms-dd>
+                <button type="button" class="ms-user-btn ms-dd-trigger" aria-haspopup="menu">
+                    <span class="ms-avatar">@Initials</span>
+                    <span class="ms-user-meta"><b>@DisplayName</b><small>@Role</small></span>
+                    <i class="bi bi-chevron-down ms-muted" style="font-size:12px"></i>
+                </button>
+                <div class="ms-dd-menu" role="menu">
+                    <div class="ms-dd-head"><b>@DisplayName</b><small>@Email</small></div>
+                    <a class="ms-dd-item" href="profile"><i class="bi bi-person"></i> My profile</a>
+                    <a class="ms-dd-item" href="settings?tab=security-center"><i class="bi bi-shield-lock"></i> Security Center</a>
+                    <a class="ms-dd-item" href="settings?tab=appearance"><i class="bi bi-palette"></i> Appearance</a>
+                    <a class="ms-dd-item" href="settings"><i class="bi bi-sliders"></i> Settings</a>
+                    <div class="ms-dd-sep"></div>
+                    <button type="button" class="ms-dd-item danger" @onclick="Logout"><i class="bi bi-box-arrow-right"></i> Sign out</button>
+                </div>
+            </div>
+        </header>
+
+        @if (PasswordExpired)
+        {
+            <div class="ms-banner warn"><i class="bi bi-exclamation-triangle-fill"></i> Your password has expired under your organisation's policy. <a href="settings?tab=security-center">Change it now</a></div>
+        }
+        else if (MustEnroll)
+        {
+            <div class="ms-banner warn"><i class="bi bi-shield-exclamation"></i> Your organisation requires two-step verification. <a href="settings?tab=security-center">Set it up</a></div>
+        }
+
+        <main class="ms-content">
+            <div class="ms-body">
+                @Body
+            </div>
+        </main>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? Auth { get; set; }
+
+    private string DisplayName = "Guest";
+    private string FirstName = "there";
+    private string Email = "";
+    private string Role = "";
+    private string Initials = "?";
+    private bool PasswordExpired;
+    private bool MustEnroll;
+
+    private string Greeting => DateTime.Now.Hour < 12 ? "Good morning" : DateTime.Now.Hour < 18 ? "Good afternoon" : "Good evening";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Auth == null) return;
+        var u = (await Auth).User;
+        if (u.Identity?.IsAuthenticated != true) return;
+        DisplayName = u.FindFirstValue(ClaimTypes.Name) ?? "User";
+        FirstName = DisplayName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? DisplayName;
+        Email = u.FindFirstValue(ClaimTypes.Email) ?? "";
+        Role = u.FindFirstValue(ClaimTypes.Role) ?? "";
+        var parts = DisplayName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        Initials = parts.Length >= 2 ? $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant() : DisplayName[..Math.Min(2, DisplayName.Length)].ToUpperInvariant();
+        PasswordExpired = u.HasClaim(AuthDefaults.PasswordExpiredClaim, "1");
+        MustEnroll = u.HasClaim(AuthDefaults.EnrollClaim, "1");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await JS.InvokeVoidAsync("ms.afterShell");
+    }
+
+    private async Task Logout()
+    {
+        try { await JS.InvokeAsync<System.Text.Json.JsonElement>("ms.api", "POST", "/api/auth/logout", null); }
+        catch { /* fall through to the login page regardless */ }
+        Navigation.NavigateTo("/login", forceLoad: true);
+    }
+}

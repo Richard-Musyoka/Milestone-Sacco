@@ -1,0 +1,51 @@
+@using SaccoManagementSystem.Services
+
+<fieldset class="cc-fs" disabled="@ReadOnly">
+    <div class="cc-card">
+        <h3><i class="bi bi-person-plus"></i> Joining</h3>
+        <p class="sub">What a new member pays and needs. Shown on the website's membership page too.</p>
+        <div class="cc-two">
+            <div class="ms-field"><label class="ms-label">Entrance (registration) fee</label><div class="cc-adorn"><em>@Cfg.CurrencySymbol</em><InputNumber @bind-Value="Cfg.EntranceFee" @bind-Value:after="Changed" class="ms-input pre" /></div><span class="ms-hint">One-off and non-refundable.</span></div>
+            <div class="ms-field"><label class="ms-label">Minimum age</label><InputNumber @bind-Value="Cfg.MinMemberAge" @bind-Value:after="Changed" class="ms-input" /></div>
+            <div class="ms-field"><label class="ms-label">Member number prefix</label><InputText @bind-Value="Cfg.MemberNoPrefix" @bind-Value:after="Changed" class="ms-input" maxlength="6" /><span class="ms-hint">Example: <b>@(Cfg.MemberNoPrefix)00125</b>. Also used as the M-Pesa account number.</span></div>
+            <div class="ms-field"><label class="ms-label">Common bond</label>
+                <InputSelect @bind-Value="Cfg.CommonBond" @bind-Value:after="Changed" class="ms-select">
+                    @foreach (var b in Bonds) { <option value="@b">@b</option> }
+                </InputSelect>
+                <span class="ms-hint">Who is eligible to join, as set out in your by-laws.</span></div>
+        </div>
+        <div class="cc-row" style="margin-top:10px"><div class="m"><b>KRA PIN is required</b><small>Needed for withholding tax on dividends and interest.</small></div><div class="e"><ToggleSwitch Value="Cfg.RequireKraPin" ValueChanged="@((bool v) => Set(() => Cfg.RequireKraPin = v))" AriaLabel="Require KRA PIN" /></div></div>
+        <div class="cc-row"><div class="m"><b>Next of kin is required</b><small>At least one nominee to receive benefits.</small></div><div class="e"><ToggleSwitch Value="Cfg.RequireNextOfKin" ValueChanged="@((bool v) => Set(() => Cfg.RequireNextOfKin = v))" AriaLabel="Require next of kin" /></div></div>
+        <div class="cc-row"><div class="m"><b>Group accounts</b><small>Allow chamas, self-help groups and welfare associations to join.</small></div><div class="e"><ToggleSwitch Value="Cfg.AllowGroupAccounts" ValueChanged="@((bool v) => Set(() => Cfg.AllowGroupAccounts = v))" AriaLabel="Allow group accounts" /></div></div>
+    </div>
+
+    <div class="cc-card">
+        <h3><i class="bi bi-piggy-bank"></i> Deposits and share capital</h3>
+        <p class="sub">BOSA savings rules. Deposits decide how much a member can borrow.</p>
+        <div class="cc-two">
+            <div class="ms-field"><label class="ms-label">Minimum monthly deposit</label><div class="cc-adorn"><em>@Cfg.CurrencySymbol</em><InputNumber @bind-Value="Cfg.MinMonthlyDeposit" @bind-Value:after="Changed" class="ms-input pre" /></div></div>
+            <div class="ms-field"><label class="ms-label">Interest on deposits (a year)</label><div class="cc-adorn"><InputNumber @bind-Value="Cfg.DepositInterestPct" @bind-Value:after="Changed" class="ms-input suf" /><em class="end">%</em></div><span class="ms-hint">Proposed rate; the AGM approves the final figure.</span></div>
+            <div class="ms-field"><label class="ms-label">Minimum share capital</label><div class="cc-adorn"><em>@Cfg.CurrencySymbol</em><InputNumber @bind-Value="Cfg.MinShareCapital" @bind-Value:after="Changed" class="ms-input pre" /></div></div>
+            <div class="ms-field"><label class="ms-label">Months to reach it</label><InputNumber @bind-Value="Cfg.ShareCapitalMonths" @bind-Value:after="Changed" class="ms-input" /><span class="ms-hint">About @Cfg.CurrencySymbol @PerMonth a month.</span></div>
+            <div class="ms-field"><label class="ms-label">Withdrawal notice</label><div class="cc-adorn"><InputNumber @bind-Value="Cfg.WithdrawalNoticeDays" @bind-Value:after="Changed" class="ms-input suf" /><em class="end">days</em></div><span class="ms-hint">Notice a member gives before leaving and withdrawing deposits.</span></div>
+        </div>
+        <div class="cc-row" style="margin-top:10px"><div class="m"><b>Employer check-off</b><small>Accept deductions remitted by employers from members' payslips.</small></div><div class="e"><ToggleSwitch Value="Cfg.CheckOffEnabled" ValueChanged="@((bool v) => Set(() => Cfg.CheckOffEnabled = v))" AriaLabel="Check-off" /></div></div>
+        <div class="cc-kv" style="margin-top:12px">
+            <div><small>To join today</small><b>@Cfg.CurrencySymbol @((Cfg.EntranceFee + Cfg.MinMonthlyDeposit).ToString("N0"))</b></div>
+            <div><small>First year minimum</small><b>@Cfg.CurrencySymbol @((Cfg.EntranceFee + Cfg.MinMonthlyDeposit * 12 + Cfg.MinShareCapital).ToString("N0"))</b></div>
+            <div><small>Can borrow after a year</small><b>@Cfg.CurrencySymbol @((Cfg.MinMonthlyDeposit * 12 * Multiple).ToString("N0"))</b></div>
+        </div>
+    </div>
+</fieldset>
+
+@code {
+    [Parameter] public OrgConfig Cfg { get; set; } = new();
+    [Parameter] public decimal Multiple { get; set; } = 3;
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public Action? OnChanged { get; set; }
+
+    private static readonly string[] Bonds = { "Community based", "Employer based", "Teachers", "Farmers", "Transport (matatu / boda boda)", "Traders and business owners", "Faith based", "Diaspora", "Open membership" };
+    private string PerMonth => Cfg.ShareCapitalMonths <= 0 ? Cfg.MinShareCapital.ToString("N0") : (Cfg.MinShareCapital / Cfg.ShareCapitalMonths).ToString("N0");
+    private void Changed() => OnChanged?.Invoke();
+    private void Set(Action a) { a(); Changed(); }
+}

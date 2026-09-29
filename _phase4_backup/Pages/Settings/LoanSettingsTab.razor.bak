@@ -1,0 +1,66 @@
+﻿@using System.ComponentModel.DataAnnotations
+@using Sacco_Management_System.Models
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="maxLoanAmount" class="form-label">Maximum Loan Amount (Multiple of Shares) *</label>
+            <InputNumber id="maxLoanAmount" @bind-Value="Settings.MaxLoanAmountMultiple" class="form-control"
+                         @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.MaxLoanAmountMultiple)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="loanProcessingFee" class="form-label">Loan Processing Fee (%) *</label>
+            <InputNumber id="loanProcessingFee" @bind-Value="Settings.LoanProcessingFee" class="form-control"
+                         @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.LoanProcessingFee)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="loanInterestRate" class="form-label">Loan Interest Rate (%) *</label>
+            <InputNumber id="loanInterestRate" @bind-Value="Settings.LoanInterestRate" class="form-control"
+                         @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.LoanInterestRate)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="loanRepaymentPeriod" class="form-label">Maximum Repayment Period (Months) *</label>
+            <InputNumber id="loanRepaymentPeriod" @bind-Value="Settings.MaxLoanRepaymentPeriod" class="form-control"
+                         @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.MaxLoanRepaymentPeriod)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="loanGuarantorsRequired" class="form-label">Minimum Guarantors Required *</label>
+            <InputNumber id="loanGuarantorsRequired" @bind-Value="Settings.MinGuarantorsRequired" class="form-control"
+                         @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.MinGuarantorsRequired)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="loanEligibilityPeriod" class="form-label">Membership Eligibility Period (Months) *</label>
+            <InputNumber id="loanEligibilityPeriod" @bind-Value="Settings.LoanEligibilityPeriod" class="form-control"
+                         @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.LoanEligibilityPeriod)" />
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public SaccoSettings Settings { get; set; } = new();
+
+    [Parameter]
+    public Action? OnSettingsChanged { get; set; }
+}

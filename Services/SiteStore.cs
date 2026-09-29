@@ -1,0 +1,426 @@
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using SaccoManagementSystem.Security;
+
+namespace SaccoManagementSystem.Services;
+
+/// <summary>Everything shown on the public SACCO website. Stored as JSON in dbo.SystemConfig (key "site").</summary>
+public sealed class SiteContent
+{
+    public bool Published { get; set; } = true;
+    public string Announcement { get; set; } = "";
+    public string AnnouncementLink { get; set; } = "";
+
+    // home
+    public string HeroKicker { get; set; } = "Karibu Tajiri Sacco";
+    public string HeroTitle { get; set; } = "Save a little every month. Build something that lasts.";
+    public string HeroText { get; set; } = "Tajiri Sacco belongs to the teachers, traders, farmers and boda boda riders who save with it. Your deposits earn interest, your shares earn a dividend, and when you need a loan, your fellow members stand with you.";
+    public string HeroImage { get; set; } = "";
+    /// <summary>Website pictures by slot (see <see cref="SiteImages"/>): a data URL, an https link, or "none" to hide. Missing = default photo.</summary>
+    public Dictionary<string, string> Images { get; set; } = new();
+    public bool ShowStats { get; set; } = true;
+    public List<Stat> Stats { get; set; } = new()
+    {
+        new() { Value = "{members}", Label = "Members" },
+        new() { Value = "{years}", Label = "Years serving" },
+        new() { Value = "{products}", Label = "Loan products" },
+        new() { Value = "{dividend}", Label = "Last dividend rate" },
+    };
+    public List<Feature> Why { get; set; } = new()
+    {
+        new() { Icon = "bi-mortarboard", Title = "Ready for school fees season", Text = "Fees fall due three times a year. Our school fees loan is usually ready within two working days and is repaid across the term." },
+        new() { Icon = "bi-phone", Title = "Pay from your phone", Text = "Lipa na M-Pesa, Pay Bill, then your member number as the account. Your statement updates the same day." },
+        new() { Icon = "bi-shop", Title = "Your money stays local", Text = "Deposits saved here are lent to members here: stock for a duka, a dairy cow, a plot, a boda boda." },
+        new() { Icon = "bi-people", Title = "You own a share of it", Text = "One member, one vote at the AGM. The surplus comes back to you as dividends on shares and interest on deposits." },
+    };
+    public List<Feature> Savings { get; set; } = new()
+    {
+        new() { Icon = "bi-piggy-bank", Title = "Member deposits (BOSA)", Text = "Monthly savings that earn interest and set how much you can borrow." },
+        new() { Icon = "bi-pie-chart", Title = "Share capital", Text = "Your ownership in the SACCO. Earns a yearly dividend." },
+        new() { Icon = "bi-calendar2-heart", Title = "Holiday & Christmas savings", Text = "Put a little aside every month and withdraw it in December." },
+        new() { Icon = "bi-mortarboard", Title = "Junior savings", Text = "Start saving for your children's education early." },
+    };
+
+    // about
+    public string AboutTitle { get; set; } = "It started with a few people and a notebook";
+    public string AboutText { get; set; } = "Before Tajiri Sacco had an office, it had a notebook. A handful of neighbours met after church, each put in what they could, and one of them wrote it all down. When someone needed help with fees or a hospital bill, the group lent it and waited to be paid back.\n\nThat habit of saving together and trusting each other is still how we work. The notebook became a ledger, the ledger became this system, and the group became a registered co-operative. The people are the same kind of people: working, saving and building something for their families.";
+    public string Vision { get; set; } = "A financially empowered community.";
+    public string Mission { get; set; } = "To mobilise savings and provide affordable credit and financial services that improve our members' lives.";
+    public List<string> Values { get; set; } = new() { "Integrity", "Accountability", "Member first", "Transparency", "Teamwork" };
+    public List<Person> Team { get; set; } = new();
+
+    // membership
+    public List<string> Requirements { get; set; } = new()
+    {
+        "Copy of your national ID or passport",
+        "Copy of your KRA PIN certificate",
+        "One recent passport-size photo",
+        "Details of your next of kin and nominees",
+        "Entrance (registration) fee",
+    };
+    public List<string> Steps { get; set; } = new()
+    {
+        "Fill in the membership form online or at our office",
+        "Pay the entrance fee through M-Pesa or at the counter",
+        "Start your monthly deposits and share capital",
+        "Borrow after completing the qualifying period",
+    };
+    public List<Faq> Faqs { get; set; } = new()
+    {
+        new() { Q = "Who can join?", A = "Anyone who meets our common bond and is at least 18 years old." },
+        new() { Q = "How do I deposit?", A = "Use our M-Pesa Paybill with your member number as the account, through employer check-off, or at the counter." },
+        new() { Q = "When can I borrow?", A = "After you have saved consistently for the qualifying period, up to a multiple of your deposits." },
+        new() { Q = "How are dividends paid?", A = "Dividends on share capital and interest on deposits are approved at the AGM and paid after withholding tax." },
+    };
+
+    // journey, voices, community
+    public List<Milestone> Journey { get; set; } = new()
+    {
+        new() { Year = "The start", Title = "A notebook and a promise", Text = "Neighbours begin meeting every month, pooling savings and lending to each other." },
+        new() { Year = "Registration", Title = "We become a co-operative", Text = "The group registers under the Co-operative Societies Act and elects its first board." },
+        new() { Year = "First office", Title = "A door on the main road", Text = "Members stop meeting under the tree and open a small office with one teller." },
+        new() { Year = "M-Pesa", Title = "Saving from anywhere", Text = "A Paybill number means members in Nairobi and beyond can save without travelling home." },
+        new() { Year = "Today", Title = "Chamas, loans and dividends", Text = "Members save individually and in chamas, borrow for fees and business, and share the surplus every year." },
+    };
+    public string ChairNote { get; set; } = "Every shilling in this SACCO belongs to a member who trusted us with it. We take that seriously. Come to the AGM, ask questions, read the accounts. It is your co-operative.";
+    public string ChairName { get; set; } = "";
+    public List<Voice> Voices { get; set; } = new();
+    public List<Feature> Community { get; set; } = new()
+    {
+        new() { Icon = "bi-journal-text", Title = "Money talks", Text = "Free financial literacy sessions for members and their families: budgeting, saving and avoiding debt traps." },
+        new() { Icon = "bi-mortarboard", Title = "Education support", Text = "Members' children who do well in exams can apply for bursaries from the education fund." },
+        new() { Icon = "bi-tree", Title = "Green Tajiri", Text = "Tree planting with local schools every long rains season." },
+    };
+    public List<Branch> Branches { get; set; } = new() { new() { Name = "Head office", Address = "Tala, Machakos County", Hours = "Mon to Fri 8:00am to 5:00pm · Sat 9:00am to 1:00pm" } };
+    public List<Link> Downloads { get; set; } = new();
+    /// <summary>True while the site still shows the starter text. Only the website manager sees this.</summary>
+    public bool SampleContent { get; set; } = true;
+    public int SchemaVersion { get; set; }
+
+    // news
+    public List<NewsItem> News { get; set; } = new();
+
+    // contact
+    public string OfficeHours { get; set; } = "Mon to Fri 8:00am to 5:00pm · Sat 9:00am to 1:00pm";
+    public string MapQuery { get; set; } = "";
+    public string WhatsApp { get; set; } = "";
+    public string Facebook { get; set; } = "";
+    public string XHandle { get; set; } = "";
+    public string Instagram { get; set; } = "";
+
+    public DateTime? UpdatedUtc { get; set; }
+    public string UpdatedBy { get; set; } = "";
+
+    public sealed class Milestone { public string Year { get; set; } = ""; public string Title { get; set; } = ""; public string Text { get; set; } = ""; }
+    public sealed class Voice { public string Name { get; set; } = ""; public string Role { get; set; } = ""; public string Quote { get; set; } = ""; }
+    public sealed class Branch { public string Name { get; set; } = ""; public string Address { get; set; } = ""; public string Phone { get; set; } = ""; public string Hours { get; set; } = ""; }
+    public sealed class Link { public string Title { get; set; } = ""; public string Url { get; set; } = ""; }
+    public sealed class Stat { public string Value { get; set; } = ""; public string Label { get; set; } = ""; }
+    public sealed class Feature { public string Icon { get; set; } = "bi-star"; public string Title { get; set; } = ""; public string Text { get; set; } = ""; }
+    public sealed class Person { public string Name { get; set; } = ""; public string Role { get; set; } = ""; public string Group { get; set; } = "Board"; }
+    public sealed class Faq { public string Q { get; set; } = ""; public string A { get; set; } = ""; }
+    public sealed class NewsItem
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString("N")[..10];
+        public string Title { get; set; } = "";
+        public DateTime Date { get; set; } = DateTime.Today;
+        public string Summary { get; set; } = "";
+        public string Body { get; set; } = "";
+        public bool Published { get; set; } = true;
+    }
+}
+
+public sealed record Enquiry(long Id, string Kind, string Name, string Phone, string Email, string Message, string Status, DateTime CreatedUtc, string HandledBy);
+
+/// <summary>Every picture slot on the public website, with a free-to-use default photo (Unsplash licence).</summary>
+public static class SiteImages
+{
+    public sealed record Slot(string Key, string Page, string Label, string Where, string Default, int W, int H);
+    public const string Cdn = "https://images.unsplash.com/";
+
+    public static readonly IReadOnlyList<Slot> Slots = new List<Slot>
+    {
+        new("home.main", "Home", "Main banner photo", "The large picture at the top of the home page", Cdn + "photo-1761168026167-2309a979e1c8", 900, 1100),
+        new("home.side", "Home", "Second banner photo", "The smaller picture overlapping the main one", Cdn + "photo-1734255026082-82fdc81991f0", 800, 560),
+        new("home.mini", "Home", "Round banner photo", "The small round picture in the banner", Cdn + "photo-1753890995734-eed67d381c27", 400, 400),
+        new("home.why", "Home", "Why members stay", "Beside the list of reasons members stay", Cdn + "photo-1773858438654-08abe8814620", 800, 1000),
+        new("home.community", "Home", "Come and see us", "In the invitation at the bottom of the home page", Cdn + "photo-1785355805901-36633b1ad494", 900, 600),
+        new("about.head", "About us", "Page banner", "Top of the About us page", Cdn + "photo-1761666519794-ad6fbcef058b", 900, 600),
+        new("about.story", "About us", "Our story", "Beside the story of the SACCO", Cdn + "photo-1785355805901-36633b1ad494", 900, 760),
+        new("products.head", "Products", "Page banner", "Top of the Products page", Cdn + "photo-1773858440885-361caff45fa3", 900, 600),
+        new("membership.head", "Membership", "Page banner", "Top of the Membership page", Cdn + "photo-1761666519882-59ab0dbe5059", 900, 600),
+        new("news.head", "News", "Page banner", "Top of the News page", Cdn + "photo-1776039325240-02916820bfeb", 900, 600),
+        new("contact.head", "Contact", "Page banner", "Top of the Contact page", Cdn + "photo-1641422162969-3a3d177124d5", 900, 600),
+    };
+
+    public static Slot? Find(string key) => Slots.FirstOrDefault(x => x.Key == key);
+
+    /// <summary>Adds sizing to Unsplash links so pages download a sensible file.</summary>
+    public static string Sized(string url, int w, int h) =>
+        url.StartsWith(Cdn, StringComparison.OrdinalIgnoreCase) && !url.Contains('?') ? $"{url}?auto=format&fit=crop&w={w}&h={h}&q=78" : url;
+}
+
+public sealed class SiteStore
+{
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private static readonly Regex Img = new(@"^data:image/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$", RegexOptions.Compiled);
+    private sealed record Row(string Value, DateTime? When, string By);
+
+    private readonly IDbFactory _db;
+    private readonly ILogger<SiteStore> _log;
+    private SiteContent _current = new();
+    private readonly Dictionary<string, DateTime> _lastPost = new();
+
+    public SiteStore(IDbFactory db, ILogger<SiteStore> log) { _db = db; _log = log; }
+
+    public SiteContent Current => _current;
+    public string Ver => (_current.UpdatedUtc?.Ticks ?? 0).ToString();
+
+    /// <summary>URL to show for a picture slot, or "" when the admin chose to hide it.</summary>
+    public string Photo(string key)
+    {
+        var slot = SiteImages.Find(key);
+        if (_current.Images.TryGetValue(key, out var v) && !string.IsNullOrWhiteSpace(v))
+        {
+            if (v == "none") return "";
+            if (v.StartsWith("data:", StringComparison.Ordinal)) return $"media/site/{key}?v={Ver}";
+            return slot == null ? v : SiteImages.Sized(v, slot.W, slot.H);
+        }
+        if (key == "home.main" && !string.IsNullOrEmpty(_current.HeroImage)) return "media/hero?v=" + Ver;
+        return slot == null ? "" : SiteImages.Sized(slot.Default, slot.W, slot.H);
+    }
+    public event Action? Changed;
+
+    public async Task EnsureSchemaAsync()
+    {
+        await using var c = await _db.OpenAsync();
+        await c.ExecAsync(@"IF OBJECT_ID('dbo.SystemConfig') IS NULL
+            CREATE TABLE dbo.SystemConfig ([Key] NVARCHAR(100) NOT NULL PRIMARY KEY, [Value] NVARCHAR(MAX) NOT NULL, UpdatedUtc DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(), UpdatedBy NVARCHAR(200) NULL);
+          IF OBJECT_ID('dbo.SiteEnquiries') IS NULL
+            CREATE TABLE dbo.SiteEnquiries (Id BIGINT IDENTITY(1,1) PRIMARY KEY, Kind NVARCHAR(30) NOT NULL, Name NVARCHAR(120) NOT NULL,
+              Phone NVARCHAR(40) NULL, Email NVARCHAR(200) NULL, Message NVARCHAR(2000) NULL, Status NVARCHAR(20) NOT NULL DEFAULT 'New',
+              CreatedUtc DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(), Ip NVARCHAR(64) NULL, HandledBy NVARCHAR(200) NULL, HandledUtc DATETIME2 NULL);");
+    }
+
+    public async Task LoadAsync()
+    {
+        try
+        {
+            await EnsureSchemaAsync();
+            await using var c = await _db.OpenAsync();
+            var row = await c.FirstAsync("SELECT [Value], UpdatedUtc, UpdatedBy FROM dbo.SystemConfig WHERE [Key] = 'site'",
+                r => new Row(r.Str("Value"), r.DateN("UpdatedUtc"), r.Str("UpdatedBy")));
+            if (row != null)
+            {
+                var s = JsonSerializer.Deserialize<SiteContent>(row.Value, Json) ?? new SiteContent();
+                s.UpdatedUtc = row.When; s.UpdatedBy = row.By ?? "";
+                _current = s;
+            }
+            if (row == null || _current.SchemaVersion < 6)
+            {
+                var fresh = new SiteContent();
+                var cur = _current;
+                if (row != null)
+                {
+                    // bring in the new sections without touching what the SACCO already wrote
+                    if (cur.HeroTitle == "Your money, working for you and your community.") { cur.HeroTitle = fresh.HeroTitle; cur.HeroText = fresh.HeroText; cur.HeroKicker = fresh.HeroKicker; cur.Why = fresh.Why; }
+                    if (cur.AboutTitle == "Owned by members, run for members") { cur.AboutTitle = fresh.AboutTitle; cur.AboutText = fresh.AboutText; }
+                }
+                cur.SchemaVersion = 6;
+                var (_, err) = await SaveAsync(cur, row == null ? "system (first run)" : "system (upgrade)");
+                if (err != null) _log.LogWarning("Website upgrade skipped: {Err}", err);
+            }
+        }
+        catch (Exception ex) { _log.LogWarning(ex, "Could not load website content; using defaults."); }
+        Changed?.Invoke();
+    }
+
+    public static string? Validate(SiteContent s)
+    {
+        string T(string? v) => (v ?? "").Trim();
+        s.HeroTitle = T(s.HeroTitle); s.HeroText = T(s.HeroText); s.AboutText = T(s.AboutText);
+        if (s.HeroTitle.Length == 0) return "The home page needs a headline.";
+        if (s.HeroTitle.Length > 140 || s.HeroText.Length > 400 || s.HeroKicker?.Length > 60 || s.Announcement?.Length > 200) return "One of the home page texts is too long.";
+        if (s.AboutText.Length > 4000 || s.Vision?.Length > 400 || s.Mission?.Length > 600) return "One of the About texts is too long.";
+        if (!string.IsNullOrEmpty(s.HeroImage) && (s.HeroImage.Length > 2_100_000 || !Img.IsMatch(s.HeroImage))) return "The home image must be a PNG, JPG, WebP or GIF under 1.5 MB.";
+        s.Images ??= new();
+        long total = 0;
+        foreach (var (k, v) in s.Images)
+        {
+            if (SiteImages.Find(k) == null) return "Unknown picture slot: " + k;
+            if (string.IsNullOrEmpty(v) || v == "none") continue;
+            if (v.StartsWith("data:", StringComparison.Ordinal))
+            {
+                if (v.Length > 2_100_000 || !Img.IsMatch(v)) return "Pictures must be PNG, JPG, WebP or GIF under 1.5 MB each.";
+                total += v.Length;
+            }
+            else if (!v.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || v.Length > 600 || v.Contains('"') || v.Contains('<')) return "Picture links must start with https:// and be under 600 characters.";
+        }
+        if (total > 14_000_000) return "The website pictures add up to more than 10 MB. Use smaller files or links.";
+        if (!string.IsNullOrEmpty(s.AnnouncementLink) && !(s.AnnouncementLink.StartsWith("/") || s.AnnouncementLink.StartsWith("https://"))) return "The announcement link must start with / or https://";
+        s.Stats = (s.Stats ?? new()).Where(x => !string.IsNullOrWhiteSpace(x.Label)).Take(6).ToList();
+        s.Why = (s.Why ?? new()).Where(x => !string.IsNullOrWhiteSpace(x.Title)).Take(8).ToList();
+        s.Savings = (s.Savings ?? new()).Where(x => !string.IsNullOrWhiteSpace(x.Title)).Take(12).ToList();
+        s.Values = (s.Values ?? new()).Select(T).Where(x => x.Length > 0).Take(10).ToList();
+        s.Team = (s.Team ?? new()).Where(x => !string.IsNullOrWhiteSpace(x.Name)).Take(40).ToList();
+        s.Requirements = (s.Requirements ?? new()).Select(T).Where(x => x.Length > 0).Take(15).ToList();
+        s.Steps = (s.Steps ?? new()).Select(T).Where(x => x.Length > 0).Take(8).ToList();
+        s.Faqs = (s.Faqs ?? new()).Where(x => !string.IsNullOrWhiteSpace(x.Q)).Take(30).ToList();
+        s.News = (s.News ?? new()).Where(x => !string.IsNullOrWhiteSpace(x.Title)).Take(100).ToList();
+        s.Journey = (s.Journey ?? new()).Where(x => !string.IsNullOrWhiteSpace(x.Title)).Take(20).ToList();
+        s.Voices = (s.Voices ?? new()).Where(x => !string.IsNullOrWhiteSpace(x.Quote) && !string.IsNullOrWhiteSpace(x.Name)).Take(12).ToList();
+        s.Community = (s.Community ?? new()).Where(x => !string.IsNullOrWhiteSpace(x.Title)).Take(8).ToList();
+        s.Branches = (s.Branches ?? new()).Where(x => !string.IsNullOrWhiteSpace(x.Name)).Take(20).ToList();
+        s.Downloads = (s.Downloads ?? new()).Where(x => !string.IsNullOrWhiteSpace(x.Title)).Take(20).ToList();
+        foreach (var d in s.Downloads) if (!(d.Url.StartsWith("https://") || d.Url.StartsWith("/"))) return "Download links must start with https:// or /";
+        foreach (var f in s.Community) if (string.IsNullOrWhiteSpace(f.Icon) || !f.Icon.StartsWith("bi-")) f.Icon = "bi-star";
+        if ((s.ChairNote ?? "").Length > 1500) return "The chairperson's note is too long.";
+        foreach (var f in s.Why.Concat(s.Savings)) if (string.IsNullOrWhiteSpace(f.Icon) || !f.Icon.StartsWith("bi-")) f.Icon = "bi-star";
+        foreach (var n in s.News) { if (string.IsNullOrWhiteSpace(n.Id)) n.Id = Guid.NewGuid().ToString("N")[..10]; if ((n.Body ?? "").Length > 20000) return "A news story is too long."; }
+        foreach (var u in new[] { s.Facebook, s.Instagram }) if (!string.IsNullOrEmpty(u) && !u.StartsWith("https://")) return "Social links must start with https://";
+        return null;
+    }
+
+    public async Task<(SiteContent? Saved, string? Error)> SaveAsync(SiteContent s, string? by)
+    {
+        var err = Validate(s);
+        if (err != null) return (null, err);
+        s.UpdatedUtc = DateTime.UtcNow; s.UpdatedBy = by ?? "";
+        var json = JsonSerializer.Serialize(s, Json);
+        await using var c = await _db.OpenAsync();
+        await c.ExecAsync(@"MERGE dbo.SystemConfig AS t USING (SELECT 'site' AS [Key]) x ON t.[Key] = x.[Key]
+            WHEN MATCHED THEN UPDATE SET [Value] = @v, UpdatedUtc = SYSUTCDATETIME(), UpdatedBy = @by
+            WHEN NOT MATCHED THEN INSERT ([Key], [Value], UpdatedBy) VALUES ('site', @v, @by);", ("v", json), ("by", by ?? ""));
+        _current = s;
+        Changed?.Invoke();
+        return (s, null);
+    }
+
+    // ---------------------------------------------------------------- enquiries
+    public async Task<string?> AddEnquiryAsync(string kind, string name, string phone, string email, string message, string ip)
+    {
+        name = (name ?? "").Trim(); phone = (phone ?? "").Trim(); email = (email ?? "").Trim(); message = (message ?? "").Trim();
+        if (name.Length < 2) return "Please tell us your name.";
+        if (phone.Length < 9 && !email.Contains('@')) return "Leave a phone number or email so we can reach you.";
+        if (name.Length > 120 || phone.Length > 40 || email.Length > 200 || message.Length > 2000) return "That message is too long.";
+        kind = kind is "Membership" or "Loan" or "General" ? kind : "General";
+        lock (_lastPost)
+        {
+            if (_lastPost.TryGetValue(ip, out var last) && DateTime.UtcNow - last < TimeSpan.FromSeconds(30)) return "Please wait a moment before sending another message.";
+            _lastPost[ip] = DateTime.UtcNow;
+            if (_lastPost.Count > 5000) _lastPost.Clear();
+        }
+        await using var c = await _db.OpenAsync();
+        await c.ExecAsync("INSERT INTO dbo.SiteEnquiries (Kind, Name, Phone, Email, Message, Ip) VALUES (@k, @n, @p, @e, @m, @ip)",
+            ("k", kind), ("n", name), ("p", phone), ("e", email), ("m", message), ("ip", ip));
+        return null;
+    }
+
+    public async Task<List<Enquiry>> EnquiriesAsync(string? status, int take = 200)
+    {
+        await using var c = await _db.OpenAsync();
+        return await c.QueryAsync(@"SELECT TOP (@t) Id, Kind, Name, Phone, Email, Message, Status, CreatedUtc, HandledBy FROM dbo.SiteEnquiries
+                                    WHERE (@s IS NULL OR Status = @s) ORDER BY CreatedUtc DESC",
+            r => new Enquiry(r.Long("Id"), r.Str("Kind"), r.Str("Name"), r.Str("Phone"), r.Str("Email"), r.Str("Message"), r.Str("Status"), r.Date("CreatedUtc"), r.Str("HandledBy")),
+            ("t", take), ("s", string.IsNullOrWhiteSpace(status) ? null : status));
+    }
+
+    public async Task<int> NewEnquiryCountAsync()
+    {
+        try { await using var c = await _db.OpenAsync(); return await c.ScalarAsync<int>("SELECT COUNT(*) FROM dbo.SiteEnquiries WHERE Status = 'New'"); }
+        catch { return 0; }
+    }
+
+    public async Task<bool> SetEnquiryStatusAsync(long id, string status, string? by)
+    {
+        if (status is not ("New" or "Contacted" or "Closed")) return false;
+        await using var c = await _db.OpenAsync();
+        return await c.ExecAsync("UPDATE dbo.SiteEnquiries SET Status = @s, HandledBy = @b, HandledUtc = SYSUTCDATETIME() WHERE Id = @id", ("s", status), ("b", by ?? ""), ("id", id)) > 0;
+    }
+
+    public sealed record Rules(int EligibilityMonths, int MaxMultiple, decimal SharePrice, decimal DividendRate, decimal LoanRate, int Guarantors);
+
+    /// <summary>The lending and share rules from Settings, for the public "how it works" sections.</summary>
+    public async Task<Rules> RulesAsync()
+    {
+        try
+        {
+            await using var c = await _db.OpenAsync();
+            return await c.FirstAsync("SELECT TOP 1 LoanEligibilityPeriod, MaxLoanAmountMultiple, SharePrice, DividendRate, LoanInterestRate, MinGuarantorsRequired FROM SaccoSettings ORDER BY Id DESC",
+                r => new Rules(r.Int("LoanEligibilityPeriod"), r.Int("MaxLoanAmountMultiple"), Convert.ToDecimal(r["SharePrice"]), Convert.ToDecimal(r["DividendRate"]), Convert.ToDecimal(r["LoanInterestRate"]), r.Int("MinGuarantorsRequired")))
+                ?? new Rules(6, 3, 100, 5, 12, 2);
+        }
+        catch { return new Rules(6, 3, 100, 5, 12, 2); }
+    }
+
+    /// <summary>Live figures for "{members}" style tokens on the home page.</summary>
+    public async Task<Dictionary<string, string>> LiveTokensAsync(OrgConfig cfg)
+    {
+        var d = new Dictionary<string, string>
+        {
+            ["{products}"] = cfg.LoanProducts.Count(p => p.OnWebsite).ToString(),
+            ["{dividend}"] = "",
+            ["{years}"] = cfg.FoundedYear is int y && y > 1900 && y <= DateTime.Today.Year ? Math.Max(1, DateTime.Today.Year - y) + "+" : "",
+            ["{paybill}"] = cfg.MpesaPaybill,
+            ["{members}"] = "",
+        };
+        try
+        {
+            await using var c = await _db.OpenAsync();
+            var n = await c.ScalarAsync<int>("SELECT COUNT(*) FROM Members");
+            d["{members}"] = n >= 1000 ? (n / 1000.0).ToString("0.#") + "k+" : n > 0 ? n.ToString("N0") : "";
+            var rate = await c.ScalarAsync<decimal?>("SELECT TOP 1 DividendRate FROM SaccoSettings ORDER BY Id DESC");
+            if (rate is decimal r) d["{dividend}"] = r.ToString("0.#") + "%";
+        }
+        catch { }
+        return d;
+    }
+}
+
+/// <summary>Turns stored data URLs into real image responses so pages don't push megabytes through the Blazor circuit.</summary>
+public static class Media
+{
+    private static readonly Regex Rx = new(@"^data:(image/(?:png|jpeg|jpg|webp|gif|svg\+xml));base64,(.+)$", RegexOptions.Compiled | RegexOptions.Singleline);
+
+    public static bool TryDecode(string? dataUrl, out byte[] bytes, out string type)
+    {
+        bytes = Array.Empty<byte>(); type = "";
+        if (string.IsNullOrEmpty(dataUrl)) return false;
+        var m = Rx.Match(dataUrl);
+        if (!m.Success) return false;
+        try { bytes = Convert.FromBase64String(m.Groups[2].Value); type = m.Groups[1].Value; return true; } catch { return false; }
+    }
+
+    public static IResult Send(HttpContext ctx, string? dataUrl, bool isPublic)
+    {
+        if (!TryDecode(dataUrl, out var bytes, out var type)) return Results.NotFound();
+        var h = ctx.Response.Headers;
+        h["Cache-Control"] = (isPublic ? "public" : "private") + ", max-age=86400";
+        h["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+        h["X-Content-Type-Options"] = "nosniff";
+        return Results.File(bytes, type);
+    }
+
+    public static void MapMedia(this WebApplication app)
+    {
+        app.MapGet("/media/logo", (HttpContext ctx, ConfigStore cfg) => Send(ctx, cfg.Current.LogoDataUrl, true)).AllowAnonymous();
+        app.MapGet("/media/login", (HttpContext ctx, ConfigStore cfg) => Send(ctx, cfg.Current.LoginImageDataUrl, true)).AllowAnonymous();
+        app.MapGet("/media/hero", (HttpContext ctx, SiteStore site) => Send(ctx, site.Current.HeroImage, true)).AllowAnonymous();
+        app.MapGet("/media/site/{key}", (string key, HttpContext ctx, SiteStore site) =>
+            Send(ctx, site.Current.Images.TryGetValue(key, out var v) ? v : null, true)).AllowAnonymous();
+        app.MapGet("/media/member/{no}", async (string no, HttpContext ctx, MemberExtrasStore extras) =>
+        {
+            if (ctx.User.Identity?.IsAuthenticated != true) return Results.Unauthorized();
+            if (ctx.User.IsInRole(SaccoManagementSystem.Security.Roles.Member) && !string.Equals(ctx.User.FindFirst("member_no")?.Value, no, StringComparison.OrdinalIgnoreCase))
+                return Results.Forbid();
+            var x = await extras.GetAsync(no);
+            return Send(ctx, x.Photo, false);
+        });
+        app.MapGet("/media/user/{id:int}", async (int id, HttpContext ctx, ProfileStore profiles) =>
+        {
+            if (ctx.User.Identity?.IsAuthenticated != true) return Results.Unauthorized();
+            var p = await profiles.GetAsync(id);
+            return Send(ctx, p?.Photo, false);
+        });
+    }
+}

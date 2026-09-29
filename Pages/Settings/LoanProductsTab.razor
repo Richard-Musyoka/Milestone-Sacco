@@ -1,0 +1,58 @@
+@using SaccoManagementSystem.Services
+
+<fieldset class="cc-fs" disabled="@ReadOnly">
+    <div class="cc-card">
+        <h3><i class="bi bi-collection"></i> Loan products</h3>
+        <p class="sub">Your loan menu. Products marked for the website appear on the public Products page with a repayment calculator.</p>
+        <div class="cc-lp cc-lp-head"><span></span><span>Product</span><span>Rate a year</span><span>Max months</span><span>× deposits</span><span>Method</span><span></span></div>
+        @for (var i = 0; i < Cfg.LoanProducts.Count; i++)
+        {
+            var p = Cfg.LoanProducts[i]; var idx = i;
+            <div class="cc-lp">
+                <button type="button" class="ico" style="border:0;cursor:pointer" title="Change icon" @onclick="() => NextIcon(p)"><i class="bi @p.Icon"></i></button>
+                <input class="ms-input" value="@p.Name" @onchange="e => Str(v => p.Name = v, e)" placeholder="Product name" />
+                <input class="ms-input" type="number" step="0.1" value="@p.RatePct" @onchange="e => Dec(v => p.RatePct = v, e)" aria-label="Rate" />
+                <input class="ms-input" type="number" value="@p.MaxMonths" @onchange="e => Num(v => p.MaxMonths = v, e)" aria-label="Months" />
+                <input class="ms-input" type="number" step="0.5" value="@p.Multiple" @onchange="e => Dec(v => p.Multiple = v, e)" aria-label="Multiple" />
+                <select class="ms-select" value="@p.Method" @onchange="e => Str(v => p.Method = v, e)"><option>Reducing balance</option><option>Flat rate</option></select>
+                <span style="display:flex;gap:6px">
+                    <button type="button" class="ms-icon-btn" title="@(p.OnWebsite ? "Shown on website" : "Hidden from website")" @onclick="() => Toggle(p)"><i class="bi @(p.OnWebsite ? "bi-globe2" : "bi-eye-slash")"></i></button>
+                    <button type="button" class="ms-icon-btn" title="Remove" @onclick="() => Remove(idx)"><i class="bi bi-trash3"></i></button>
+                </span>
+                <input class="ms-input sum" value="@p.Summary" @onchange="e => Str(v => p.Summary = v, e)" placeholder="One line members will see" />
+            </div>
+        }
+        <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+            <button type="button" class="ms-btn" @onclick="Add"><i class="bi bi-plus-lg"></i> Add product</button>
+            <button type="button" class="ms-btn ghost" @onclick="Restore"><i class="bi bi-arrow-counterclockwise"></i> Restore typical Kenyan products</button>
+        </div>
+    </div>
+
+    <div class="cc-card">
+        <h3><i class="bi bi-sliders"></i> Lending rules</h3>
+        <p class="sub">Checks applied when appraising a loan.</p>
+        <div class="cc-row"><div class="m"><b>One-third rule</b><small>Share of net pay that must remain after all deductions, including the new loan (Employment Act).</small></div><div class="e"><div class="cc-adorn"><InputNumber @bind-Value="Cfg.OneThirdRulePct" @bind-Value:after="Changed" class="ms-input suf" /><em class="end">%</em></div></div></div>
+        <div class="cc-row"><div class="m"><b>Loan insurance / risk fund</b><small>Charged once on the amount disbursed. Cleared on death or permanent disability.</small></div><div class="e"><div class="cc-adorn"><InputNumber @bind-Value="Cfg.LoanInsurancePct" @bind-Value:after="Changed" class="ms-input suf" /><em class="end">%</em></div></div></div>
+        <div class="cc-row"><div class="m"><b>Top-up allowed after</b><small>How much of an existing loan must be repaid before refinancing.</small></div><div class="e"><div class="cc-adorn"><InputNumber @bind-Value="Cfg.TopUpAfterPct" @bind-Value:after="Changed" class="ms-input suf" /><em class="end">%</em></div></div></div>
+        <div class="cc-row"><div class="m"><b>Grace period</b><small>Months before the first repayment falls due.</small></div><div class="e"><div class="cc-adorn"><InputNumber @bind-Value="Cfg.GraceMonths" @bind-Value:after="Changed" class="ms-input suf" /><em class="end">mo</em></div></div></div>
+        <div class="cc-row"><div class="m"><b>CRB listing after</b><small>Days in arrears before a defaulter can be reported (members must get notice first).</small></div><div class="e"><div class="cc-adorn"><InputNumber @bind-Value="Cfg.CrbListingDays" @bind-Value:after="Changed" class="ms-input suf" /><em class="end">days</em></div></div></div>
+    </div>
+</fieldset>
+
+@code {
+    [Parameter] public OrgConfig Cfg { get; set; } = new();
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public Action? OnChanged { get; set; }
+
+    private static readonly string[] Icons = { "bi-cash-coin", "bi-house-door", "bi-heart-pulse", "bi-mortarboard", "bi-shop", "bi-truck", "bi-phone", "bi-tree", "bi-car-front", "bi-lightning-charge", "bi-briefcase", "bi-droplet" };
+
+    private void Changed() => OnChanged?.Invoke();
+    private void Str(Action<string> set, ChangeEventArgs e) { set(e.Value?.ToString() ?? ""); Changed(); }
+    private void Dec(Action<decimal> set, ChangeEventArgs e) { if (decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v)) { set(v); Changed(); } }
+    private void Num(Action<int> set, ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out var v)) { set(v); Changed(); } }
+    private void NextIcon(LoanProduct p) { var i = Array.IndexOf(Icons, p.Icon); p.Icon = Icons[(i + 1) % Icons.Length]; Changed(); }
+    private void Toggle(LoanProduct p) { p.OnWebsite = !p.OnWebsite; Changed(); }
+    private void Remove(int i) { Cfg.LoanProducts.RemoveAt(i); Changed(); }
+    private void Add() { Cfg.LoanProducts.Add(new LoanProduct { Name = "New loan", RatePct = 12, MaxMonths = 12, Multiple = 3 }); Changed(); }
+    private void Restore() { Cfg.LoanProducts = LoanProduct.Defaults(); Changed(); }
+}

@@ -1,0 +1,80 @@
+@using System.Security.Claims
+@using SaccoManagementSystem.Security
+@using SaccoManagementSystem.Services
+@inject ConfigStore Cfg
+@implements IDisposable
+
+<div class="ms-brand">
+    <div class="ms-brand-mark @(HasLogo ? "logo" : "")">@if (HasLogo) { <img src="@("media/logo?v=" + Cfg.Ver)" alt="" /> } else { <i class="bi bi-people-fill"></i> }</div>
+    <div class="ms-brand-text">
+        <div class="ms-brand-name">@Brand.Name</div>
+        <div class="ms-brand-tag">@Brand.Tagline</div>
+    </div>
+</div>
+
+<nav class="ms-nav" aria-label="Main">
+    <div class="ms-nav-label">Overview</div>
+    <NavLink class="ms-nav-link" href="dashboard" Match="NavLinkMatch.All"><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></NavLink>
+
+    <div class="ms-nav-label">Members</div>
+    <NavLink class="ms-nav-link" href="members"><i class="bi bi-people"></i><span>Members</span></NavLink>
+    <NavLink class="ms-nav-link" href="guarantors"><i class="bi bi-shield-check"></i><span>Guarantors</span></NavLink>
+
+    <div class="ms-nav-label">Money</div>
+    <NavLink class="ms-nav-link" href="contributions"><i class="bi bi-piggy-bank"></i><span>Contributions</span></NavLink>
+    <NavLink class="ms-nav-link" href="loans"><i class="bi bi-cash-coin"></i><span>Loans</span></NavLink>
+    <NavLink class="ms-nav-link" href="shares"><i class="bi bi-graph-up-arrow"></i><span>Shares</span></NavLink>
+    <NavLink class="ms-nav-link" href="dividends"><i class="bi bi-percent"></i><span>Dividends</span></NavLink>
+
+    <div class="ms-nav-label">Insight &amp; control</div>
+    @if (Can("reports"))
+    {
+        <NavLink class="ms-nav-link" href="reports"><i class="bi bi-bar-chart-line"></i><span>Reports</span></NavLink>
+    }
+    @if (Can("audit-trail"))
+    {
+        <NavLink class="ms-nav-link" href="audit-trail"><i class="bi bi-journal-text"></i><span>Audit trail</span></NavLink>
+    }
+    @if (Can("users"))
+    {
+        <NavLink class="ms-nav-link" href="users"><i class="bi bi-person-gear"></i><span>Users &amp; roles</span></NavLink>
+    }
+    <NavLink class="ms-nav-link" href="settings"><i class="bi bi-sliders"></i><span>Settings</span></NavLink>
+
+    <div class="ms-nav-label">Public</div>
+    @if (Can("website"))
+    {
+        <NavLink class="ms-nav-link" href="website"><i class="bi bi-globe2"></i><span>Website</span></NavLink>
+    }
+    <a class="ms-nav-link" href="/" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i><span>View website</span></a>
+</nav>
+
+<div class="ms-sidebar-foot">
+    <a class="ms-sec-card" href="settings?tab=security-center" style="text-decoration:none">
+        <i class="bi @(Protected ? "bi-shield-fill-check" : "bi-shield-exclamation")" style="font-size:22px;color:@(Protected ? "#3FCB95" : "#f1c065")"></i>
+        <div>
+            <b>@(Protected ? "Account protected" : "Add 2-step sign-in")</b>
+            <small>@(Protected ? "Signed in with 2-step verification" : "Secure your account")</small>
+        </div>
+    </a>
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? Auth { get; set; }
+    private bool Protected;
+    private bool HasLogo => !string.IsNullOrEmpty(Cfg.Current.LogoDataUrl);
+    private void OnCfg() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Cfg.Changed -= OnCfg;
+    private string role = "";
+    private bool Can(string page) => Access.CanViewPage(role, page);
+
+    protected override async Task OnInitializedAsync()
+    {
+        Cfg.Changed += OnCfg;
+        if (Auth == null) return;
+        var user = (await Auth).User;
+        role = user.FindFirstValue(ClaimTypes.Role) ?? "";
+        var amr = user.FindFirstValue(AuthDefaults.AmrClaim) ?? "";
+        Protected = amr is "totp" or "passkey" or "backup" or "otp" or "pwd+trusted";
+    }
+}

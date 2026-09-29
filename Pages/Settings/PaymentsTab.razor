@@ -1,0 +1,47 @@
+@using SaccoManagementSystem.Services
+
+<fieldset class="cc-fs" disabled="@ReadOnly">
+    <div class="cc-card">
+        <h3><i class="bi bi-phone"></i> M-Pesa</h3>
+        <p class="sub">Shown to members on the website, statements and reminders.</p>
+        <div class="cc-two">
+            <div class="ms-field"><label class="ms-label">Paybill number</label><InputText @bind-Value="Cfg.MpesaPaybill" @bind-Value:after="Changed" class="ms-input" inputmode="numeric" maxlength="7" placeholder="e.g. 522522" /></div>
+            <div class="ms-field"><label class="ms-label">Account number to use</label>
+                <InputSelect @bind-Value="Cfg.MpesaAccountRef" @bind-Value:after="Changed" class="ms-select">
+                    <option>Member number</option><option>ID number</option><option>Phone number</option>
+                </InputSelect></div>
+            <div class="ms-field"><label class="ms-label">Till number (Buy Goods)</label><InputText @bind-Value="Cfg.MpesaTill" @bind-Value:after="Changed" class="ms-input" inputmode="numeric" maxlength="7" placeholder="Optional" /></div>
+        </div>
+        @if (!string.IsNullOrEmpty(Cfg.MpesaPaybill))
+        {
+            <div class="cc-money" style="margin-top:16px">
+                <small>How members pay</small>
+                <ol style="margin:8px 0 0;padding-left:18px;font-weight:600;line-height:1.8">
+                    <li>M-Pesa, then Lipa na M-Pesa, then Pay Bill</li>
+                    <li>Business number <b>@Cfg.MpesaPaybill</b></li>
+                    <li>Account number: your <b>@Cfg.MpesaAccountRef.ToLowerInvariant()</b>@(Cfg.MpesaAccountRef == "Member number" ? " (e.g. " + Cfg.MemberNoPrefix + "00125)" : "")</li>
+                    <li>Enter the amount and your PIN</li>
+                </ol>
+            </div>
+        }
+        <div class="cc-contrast warn" style="margin-top:14px"><i class="bi bi-info-circle-fill"></i> These are display details. Automatic posting of M-Pesa payments needs a Daraja (C2B) integration, which isn't connected yet.</div>
+    </div>
+
+    <div class="cc-card">
+        <h3><i class="bi bi-bank"></i> Bank account</h3>
+        <p class="sub">For cheques, EFT and RTGS deposits.</p>
+        <div class="cc-two">
+            <div class="ms-field"><label class="ms-label">Bank</label><InputText @bind-Value="Cfg.BankName" @bind-Value:after="Changed" class="ms-input" placeholder="e.g. Co-operative Bank of Kenya" /></div>
+            <div class="ms-field"><label class="ms-label">Branch</label><InputText @bind-Value="Cfg.BankBranch" @bind-Value:after="Changed" class="ms-input" /></div>
+            <div class="ms-field"><label class="ms-label">Account name</label><InputText @bind-Value="Cfg.BankAccountName" @bind-Value:after="Changed" class="ms-input" /></div>
+            <div class="ms-field"><label class="ms-label">Account number</label><InputText @bind-Value="Cfg.BankAccountNo" @bind-Value:after="Changed" class="ms-input" /></div>
+        </div>
+    </div>
+</fieldset>
+
+@code {
+    [Parameter] public OrgConfig Cfg { get; set; } = new();
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public Action? OnChanged { get; set; }
+    private void Changed() => OnChanged?.Invoke();
+}

@@ -1,0 +1,266 @@
+﻿@page "/contributions/edit/{ContributionId:int}"
+@using SaccoManagementSystem.Models
+@using System.ComponentModel.DataAnnotations
+@inject NavigationManager NavigationManager
+@inject IHttpClientFactory _httpClientFactory
+
+<EditForm Model="@contribution" OnValidSubmit="@HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Edit Contribution</h3>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="memberId" class="form-label">Member *</label>
+                    @if (isLoadingMembers)
+                    {
+                        <div class="form-control">
+                            <span class="spinner-border spinner-border-sm" role="status"></span>
+                            Loading members...
+                        </div>
+                    }
+                    else if (members == null || !members.Any())
+                    {
+                        <div class="alert alert-warning">
+                            No members available.
+                        </div>
+                    }
+                    else
+                    {
+                        <InputSelect @bind-Value="contribution.MemberId" class="form-control" id="memberId">
+                            <option value="">Select Member</option>
+                            @foreach (var member in members)
+                            {
+                                <option value="@member.MemberId">@member.FullName</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="@(() => contribution.MemberId)" />
+                    }
+                </div>
+
+                <div class="col-md-6">
+                    <label for="contributionType" class="form-label">Contribution Type</label>
+                    <InputSelect @bind-Value="contribution.ContributionType" class="form-control" id="contributionType">
+                        <option value="">Select Type</option>
+                        <option value="Monthly">Monthly</option>
+                        <option value="Share">Share</option>
+                        <option value="Loan">Loan Repayment</option>
+                        <option value="Special">Special</option>
+                    </InputSelect>
+                    <ValidationMessage For="@(() => contribution.ContributionType)" />
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="amount" class="form-label">Amount</label>
+                    <InputNumber @bind-Value="contribution.Amount" class="form-control" id="amount" />
+                    <ValidationMessage For="@(() => contribution.Amount)" />
+                </div>
+
+                <div class="col-md-6">
+                    <label for="dateContributed" class="form-label">Date</label>
+                    <InputDate @bind-Value="contribution.DateContributed" class="form-control" id="dateContributed" />
+                    <ValidationMessage For="@(() => contribution.DateContributed)" />
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="paymentMethod" class="form-label">Payment Method</label>
+                    <InputSelect @bind-Value="contribution.PaymentMethod" class="form-control" id="paymentMethod">
+                        <option value="">Select Method</option>
+                        <option value="Cash">Cash</option>
+                        <option value="M-Pesa">M-Pesa</option>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                        <option value="Cheque">Cheque</option>
+                    </InputSelect>
+                </div>
+
+                <div class="col-md-6">
+                    <label for="transactionRef" class="form-label">Transaction Reference</label>
+                    <InputText @bind-Value="contribution.TransactionRef" class="form-control" id="transactionRef" />
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="status" class="form-label">Status</label>
+                <InputSelect @bind-Value="contribution.Status" class="form-control" id="status">
+                    <option value="Pending">Pending</option>
+                    <option value="Paid">Paid</option>
+                    <option value="Overdue">Overdue</option>
+                </InputSelect>
+            </div>
+
+            <div class="mb-3">
+                <label for="remarks" class="form-label">Remarks</label>
+                <InputTextArea @bind-Value="contribution.Remarks" class="form-control" id="remarks" rows="3" />
+            </div>
+        </div>
+        <div class="card-footer">
+            <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                @if (isSubmitting)
+                {
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <span> Updating...</span>
+                }
+                else
+                {
+                    <span>Update Contribution</span>
+                }
+            </button>
+            <button type="button" class="btn btn-secondary ms-2" @onclick="Cancel">Cancel</button>
+        </div>
+    </div>
+</EditForm>
+
+@if (showSuccessAlert)
+{
+    <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
+        <strong>Success!</strong> Contribution updated successfully.
+        <button type="button" class="btn-close" @onclick="() => showSuccessAlert = false"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger mt-3">
+        @errorMessage
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int ContributionId { get; set; }
+
+    private HttpClient Http => _httpClientFactory.CreateClient("ApiClient");
+    private Contribution contribution = new();
+    private List<MemberDropdownItem> members = new();
+    private bool isSubmitting = false;
+    private bool isLoadingMembers = true;
+    private bool isLoadingContribution = true;
+    private string errorMessage = string.Empty;
+    private bool showSuccessAlert = false;
+
+    public class MemberDropdownItem
+    {
+        public int MemberId { get; set; }
+        public string FullName { get; set; } = string.Empty;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.WhenAll(LoadMembers(), LoadContribution());
+    }
+
+    private async Task LoadMembers()
+    {
+        try
+        {
+            isLoadingMembers = true;
+            var response = await Http.GetAsync("api/members/get-dropdown");
+
+            if (response.IsSuccessStatusCode)
+            {
+                members = await response.Content.ReadFromJsonAsync<List<MemberDropdownItem>>();
+            }
+            else
+            {
+                errorMessage = "Failed to load members";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading members: {ex.Message}";
+        }
+        finally
+        {
+            isLoadingMembers = false;
+        }
+    }
+
+    private async Task LoadContribution()
+    {
+        try
+        {
+            isLoadingContribution = true;
+            var response = await Http.GetAsync($"api/contributions/get/{ContributionId}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                contribution = await response.Content.ReadFromJsonAsync<Contribution>();
+
+                // Convert status for display if needed
+                if (contribution.Status == "Confirmed")
+                {
+                    contribution.Status = "Paid";
+                }
+            }
+            else
+            {
+                errorMessage = "Failed to load contribution details";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading contribution: {ex.Message}";
+        }
+        finally
+        {
+            isLoadingContribution = false;
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        isSubmitting = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            // Ensure MemberId is set
+            if (contribution.MemberId <= 0)
+            {
+                errorMessage = "Please select a member";
+                return;
+            }
+
+            // Convert status if needed
+            if (contribution.Status == "Paid")
+            {
+                contribution.Status = "Confirmed";
+            }
+
+            var response = await Http.PutAsJsonAsync($"api/contributions/update/{ContributionId}", contribution);
+
+            if (response.IsSuccessStatusCode)
+            {
+                showSuccessAlert = true;
+                await Task.Delay(2000);
+                NavigationManager.NavigateTo("/contributions");
+            }
+            else
+            {
+                var errorResponse = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Failed to update contribution: {errorResponse}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("/contributions");
+    }
+}

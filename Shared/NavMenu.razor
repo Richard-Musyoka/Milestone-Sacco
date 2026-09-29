@@ -1,239 +1,105 @@
-﻿<div class="sacco-navbar">
-    <div class="top-row navbar navbar-dark">
-        <div class="container-fluid">
-            <a class="navbar-brand d-flex align-items-center" href="">
-                <i class="bi bi-people-fill me-2"></i>
-                <span>Tajiri Sacco</span>
-            </a>
-            <button class="navbar-toggler" @onclick="ToggleNavMenu">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-        </div>
-    </div>
+@using System.Security.Claims
+@using SaccoManagementSystem.Security
+@using SaccoManagementSystem.Services
+@inject ConfigStore Cfg
+@implements IDisposable
 
-    <div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
-        <nav class="flex-column">
-            <!-- Dashboard -->
-            <div class="nav-item px-2">
-                <NavLink class="nav-link" href="dashboard" Match="NavLinkMatch.All">
-                    <div class="nav-link-content">
-                        <i class="bi bi-speedometer2 nav-icon"></i>
-                        <span class="nav-text">Dashboard</span>
-                    </div>
-                </NavLink>
-            </div>
-
-            <!-- Members -->
-            <div class="nav-item px-2">
-                <NavLink class="nav-link" href="members">
-                    <div class="nav-link-content">
-                        <i class="bi bi-person-lines-fill nav-icon"></i>
-                        <span class="nav-text">Members</span>
-                    </div>
-                </NavLink>
-            </div>
-            <!-- Guarantors -->
-            <div class="nav-item px-2">
-                <NavLink class="nav-link" href="guarantors">
-                    <div class="nav-link-content">
-                        <i class="bi bi-person-lines-fill nav-icon"></i>
-                        <span class="nav-text">Guarantors</span>
-                    </div>
-                </NavLink>
-            </div>
-
-            <!-- Contributions -->
-            <div class="nav-item px-2">
-                <NavLink class="nav-link" href="contributions">
-                    <div class="nav-link-content">
-                        <i class="bi bi-cash-stack nav-icon"></i>
-                        <span class="nav-text">Contributions</span>
-                    </div>
-                </NavLink>
-            </div>
-
-            <!-- Loans -->
-            <div class="nav-item px-2">
-                <NavLink class="nav-link" href="loans">
-                    <div class="nav-link-content">
-                        <i class="bi bi-bank nav-icon"></i>
-                        <span class="nav-text">Loans</span>
-                    </div>
-                </NavLink>
-            </div>
-
-            <!-- Shares -->
-            <div class="nav-item px-2">
-                <NavLink class="nav-link" href="shares">
-                    <div class="nav-link-content">
-                        <i class="bi bi-pie-chart-fill nav-icon"></i>
-                        <span class="nav-text">Shares</span>
-                    </div>
-                </NavLink>
-            </div>
-
-            <!-- Dividends -->
-            <div class="nav-item px-2">
-                <NavLink class="nav-link" href="dividends">
-                    <div class="nav-link-content">
-                        <i class="bi bi-currency-exchange nav-icon"></i>
-                        <span class="nav-text">Dividends</span>
-                    </div>
-                </NavLink>
-            </div>
-
-            <!-- Reports Section -->
-            <div class="nav-item px-2">
-                <NavLink class="nav-link" href="reports">
-                    <div class="nav-link-content">
-                        <i class="bi bi-graph-up nav-icon"></i>
-                        <span class="nav-text">Reports</span>
-                    </div>
-                </NavLink>
-            </div>
-
-            <!-- Settings Section -->
-            <div class="nav-item px-2">
-                <NavLink class="nav-link" href="settings">
-                    <div class="nav-link-content">
-                        <i class="bi bi-gear nav-icon"></i>
-                        <span class="nav-text">Settings</span>
-                    </div>
-                </NavLink>
-            </div>
-
-            <!-- Audit Trail -->
-            <div class="nav-item px-2 mt-auto">
-                <NavLink class="nav-link" href="audit-trail">
-                    <div class="nav-link-content">
-                        <i class="bi bi-clipboard2-data-fill nav-icon"></i>
-                        <span class="nav-text">Audit Trail</span>
-                    </div>
-                </NavLink>
-            </div>
-        </nav>
+<div class="ms-brand">
+    <div class="ms-brand-mark @(HasLogo ? "logo" : "")">@if (HasLogo) { <img src="@("media/logo?v=" + Cfg.Ver)" alt="" /> } else { <i class="bi bi-people-fill"></i> }</div>
+    <div class="ms-brand-text">
+        <div class="ms-brand-name">@Brand.Name</div>
+        <div class="ms-brand-tag">@Brand.Tagline</div>
     </div>
 </div>
 
-@code {
-    private bool collapseNavMenu = true;
+@if (role == Roles.Member)
+{
+    <nav class="ms-nav" aria-label="Member">
+        <div class="ms-nav-label">My SACCO</div>
+        <NavLink class="ms-nav-link" href="my" Match="NavLinkMatch.All"><i class="bi bi-wallet2"></i><span>Overview</span></NavLink>
+        <NavLink class="ms-nav-link" href="my/statement"><i class="bi bi-receipt"></i><span>Statement</span></NavLink>
+        <NavLink class="ms-nav-link" href="my/loans"><i class="bi bi-cash-coin"></i><span>My loans</span></NavLink>
+        <NavLink class="ms-nav-link" href="my/shares"><i class="bi bi-graph-up-arrow"></i><span>Shares &amp; dividends</span></NavLink>
+        <NavLink class="ms-nav-link" href="my/chamas"><i class="bi bi-people-fill"></i><span>My chamas</span></NavLink>
+        <div class="ms-nav-label">Help</div>
+        <NavLink class="ms-nav-link" href="my/pay"><i class="bi bi-phone"></i><span>How to pay</span></NavLink>
+        <a class="ms-nav-link" href="/contact" target="_blank" rel="noopener"><i class="bi bi-chat-dots"></i><span>Contact us</span></a>
+    </nav>
+    <div class="ms-sidebar-foot">
+        <div class="ms-sec-card">
+            <i class="bi bi-shield-fill-check" style="font-size:22px;color:#3FCB95"></i>
+            <div><b>Signed in with a one-time code</b><small>Staff never ask for your code</small></div>
+        </div>
+    </div>
+}
+else
+{
+<nav class="ms-nav" aria-label="Main">
+    <div class="ms-nav-label">Overview</div>
+    <NavLink class="ms-nav-link" href="dashboard" Match="NavLinkMatch.All"><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></NavLink>
 
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+    <div class="ms-nav-label">Members</div>
+    <NavLink class="ms-nav-link" href="members"><i class="bi bi-people"></i><span>Members</span></NavLink>
+    <NavLink class="ms-nav-link" href="chamas"><i class="bi bi-people-fill"></i><span>Chamas &amp; groups</span></NavLink>
+    <NavLink class="ms-nav-link" href="guarantors"><i class="bi bi-shield-check"></i><span>Guarantors</span></NavLink>
 
-    private void ToggleNavMenu()
+    <div class="ms-nav-label">Money</div>
+    <NavLink class="ms-nav-link" href="payments"><i class="bi bi-wallet2"></i><span>Payments</span><em class="ms-nav-new">New</em></NavLink>
+    <NavLink class="ms-nav-link" href="contributions"><i class="bi bi-piggy-bank"></i><span>Contributions</span></NavLink>
+    <NavLink class="ms-nav-link" href="loans"><i class="bi bi-cash-coin"></i><span>Loans</span></NavLink>
+    <NavLink class="ms-nav-link" href="shares"><i class="bi bi-graph-up-arrow"></i><span>Shares</span></NavLink>
+    <NavLink class="ms-nav-link" href="dividends"><i class="bi bi-percent"></i><span>Dividends</span></NavLink>
+
+    <div class="ms-nav-label">Insight &amp; control</div>
+    @if (Can("reports"))
     {
-        collapseNavMenu = !collapseNavMenu;
+        <NavLink class="ms-nav-link" href="reports"><i class="bi bi-bar-chart-line"></i><span>Reports</span></NavLink>
     }
+    @if (Can("audit-trail"))
+    {
+        <NavLink class="ms-nav-link" href="audit-trail"><i class="bi bi-journal-text"></i><span>Audit trail</span></NavLink>
+    }
+    @if (Can("users"))
+    {
+        <NavLink class="ms-nav-link" href="users"><i class="bi bi-person-gear"></i><span>Users &amp; roles</span></NavLink>
+    }
+    <NavLink class="ms-nav-link" href="settings"><i class="bi bi-sliders"></i><span>Settings</span></NavLink>
+
+    <div class="ms-nav-label">Public</div>
+    @if (Can("website"))
+    {
+        <NavLink class="ms-nav-link" href="website"><i class="bi bi-globe2"></i><span>Website</span></NavLink>
+    }
+    <a class="ms-nav-link" href="/" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i><span>View website</span></a>
+</nav>
+
+<div class="ms-sidebar-foot">
+    <a class="ms-sec-card" href="settings?tab=security-center" style="text-decoration:none">
+        <i class="bi @(Protected ? "bi-shield-fill-check" : "bi-shield-exclamation")" style="font-size:22px;color:@(Protected ? "#3FCB95" : "#f1c065")"></i>
+        <div>
+            <b>@(Protected ? "Account protected" : "Add 2-step sign-in")</b>
+            <small>@(Protected ? "Signed in with 2-step verification" : "Secure your account")</small>
+        </div>
+    </a>
+</div>
 }
 
-<style>
-    .sacco-navbar {
-        height: 100vh;
-        display: flex;
-        flex-direction: column;
-        background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
-        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? Auth { get; set; }
+    private bool Protected;
+    private bool HasLogo => !string.IsNullOrEmpty(Cfg.Current.LogoDataUrl);
+    private void OnCfg() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Cfg.Changed -= OnCfg;
+    private string role = "";
+    private bool Can(string page) => Access.CanViewPage(role, page);
+
+    protected override async Task OnInitializedAsync()
+    {
+        Cfg.Changed += OnCfg;
+        if (Auth == null) return;
+        var user = (await Auth).User;
+        role = Roles.Normalise(user.FindFirstValue(ClaimTypes.Role));
+        var amr = user.FindFirstValue(AuthDefaults.AmrClaim) ?? "";
+        Protected = amr is "totp" or "passkey" or "backup" or "otp" or "pwd+trusted";
     }
-
-    .top-row {
-        background: linear-gradient(135deg, #3a4f6a 0%, #1e2b3a 100%) !important;
-        padding: 1rem;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    }
-
-    .navbar-brand {
-        font-weight: 600;
-        font-size: 1.1rem;
-        color: white !important;
-        letter-spacing: 0.5px;
-    }
-
-    .nav-scrollable {
-        flex-grow: 1;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        padding: 0.5rem 0;
-        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-    }
-
-    .nav-link {
-        padding: 0.75rem 1.25rem;
-        color: #4a5568;
-        border-radius: 8px;
-        margin: 0.25rem 0.5rem;
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-    }
-
-        .nav-link:before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            height: 100%;
-            width: 4px;
-            background: linear-gradient(to bottom, #4299e1, #3182ce);
-            transform: scaleY(0);
-            transition: transform 0.2s ease;
-        }
-
-        .nav-link:hover {
-            background: rgba(66, 153, 225, 0.1);
-            color: #2b6cb0;
-            transform: translateX(3px);
-        }
-
-            .nav-link:hover:before {
-                transform: scaleY(1);
-            }
-
-        .nav-link.active {
-            background: rgba(66, 153, 225, 0.15);
-            color: #2b6cb0;
-            font-weight: 500;
-        }
-
-            .nav-link.active:before {
-                transform: scaleY(1);
-            }
-
-    .nav-link-content {
-        display: flex;
-        align-items: center;
-    }
-
-    .nav-icon {
-        font-size: 1.1rem;
-        margin-right: 0.75rem;
-        width: 20px;
-        text-align: center;
-        color: #4a5568;
-    }
-
-    .nav-link:hover .nav-icon,
-    .nav-link.active .nav-icon {
-        color: #2b6cb0;
-    }
-
-    .nav-text {
-        font-size: 0.9rem;
-        font-weight: 500;
-    }
-
-    .navbar-toggler {
-        border: none;
-        outline: none;
-    }
-
-        .navbar-toggler:focus {
-            box-shadow: none;
-        }
-
-    .mt-auto {
-        margin-top: auto !important;
-        border-top: 1px solid rgba(0, 0, 0, 0.05);
-        padding-top: 0.5rem;
-    }
-</style>
+}

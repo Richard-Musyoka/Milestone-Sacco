@@ -1,0 +1,59 @@
+@typeparam TItem where TItem : class
+
+@if (Selected != null)
+{
+    <div class="ms-picked">
+        <Avatar Name="@Title(Selected)" Size="sm" />
+        <div><b>@Title(Selected)</b><small>@Sub(Selected)</small></div>
+        <button type="button" class="ms-btn sm" @onclick="Clear">Change</button>
+    </div>
+}
+else
+{
+    <div class="ms-picker">
+        <input id="@Id" class="ms-input" type="search" autocomplete="off" placeholder="@Placeholder" @bind="query" @bind:event="oninput" @onfocus="() => open = true" @onblur="() => open = false" />
+        @if (open)
+        {
+            <div class="ms-picker-list" role="listbox">
+                @{ var hits = Hits.ToList(); }
+                @if (hits.Count == 0) { <div class="ms-picker-empty">No matches</div> }
+                @foreach (var h in hits)
+                {
+                    var item = h;
+                    <button type="button" class="ms-picker-item" role="option" @onmousedown="() => Pick(item)" @onmousedown:preventDefault="true">
+                        <Avatar Name="@Title(item)" Size="sm" />
+                        <span><b>@Title(item)</b><small>@Sub(item)</small></span>
+                    </button>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public IEnumerable<TItem> Items { get; set; } = Array.Empty<TItem>();
+    [Parameter] public Func<TItem, string> Title { get; set; } = x => x?.ToString() ?? "";
+    [Parameter] public Func<TItem, string> Sub { get; set; } = _ => "";
+    [Parameter] public Func<TItem, string, bool>? Match { get; set; }
+    [Parameter] public TItem? Selected { get; set; }
+    [Parameter] public EventCallback<TItem?> SelectedChanged { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public string? Id { get; set; }
+    [Parameter] public int Max { get; set; } = 8;
+
+    private string query = "";
+    private bool open;
+
+    private IEnumerable<TItem> Hits
+    {
+        get
+        {
+            var q = query.Trim();
+            var src = string.IsNullOrEmpty(q) ? Items : Items.Where(i => Match != null ? Match(i, q) : Title(i).Contains(q, StringComparison.OrdinalIgnoreCase));
+            return src.Take(Max);
+        }
+    }
+
+    private async Task Pick(TItem item) { query = ""; open = false; await SelectedChanged.InvokeAsync(item); }
+    private async Task Clear() { await SelectedChanged.InvokeAsync(null); }
+}

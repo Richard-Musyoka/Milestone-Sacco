@@ -1,0 +1,24 @@
+<section class="ws-page-head @(string.IsNullOrEmpty(Image) ? "" : "has-img")">
+    <div class="ws-wrap">
+        <div class="ws-ph-grid">
+            <div class="ws-ph-text">
+                <div class="ws-crumb"><a href="">Home</a> / @Title</div>
+                <h1>@Title</h1>
+                @if (!string.IsNullOrEmpty(Text)) { <p>@Text</p> }
+                @ChildContent
+            </div>
+            @if (!string.IsNullOrEmpty(Image))
+            {
+                <figure class="ws-ph-img"><img src="@Image" alt="@Alt" loading="eager" /></figure>
+            }
+        </div>
+    </div>
+</section>
+
+@code {
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public string? Image { get; set; }
+    [Parameter] public string Alt { get; set; } = "";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

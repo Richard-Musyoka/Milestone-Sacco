@@ -1,0 +1,313 @@
+@page "/audit-trail"
+@inject NavigationManager Navigation
+
+<div class="card">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h5>System Audit Trail</h5>
+        <div>
+            <button class="btn btn-sm btn-light me-2" @onclick="ExportToExcel">
+                <i class="bi bi-file-excel"></i> Export
+            </button>
+            <button class="btn btn-sm btn-light" @onclick="RefreshLogs">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div class="card-body">
+        <!-- Filter Controls -->
+        <div class="row mb-4 g-3">
+            <div class="col-md-3">
+                <label class="form-label">Action Type</label>
+                <select class="form-select" @bind="selectedActionType">
+                    <option value="">All Actions</option>
+                    @foreach (var action in actionTypes)
+                    {
+                        <option value="@action">@action</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">User</label>
+                <select class="form-select" @bind="selectedUserId">
+                    <option value="">All Users</option>
+                    @foreach (var user in users)
+                    {
+                        <option value="@user.Id">@user.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">From Date</label>
+                <input type="date" class="form-control" @bind="fromDate" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">To Date</label>
+                <input type="date" class="form-control" @bind="toDate" />
+            </div>
+        </div>
+
+        <!-- Logs Table -->
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Action</th>
+                        <th>User</th>
+                        <th>Details</th>
+                        <th>IP Address</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (filteredLogs.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">No log entries found</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var log in paginatedLogs)
+                        {
+                            <tr>
+                                <td>@log.Timestamp.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>
+                                    <span class="badge @GetActionBadgeClass(log.ActionType)">
+                                        @log.ActionType
+                                    </span>
+                                </td>
+                                <td>@log.UserName</td>
+                                <td>
+                                    <div class="log-details">
+                                        @log.Details
+                                        @if (!string.IsNullOrEmpty(log.RecordId))
+                                        {
+                                            <small class="text-muted d-block">Record ID: @log.RecordId</small>
+                                        }
+                                    </div>
+                                </td>
+                                <td>@log.IpAddress</td>
+                                <td>
+                                    <span class="badge @(log.IsSuccess ? "bg-success" : "bg-danger")">
+                                        @(log.IsSuccess ? "Success" : "Failed")
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <div class="text-muted">
+                Showing @((currentPage - 1) * pageSize + 1) to @Math.Min(currentPage * pageSize, filteredLogs.Count) of @filteredLogs.Count entries
+            </div>
+            <nav>
+                <ul class="pagination">
+                    <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                        <button class="page-link" @onclick="@(() => ChangePage(currentPage - 1))">
+                            &laquo; Previous
+                        </button>
+                    </li>
+                    @for (int i = 1; i <= totalPages; i++)
+                    {
+                        <li class="page-item @(i == currentPage ? "active" : "")">
+                            <button class="page-link" @onclick="@(() => ChangePage(i))">@i</button>
+                        </li>
+                    }
+                    <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                        <button class="page-link" @onclick="@(() => ChangePage(currentPage + 1))">
+                            Next &raquo;
+                        </button>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+@code {
+    // Sample data - in real app, this would come from API/database
+    private List<AuditLog> logs = new()
+    {
+        new AuditLog {
+            Id = 1,
+            Timestamp = DateTime.Now.AddHours(-1),
+            ActionType = "Login",
+            UserId = "U001",
+            UserName = "Admin User",
+            Details = "User logged in successfully",
+            IpAddress = "192.168.1.100",
+            IsSuccess = true
+        },
+        new AuditLog {
+            Id = 2,
+            Timestamp = DateTime.Now.AddHours(-2),
+            ActionType = "Member Update",
+            UserId = "U002",
+            UserName = "Data Clerk",
+            Details = "Updated member details for MEM10025",
+            RecordId = "MEM10025",
+            IpAddress = "192.168.1.101",
+            IsSuccess = true
+        },
+        new AuditLog {
+            Id = 3,
+            Timestamp = DateTime.Now.AddHours(-3),
+            ActionType = "Loan Approval",
+            UserId = "U001",
+            UserName = "Admin User",
+            Details = "Approved loan application LOAN2023-045",
+            RecordId = "LOAN2023-045",
+            IpAddress = "192.168.1.100",
+            IsSuccess = true
+        },
+        new AuditLog {
+            Id = 4,
+            Timestamp = DateTime.Now.AddHours(-4),
+            ActionType = "Failed Login",
+            UserId = "U003",
+            UserName = "Trial User",
+            Details = "Invalid password attempt",
+            IpAddress = "192.168.1.105",
+            IsSuccess = false
+        },
+        new AuditLog {
+            Id = 5,
+            Timestamp = DateTime.Now.AddHours(-5),
+            ActionType = "Dividend Declaration",
+            UserId = "U001",
+            UserName = "Admin User",
+            Details = "Declared dividends for FY 2023 at 5.75% rate",
+            RecordId = "DIV2023",
+            IpAddress = "192.168.1.100",
+            IsSuccess = true
+        },
+        new AuditLog {
+            Id = 6,
+            Timestamp = DateTime.Now.AddHours(-6),
+            ActionType = "System Settings",
+            UserId = "U001",
+            UserName = "Admin User",
+            Details = "Updated system interest rates",
+            IpAddress = "192.168.1.100",
+            IsSuccess = true
+        },
+        new AuditLog {
+            Id = 7,
+            Timestamp = DateTime.Now.AddHours(-7),
+            ActionType = "Report Generation",
+            UserId = "U002",
+            UserName = "Data Clerk",
+            Details = "Generated monthly contributions report",
+            IpAddress = "192.168.1.101",
+            IsSuccess = true
+        },
+        new AuditLog {
+            Id = 8,
+            Timestamp = DateTime.Now.AddHours(-8),
+            ActionType = "Data Export",
+            UserId = "U001",
+            UserName = "Admin User",
+            Details = "Exported member data to Excel",
+            IpAddress = "192.168.1.100",
+            IsSuccess = true
+        }
+    };
+
+    private List<string> actionTypes = new()
+    {
+        "Login", "Logout", "Member Update", "Member Registration",
+        "Loan Approval", "Loan Disbursement", "Payment Processing",
+        "Dividend Declaration", "System Settings", "Report Generation",
+        "Data Export", "User Management"
+    };
+
+    private List<User> users = new()
+    {
+        new User { Id = "U001", Name = "Admin User" },
+        new User { Id = "U002", Name = "Data Clerk" },
+        new User { Id = "U003", Name = "Trial User" }
+    };
+
+    // Filter controls
+    private string selectedActionType = "";
+    private string selectedUserId = "";
+    private DateTime? fromDate = DateTime.Today.AddDays(-7);
+    private DateTime? toDate = DateTime.Today;
+
+    // Pagination
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalPages => (int)Math.Ceiling((double)filteredLogs.Count / pageSize);
+
+    private List<AuditLog> filteredLogs => logs
+        .Where(log =>
+            (string.IsNullOrEmpty(selectedActionType) || log.ActionType == selectedActionType) &&
+            (string.IsNullOrEmpty(selectedUserId) || log.UserId == selectedUserId) &&
+            (fromDate == null || log.Timestamp >= fromDate) &&
+            (toDate == null || log.Timestamp <= toDate?.AddDays(1))
+        )
+        .OrderByDescending(log => log.Timestamp)
+        .ToList();
+
+    private List<AuditLog> paginatedLogs => filteredLogs
+        .Skip((currentPage - 1) * pageSize)
+        .Take(pageSize)
+        .ToList();
+
+    private void ChangePage(int page)
+    {
+        currentPage = page;
+    }
+
+    private void RefreshLogs()
+    {
+        // In real app, this would fetch fresh data from API
+        currentPage = 1;
+    }
+
+    private void ExportToExcel()
+    {
+        // TODO: Implement Excel export functionality
+        Navigation.NavigateTo("/logs/export");
+    }
+
+    private string GetActionBadgeClass(string actionType)
+    {
+        return actionType switch
+        {
+            "Login" or "Logout" => "bg-info",
+            "Member Update" or "Member Registration" => "bg-primary",
+            "Loan Approval" or "Loan Disbursement" => "bg-warning text-dark",
+            "Payment Processing" => "bg-success",
+            "Dividend Declaration" => "bg-purple",
+            "System Settings" => "bg-danger",
+            "Report Generation" or "Data Export" => "bg-secondary",
+            _ => "bg-dark"
+        };
+    }
+
+    private class AuditLog
+    {
+        public int Id { get; set; }
+        public DateTime Timestamp { get; set; }
+        public string ActionType { get; set; }
+        public string UserId { get; set; }
+        public string UserName { get; set; }
+        public string Details { get; set; }
+        public string RecordId { get; set; }
+        public string IpAddress { get; set; }
+        public bool IsSuccess { get; set; }
+    }
+
+    private class User
+    {
+        public string Id { get; set; }
+        public string Name { get; set; }
+    }
+}

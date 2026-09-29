@@ -1,64 +1,60 @@
-﻿@using System.ComponentModel.DataAnnotations
 @using Sacco_Management_System.Models
 
-<div class="row g-3">
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="emailNotifications" class="form-label">Enable Email Notifications</label>
-            <InputCheckbox id="emailNotifications" @bind-Value="Settings.EmailNotificationsEnabled" class="form-check-input"
-                           @onchange="() => OnSettingsChanged?.Invoke()" />
-        </div>
+<div class="ms-group" style="padding-top:22px">
+    <h4>Channels</h4>
+    <p class="sub">Turn message types on or off for the whole SACCO.</p>
+    <div class="ms-toggle-row">
+        <span class="ms-li-ico"><i class="bi bi-envelope-paper"></i></span>
+        <div><b>Email notifications</b><small>Receipts, reminders and statements sent by email.</small></div>
+        <ToggleSwitch Value="Settings.EmailNotificationsEnabled" ValueChanged="SetEmail" AriaLabel="Email notifications" />
     </div>
-
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="smsNotifications" class="form-label">Enable SMS Notifications</label>
-            <InputCheckbox id="smsNotifications" @bind-Value="Settings.SMSNotificationsEnabled" class="form-check-input"
-                           @onchange="() => OnSettingsChanged?.Invoke()" />
-        </div>
+    <div class="ms-toggle-row">
+        <span class="ms-li-ico blue"><i class="bi bi-chat-dots"></i></span>
+        <div><b>SMS notifications</b><small>Short text alerts to members' phones.</small></div>
+        <ToggleSwitch Value="Settings.SMSNotificationsEnabled" ValueChanged="SetSms" AriaLabel="SMS notifications" />
     </div>
+</div>
 
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="defaultEmail" class="form-label">Default Email Address</label>
-            <InputText id="defaultEmail" @bind-Value="Settings.DefaultNotificationEmail" class="form-control"
-                       @oninput="() => OnSettingsChanged?.Invoke()" />
+<div class="ms-group">
+    <h4>Sender details</h4>
+    <p class="sub">Who messages appear to come from.</p>
+    <div class="ms-form-grid">
+        <div class="ms-field">
+            <label class="ms-label" for="de">Default email address</label>
+            <InputText id="de" @bind-Value="Settings.DefaultNotificationEmail" @bind-Value:after="Changed" class="ms-input" />
             <ValidationMessage For="@(() => Settings.DefaultNotificationEmail)" />
         </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="smsSenderId" class="form-label">SMS Sender ID</label>
-            <InputText id="smsSenderId" @bind-Value="Settings.SMSSenderId" class="form-control"
-                       @oninput="() => OnSettingsChanged?.Invoke()" />
+        <div class="ms-field">
+            <label class="ms-label" for="sid">SMS sender ID</label>
+            <InputText id="sid" @bind-Value="Settings.SMSSenderId" @bind-Value:after="Changed" class="ms-input" />
             <ValidationMessage For="@(() => Settings.SMSSenderId)" />
         </div>
     </div>
+</div>
 
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="contributionReminderDays" class="form-label">Contribution Reminder (Days Before Due)</label>
-            <InputNumber id="contributionReminderDays" @bind-Value="Settings.ContributionReminderDays" class="form-control"
-                         @oninput="() => OnSettingsChanged?.Invoke()" />
+<div class="ms-group">
+    <h4>Reminders</h4>
+    <p class="sub">How early members are nudged before something is due.</p>
+    <div class="ms-form-grid">
+        <div class="ms-field">
+            <label class="ms-label" for="cr">Contribution reminder</label>
+            <div class="ms-adorn"><InputNumber id="cr" @bind-Value="Settings.ContributionReminderDays" @bind-Value:after="Changed" class="ms-input suf" /><em class="end">days</em></div>
+            <span class="ms-hint">Days before the due date.</span>
             <ValidationMessage For="@(() => Settings.ContributionReminderDays)" />
         </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="loanDueReminderDays" class="form-label">Loan Due Reminder (Days Before Due)</label>
-            <InputNumber id="loanDueReminderDays" @bind-Value="Settings.LoanDueReminderDays" class="form-control"
-                         @oninput="() => OnSettingsChanged?.Invoke()" />
+        <div class="ms-field">
+            <label class="ms-label" for="lr">Loan due reminder</label>
+            <div class="ms-adorn"><InputNumber id="lr" @bind-Value="Settings.LoanDueReminderDays" @bind-Value:after="Changed" class="ms-input suf" /><em class="end">days</em></div>
+            <span class="ms-hint">Days before the instalment is due.</span>
             <ValidationMessage For="@(() => Settings.LoanDueReminderDays)" />
         </div>
     </div>
 </div>
 
 @code {
-    [Parameter]
-    public SaccoSettings Settings { get; set; } = new();
-
-    [Parameter]
-    public Action? OnSettingsChanged { get; set; }
+    [Parameter] public SaccoSettings Settings { get; set; } = new();
+    [Parameter] public Action? OnSettingsChanged { get; set; }
+    private void Changed() => OnSettingsChanged?.Invoke();
+    private void SetEmail(bool v) { Settings.EmailNotificationsEnabled = v; Changed(); }
+    private void SetSms(bool v) { Settings.SMSNotificationsEnabled = v; Changed(); }
 }

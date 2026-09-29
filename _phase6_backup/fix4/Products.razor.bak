@@ -1,0 +1,51 @@
+@page "/products"
+@inject ConfigStore Cfg
+@inject SiteStore Site
+
+<PageTitle>Products · @Brand.Name</PageTitle>
+<SitePageHead Title="Savings and loan products" Text="Save regularly, earn yearly returns and borrow at fair rates set by members." />
+
+<section class="ws-sec">
+    <div class="ws-wrap">
+        <div class="ws-head"><span class="ws-eyebrow">Save</span><h2>Savings products</h2></div>
+        <div class="ws-grid">
+            @foreach (var s in Site.Current.Savings) { <div class="ws-card"><div class="ic"><i class="bi @s.Icon"></i></div><h3>@s.Title</h3><p>@s.Text</p></div> }
+        </div>
+        <div class="ws-fees" style="margin-top:18px">
+            <div class="ws-fee"><small>Minimum monthly deposit</small><b>@Sym @C.MinMonthlyDeposit.ToString("N0")</b></div>
+            <div class="ws-fee"><small>Interest on deposits (proposed)</small><b>@C.DepositInterestPct.ToString("0.#")% a year</b></div>
+            <div class="ws-fee"><small>Minimum share capital</small><b>@Sym @C.MinShareCapital.ToString("N0")</b></div>
+        </div>
+    </div>
+</section>
+
+<section class="ws-sec alt">
+    <div class="ws-wrap">
+        <div class="ws-head"><span class="ws-eyebrow">Borrow</span><h2>Loan products</h2><p>Most loans are up to a multiple of your deposits and need guarantors who are members.</p></div>
+        <div class="ws-grid three">
+            @foreach (var p in Loans)
+            {
+                <div class="ws-card">
+                    <div class="rate"><b>@p.RatePct.ToString("0.#")%</b><small>a year</small></div>
+                    <div class="ic"><i class="bi @p.Icon"></i></div>
+                    <h3>@p.Name</h3>
+                    <p>@p.Summary</p>
+                    <div class="facts"><span>Up to @p.MaxMonths months</span>@if (p.Multiple > 0) { <span>@p.Multiple.ToString("0.#")× deposits</span> }<span>@p.Method</span></div>
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+<section class="ws-sec">
+    <div class="ws-wrap">
+        <div class="ws-head"><span class="ws-eyebrow">Plan ahead</span><h2>Loan repayment calculator</h2><p>See what a loan could cost you each month before you apply.</p></div>
+        <LoanCalculator Products="Loans" />
+    </div>
+</section>
+
+@code {
+    private OrgConfig C => Cfg.Current;
+    private string Sym => C.CurrencySymbol;
+    private List<LoanProduct> Loans => C.LoanProducts.Where(p => p.OnWebsite).ToList();
+}

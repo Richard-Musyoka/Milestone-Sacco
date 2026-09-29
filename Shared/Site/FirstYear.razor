@@ -1,0 +1,32 @@
+@using SaccoManagementSystem.Services
+@* "Your first year with us": a member's journey worked out from the SACCO's real rules in Settings. *@
+<div class="ws-year">
+    @foreach (var s in Steps.OrderBy(x => x.Order))
+    {
+        <div class="ws-yr">
+            <span class="when">@s.When</span>
+            <span class="dot"><i class="bi @s.Icon"></i></span>
+            <b>@s.Title</b>
+            <p>@s.Text</p>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public OrgConfig Cfg { get; set; } = new();
+    [Parameter] public SiteStore.Rules Rules { get; set; } = new(6, 3, 100, 5, 12, 2);
+
+    private sealed record Step(string When, string Icon, string Title, string Text, int Order = 0);
+    private string Sym => Cfg.CurrencySymbol;
+    private IEnumerable<Step> Steps
+    {
+        get
+        {
+            yield return new("Day one", "bi-person-plus", "You join", $"Bring your ID and KRA PIN, name your next of kin and pay the {Sym} {Cfg.EntranceFee:N0} entrance fee. You get a member number the same day.");
+            yield return new("Every month", "bi-phone", "You save", $"From {Sym} {Cfg.MinMonthlyDeposit:N0} a month through M-Pesa" + (string.IsNullOrWhiteSpace(Cfg.MpesaPaybill) ? "" : $" Paybill {Cfg.MpesaPaybill}") + (Cfg.CheckOffEnabled ? " or check-off from your payslip." : "."), 5);
+            yield return new($"By month {Math.Max(1, Cfg.ShareCapitalMonths)}", "bi-pie-chart", "You own shares", $"Your share capital builds up to {Sym} {Cfg.MinShareCapital:N0}. That makes you a part-owner with a vote at the AGM.", Math.Max(1, Cfg.ShareCapitalMonths) * 10 + 1);
+            yield return new($"After {Math.Max(1, Rules.EligibilityMonths)} months", "bi-cash-coin", "You can borrow", $"Up to {Rules.MaxMultiple}× your deposits with {Rules.Guarantors} fellow members as guarantors.", Math.Max(1, Rules.EligibilityMonths) * 10);
+            yield return new(new DateTime(2000, Math.Clamp(Cfg.AgmMonth, 1, 12), 1).ToString("MMMM"), "bi-gift", "You share the surplus", "At the AGM members approve the dividend on shares and interest on deposits, paid after withholding tax.", 100000);
+        }
+    }
+}

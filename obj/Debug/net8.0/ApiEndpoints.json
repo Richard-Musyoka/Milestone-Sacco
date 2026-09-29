@@ -1,5 +1,71 @@
 [
   {
+    "ContainingType": "SaccoManagementSystem.Controllers.AuditController",
+    "Method": "Get",
+    "RelativePath": "api/audit",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "from",
+        "Type": "System.Nullable\u00601[[System.DateTime, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "to",
+        "Type": "System.Nullable\u00601[[System.DateTime, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "source",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "entity",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "user",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "status",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "q",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "size",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.AuthController",
+    "Method": "Config",
+    "RelativePath": "api/Auth/config",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
     "ContainingType": "SaccoManagementSystem.Controllers.AuthController",
     "Method": "Login",
     "RelativePath": "api/Auth/login",
@@ -8,8 +74,114 @@
     "Order": 0,
     "Parameters": [
       {
-        "Name": "login",
-        "Type": "SaccoManagementSystem.Controllers.LoginModel",
+        "Name": "dto",
+        "Type": "SaccoManagementSystem.Controllers.AuthController\u002BLoginDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.AuthController",
+    "Method": "Logout",
+    "RelativePath": "api/Auth/logout",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.AuthController",
+    "Method": "Backup",
+    "RelativePath": "api/Auth/mfa/backup",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "SaccoManagementSystem.Controllers.AuthController\u002BTokenCodeDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.AuthController",
+    "Method": "OtpSend",
+    "RelativePath": "api/Auth/mfa/otp/send",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "SaccoManagementSystem.Controllers.AuthController\u002BOtpSendDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.AuthController",
+    "Method": "OtpVerify",
+    "RelativePath": "api/Auth/mfa/otp/verify",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "SaccoManagementSystem.Controllers.AuthController\u002BOtpVerifyDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.AuthController",
+    "Method": "Totp",
+    "RelativePath": "api/Auth/mfa/totp",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "SaccoManagementSystem.Controllers.AuthController\u002BTokenCodeDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.AuthController",
+    "Method": "PasskeyOptions",
+    "RelativePath": "api/Auth/passkey/options",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "SaccoManagementSystem.Controllers.AuthController\u002BPasskeyOptionsDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.AuthController",
+    "Method": "PasskeyVerify",
+    "RelativePath": "api/Auth/passkey/verify",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "SaccoManagementSystem.Security.AuthService\u002BAssertionDto",
         "IsRequired": true
       }
     ],
@@ -24,21 +196,11 @@
     "Order": 0,
     "Parameters": [
       {
-        "Name": "register",
-        "Type": "SaccoManagementSystem.Models.RegisterModel",
+        "Name": "dto",
+        "Type": "SaccoManagementSystem.Controllers.AuthController\u002BRegisterDto",
         "IsRequired": true
       }
     ],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "SaccoManagementSystem.Controllers.AuthController",
-    "Method": "TestConnection",
-    "RelativePath": "api/Auth/test-connection",
-    "HttpMethod": "GET",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [],
     "ReturnTypes": []
   },
   {
@@ -768,6 +930,216 @@
     "ReturnTypes": []
   },
   {
+    "ContainingType": "SaccoManagementSystem.Controllers.SecurityController",
+    "Method": "Regenerate",
+    "RelativePath": "api/security/backup-codes/regenerate",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "SaccoManagementSystem.Controllers.SecurityController\u002BPasswordOnlyDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SecurityController",
+    "Method": "DeviceRemove",
+    "RelativePath": "api/security/devices/{id}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SecurityController",
+    "Method": "UntrustAll",
+    "RelativePath": "api/security/devices/untrust-all",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SecurityController",
+    "Method": "OtpFallback",
+    "RelativePath": "api/security/otp-fallback",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "SaccoManagementSystem.Controllers.SecurityController\u002BToggleDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SecurityController",
+    "Method": "Overview",
+    "RelativePath": "api/security/overview",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SecurityController",
+    "Method": "PasskeyRemove",
+    "RelativePath": "api/security/passkeys/{id}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SecurityController",
+    "Method": "PasskeyOptions",
+    "RelativePath": "api/security/passkeys/options",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SecurityController",
+    "Method": "PasskeyVerify",
+    "RelativePath": "api/security/passkeys/verify",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "SaccoManagementSystem.Security.AuthService\u002BAttestationDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SecurityController",
+    "Method": "Password",
+    "RelativePath": "api/security/password",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "SaccoManagementSystem.Controllers.SecurityController\u002BPasswordDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SecurityController",
+    "Method": "Profile",
+    "RelativePath": "api/security/profile",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "SaccoManagementSystem.Controllers.SecurityController\u002BProfileDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SecurityController",
+    "Method": "SessionRevoke",
+    "RelativePath": "api/security/sessions/{id}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Guid",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SecurityController",
+    "Method": "RevokeOthers",
+    "RelativePath": "api/security/sessions/revoke-others",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SecurityController",
+    "Method": "TotpBegin",
+    "RelativePath": "api/security/totp/begin",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SecurityController",
+    "Method": "TotpConfirm",
+    "RelativePath": "api/security/totp/confirm",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "SaccoManagementSystem.Controllers.SecurityController\u002BCodeDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.SecurityController",
+    "Method": "TotpDisable",
+    "RelativePath": "api/security/totp/disable",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "SaccoManagementSystem.Controllers.SecurityController\u002BPasswordOnlyDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
     "ContainingType": "SettingsController",
     "Method": "Get",
     "RelativePath": "api/Settings",
@@ -924,6 +1296,101 @@
       {
         "Name": "updateDto",
         "Type": "SaccoManagementSystem.Models.ShareUpdateDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.UsersController",
+    "Method": "List",
+    "RelativePath": "api/users",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.UsersController",
+    "Method": "Create",
+    "RelativePath": "api/users",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "SaccoManagementSystem.Controllers.UsersController\u002BCreateDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.UsersController",
+    "Method": "Update",
+    "RelativePath": "api/users/{id}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "dto",
+        "Type": "SaccoManagementSystem.Controllers.UsersController\u002BUpdateDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.UsersController",
+    "Method": "ResetPassword",
+    "RelativePath": "api/users/{id}/reset-password",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.UsersController",
+    "Method": "RevokeSessions",
+    "RelativePath": "api/users/{id}/revoke-sessions",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SaccoManagementSystem.Controllers.UsersController",
+    "Method": "Unlock",
+    "RelativePath": "api/users/{id}/unlock",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
         "IsRequired": true
       }
     ],

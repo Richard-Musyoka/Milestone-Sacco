@@ -1,232 +1,35 @@
 @page "/members/add-member"
-@using System.ComponentModel.DataAnnotations
 @using SaccoManagementSystem.Models
 @inject NavigationManager NavigationManager
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
+@using SaccoManagementSystem.Security
+@inject AuthenticationStateProvider AuthState
+@inject SaccoManagementSystem.Services.ConfigStore Cfg
+@inject SaccoManagementSystem.Services.MemberExtrasStore ExtrasStore
 
-<EditForm Model="@newMember" OnValidSubmit="@HandleValidSubmit">
-    <DataAnnotationsValidator />
-    <div class="add-member-page">
-        <!-- Header Section -->
-        <div class="page-header">
-            <div class="header-content">
-                <div class="header-title">
-                    <i class="bi bi-person-plus-fill header-icon"></i>
-                    <h1>Add New Member</h1>
-                </div>
-                <NavLink class="btn btn-outline-secondary btn-back" href="/members">
-                    <i class="bi bi-arrow-left me-2"></i>
-                    Back to Members
-                </NavLink>
-            </div>
-        </div>
+<PageTitle>Add member · @Brand.Name</PageTitle>
 
-        <!-- Form Section -->
-        <div class="form-container">
-            <div class="card shadow-sm rounded-3">
-                <div class="card-body p-4">
-                    @if (isLoading)
-                    {
-                        <div class="text-center py-4">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                            <p class="mt-2">Saving member...</p>
-                        </div>
-                    }
-                    else if (!string.IsNullOrEmpty(errorMessage))
-                    {
-                        <div class="alert alert-danger">
-                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                            @errorMessage
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="row g-4">
-                            <!-- Member Number (Auto-generated) -->
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                    <InputText id="memberNo" class="form-control" @bind-Value="newMember.MemberNo"
-                                               disabled />
-                                    <label for="memberNo">Member Number</label>
-                                </div>
-                            </div>
+<div class="ms-page">
+    <button type="button" class="ms-back" @onclick="Back"><i class="bi bi-arrow-left"></i> Members</button>
+    <PageHeader Title="Add a member" Subtitle="Create a new member profile. You can edit it any time." />
 
-                            <!-- Status -->
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                    <InputSelect id="status" class="form-select" @bind-Value="newMember.Status">
-                                        <option value="">Select Status</option>
-                                        <option value="Active">Active</option>
-                                        <option value="Inactive">Inactive</option>
-                                        <option value="Pending">Pending</option>
-                                        <option value="Suspended">Suspended</option>
-                                    </InputSelect>
-                                    <label for="status">Status *</label>
-                                    <ValidationMessage For="@(() => newMember.Status)" class="invalid-feedback" />
-                                </div>
-                            </div>
-
-                            <!-- First Name -->
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                    <InputText id="firstName" class="form-control" @bind-Value="newMember.FirstName"
-                                               placeholder=" " />
-                                    <label for="firstName">First Name *</label>
-                                    <ValidationMessage For="@(() => newMember.FirstName)" class="invalid-feedback" />
-                                </div>
-                            </div>
-
-                            <!-- Last Name -->
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                    <InputText id="lastName" class="form-control" @bind-Value="newMember.LastName"
-                                               placeholder=" " />
-                                    <label for="lastName">Last Name *</label>
-                                    <ValidationMessage For="@(() => newMember.LastName)" class="invalid-feedback" />
-                                </div>
-                            </div>
-
-                            <!-- Email -->
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                    <InputText id="email" class="form-control" @bind-Value="newMember.Email"
-                                               placeholder=" " />
-                                    <label for="email">Email *</label>
-                                    <ValidationMessage For="@(() => newMember.Email)" class="invalid-feedback" />
-                                </div>
-                            </div>
-
-                            <!-- Phone -->
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                    <InputText id="phone" class="form-control" @bind-Value="newMember.PhoneNumber"
-                                               placeholder=" " />
-                                    <label for="phone">Phone Number *</label>
-                                    <ValidationMessage For="@(() => newMember.PhoneNumber)" class="invalid-feedback" />
-                                </div>
-                            </div>
-
-                            <!-- National ID -->
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                    <InputText id="nationalId" class="form-control" @bind-Value="newMember.NationalID"
-                                               placeholder=" " />
-                                    <label for="nationalId">National ID/Passport</label>
-                                </div>
-                            </div>
-
-                            <!-- Date of Birth -->
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                    <InputDate id="dob" class="form-control" @bind-Value="newMember.DateOfBirth" />
-                                    <label for="dob">Date of Birth</label>
-                                </div>
-                            </div>
-
-                            <!-- Gender -->
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                    <InputSelect id="gender" class="form-select" @bind-Value="newMember.Gender">
-                                        <option value="">Select Gender</option>
-                                        <option value="Male">Male</option>
-                                        <option value="Female">Female</option>
-                                        <option value="Other">Other</option>
-                                    </InputSelect>
-                                    <label for="gender">Gender</label>
-                                </div>
-                            </div>
-
-                            <!-- Marital Status -->
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                    <InputSelect id="maritalStatus" class="form-select" @bind-Value="newMember.MaritalStatus">
-                                        <option value="">Select Marital Status</option>
-                                        <option value="Single">Single</option>
-                                        <option value="Married">Married</option>
-                                        <option value="Divorced">Divorced</option>
-                                        <option value="Widowed">Widowed</option>
-                                    </InputSelect>
-                                    <label for="maritalStatus">Marital Status</label>
-                                </div>
-                            </div>
-
-                            <!-- Occupation -->
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                    <InputText id="occupation" class="form-control" @bind-Value="newMember.Occupation"
-                                               placeholder=" " />
-                                    <label for="occupation">Occupation</label>
-                                </div>
-                            </div>
-
-                            <!-- Employer -->
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                    <InputText id="employer" class="form-control" @bind-Value="newMember.Employer"
-                                               placeholder=" " />
-                                    <label for="employer">Employer</label>
-                                </div>
-                            </div>
-
-                            <!-- Address -->
-                            <div class="col-12">
-                                <div class="form-floating">
-                                    <InputTextArea id="address" class="form-control" @bind-Value="newMember.Address"
-                                                   placeholder=" " style="height: 100px" />
-                                    <label for="address">Address</label>
-                                </div>
-                            </div>
-
-                            <!-- Join Date -->
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                    <InputDate id="joinDate" class="form-control" @bind-Value="newMember.JoinDate" />
-                                    <label for="joinDate">Join Date</label>
-                                </div>
-                            </div>
-
-                            <!-- Profile Image URL -->
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                    <InputText id="profileImage" class="form-control" @bind-Value="newMember.ProfileImageUrl"
-                                               placeholder=" " />
-                                    <label for="profileImage">Profile Image URL</label>
-                                </div>
-                            </div>
-
-                            <!-- Form Actions -->
-                            <div class="col-12 mt-4">
-                                <div class="d-flex justify-content-end gap-3">
-                                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetForm">
-                                        <i class="bi bi-x-circle me-2"></i>
-                                        Reset
-                                    </button>
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="bi bi-save me-2"></i>
-                                        Save Member
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    }
-                </div>
-            </div>
-        </div>
-    </div>
-</EditForm>
+    <MemberForm Model="newMember" Extras="extras" Busy="isSaving" ErrorMessage="@errorMessage" OnValidSubmit="HandleValidSubmit" OnCancel="Back" OnReset="ResetForm" />
+</div>
 
 @code {
-    private MemberModel newMember = new MemberModel();
-    private bool isLoading = false;
+    [CascadingParameter] public DrawerContext? Drawer { get; set; }
+    private Task Leave(string url) { if (Drawer != null) return Drawer.Saved(); NavigationManager.NavigateTo(url); return Task.CompletedTask; }
+
+    private MemberModel newMember = NewModel();
+    private SaccoManagementSystem.Services.MemberExtras extras = new();
+    private bool isSaving;
     private string errorMessage = string.Empty;
 
-    protected override async Task OnInitializedAsync()
-    {
-        await GenerateMemberNumber();
-    }
+    private string Prefix => string.IsNullOrWhiteSpace(Cfg.Current.MemberNoPrefix) ? "TSC" : Cfg.Current.MemberNoPrefix.Trim();
+    private static MemberModel NewModel() => new() { Status = "Active", JoinDate = DateTime.Today };
+
+    protected override async Task OnInitializedAsync() => await GenerateMemberNumber();
 
     private async Task GenerateMemberNumber()
     {
@@ -237,127 +40,68 @@
 
             if (response.IsSuccessStatusCode)
             {
-                var lastNumber = await response.Content.ReadAsStringAsync();
-                int nextNumber = 1;
-
-                if (!string.IsNullOrEmpty(lastNumber) && lastNumber.StartsWith("TSC"))
-                {
-                    if (int.TryParse(lastNumber.Substring(3), out int num))
-                    {
-                        nextNumber = num + 1;
-                    }
-                }
-
-                newMember.MemberNo = $"TSC{nextNumber:D4}"; // Format as TSC0001, TSC0002, etc.
+                var lastNumber = (await response.Content.ReadAsStringAsync()).Trim('"', ' ');
+                var digits = System.Text.RegularExpressions.Regex.Match(lastNumber, "([0-9]+)$").Groups[1].Value;
+                var nextNumber = int.TryParse(digits, out var num) ? num + 1 : 1;
+                newMember.MemberNo = $"{Prefix}{nextNumber:D4}";
             }
-            else
-            {
-                // Fallback if API call fails
-                newMember.MemberNo = $"TSC{DateTime.Now:yyyyMMddHHmmss}";
-            }
+            else newMember.MemberNo = $"{Prefix}{DateTime.Now:yyMMddHHmm}";
         }
         catch
         {
-            // Fallback if there's an error
-            newMember.MemberNo = $"TSC{DateTime.Now:yyyyMMddHHmmss}";
+            newMember.MemberNo = $"{Prefix}{DateTime.Now:yyMMddHHmm}";
         }
     }
 
     private async Task HandleValidSubmit()
     {
-        isLoading = true;
+        isSaving = true;
         errorMessage = string.Empty;
 
         try
         {
-            // Set created date and by (you would replace with actual user ID)
             newMember.CreatedDate = DateTime.Now;
-            newMember.CreatedBy = 1; // Replace with actual user ID from authentication
+            newMember.CreatedBy = await CurrentUserId();
+            extras.MemberNo = newMember.MemberNo;
+            if (!string.IsNullOrEmpty(extras.Photo)) newMember.ProfileImageUrl = SaccoManagementSystem.Services.MemberExtrasStore.PhotoUrl(newMember.MemberNo);
 
             var client = HttpClientFactory.CreateClient("ApiClient");
             var response = await client.PostAsJsonAsync("api/members/add", newMember);
 
             if (response.IsSuccessStatusCode)
             {
-                await ShowToast("success", "Member Added", "Member has been successfully added.");
-                NavigationManager.NavigateTo("/members");
+                try { await ExtrasStore.SaveAsync(extras); } catch (Exception ex) { await JSRuntime.InvokeVoidAsync("ms.toast", "warning", "Member saved, extra details not saved", ex.Message); }
+                await JSRuntime.InvokeVoidAsync("ms.toast", "success", "Member added", $"{newMember.FirstName} {newMember.LastName} is now a member.");
+                await Leave("/members");
             }
             else
             {
                 errorMessage = await response.Content.ReadAsStringAsync();
-                await ShowToast("error", "Error", $"Failed to add member: {errorMessage}");
+                if (string.IsNullOrWhiteSpace(errorMessage)) errorMessage = "The server couldn't save this member.";
             }
         }
         catch (Exception ex)
         {
-            errorMessage = ex.Message;
-            await ShowToast("error", "Error", $"An error occurred: {ex.Message}");
+            errorMessage = $"Something went wrong: {ex.Message}";
         }
         finally
         {
-            isLoading = false;
-        }
-    }
-
-    private async Task ShowToast(string type, string title, string message)
-    {
-        try
-        {
-            await JSRuntime.InvokeVoidAsync("showToast", type, title, message);
-        }
-        catch (JSException)
-        {
-            // Fallback if toast function isn't available
-            errorMessage = $"{title}: {message}";
-            StateHasChanged();
+            isSaving = false;
         }
     }
 
     private void ResetForm()
     {
-        newMember = new MemberModel();
-        _ = GenerateMemberNumber(); // Regenerate member number on reset
+        newMember = NewModel();
+        extras = new();
+        errorMessage = string.Empty;
+        _ = GenerateMemberNumber().ContinueWith(_ => InvokeAsync(StateHasChanged));
+    }
+
+    private Task Back() { if (Drawer != null) return Drawer.Close(); NavigationManager.NavigateTo("/members"); return Task.CompletedTask; }
+    private async Task<int> CurrentUserId()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        return AuthService.UserId(state.User) ?? 1;
     }
 }
-
-<style>
-    .add-member-page {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 2rem 1rem;
-    }
-
-    .page-header {
-        margin-bottom: 2rem;
-    }
-
-    .header-content {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1.5rem;
-    }
-
-    .header-title {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-    }
-
-    .header-icon {
-        font-size: 2rem;
-        color: #4361ee;
-    }
-
-    .form-container {
-        margin-top: 1.5rem;
-    }
-
-    @@media (max-width: 768px) {
-        .header-content {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 1rem;
-        }
-    }
-</style>

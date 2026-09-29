@@ -1,1020 +1,297 @@
 @page "/dividends"
-@using Microsoft.AspNetCore.Components
 @using SaccoManagementSystem.Models
 @inject NavigationManager NavigationManager
-@inject IHttpClientFactory _httpClientFactory
-@inject IJSRuntime JSRuntime
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS
 
-<div>
-    <!-- Header Section -->
-    <div class="dividends-header mb-4">
-        <div class="header-title">
-            <i class="bi bi-cash-coin header-icon"></i>
-            <h2>Dividends Management</h2>
-        </div>
+<PageTitle>Dividends · @Brand.Name</PageTitle>
 
-        <div class="header-actions">
-            <div class="search-box">
-                <i class="bi bi-search"></i>
-                <input type="text"
-                       class="form-control"
-                       placeholder="Search dividends..."
-                       @bind="searchTerm"
-                       @bind:event="oninput" />
-            </div>
+<div class="ms-page">
+    <PageHeader Title="Dividends" Subtitle="Declare, approve and pay out member dividends.">
+        <a class="ms-btn" href="dividends/process"><i class="bi bi-cash-stack"></i> Process payments</a>
+        <a class="ms-btn primary" href="dividends/declare"><i class="bi bi-plus-lg"></i> Declare dividend</a>
+    </PageHeader>
 
-            <div class="dropdown">
-                <button class="btn btn-primary dropdown-toggle" type="button" id="dividendActions" data-bs-toggle="dropdown">
-                    <i class="bi bi-plus-circle"></i>
-                    <span>Dividend Actions</span>
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    <li>
-                        <button class="dropdown-item" @onclick="NavigateToDeclareDividend">
-                            <i class="bi bi-file-earmark-plus me-2"></i>Declare Dividend
-                        </button>
-                    </li>
-                    <li>
-                        <button class="dropdown-item" @onclick="NavigateToProcessPayments">
-                            <i class="bi bi-currency-exchange me-2"></i>Process Payments
-                        </button>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </div>
-
-    <!-- Summary Cards -->
-    <div class="summary-cards mb-4">
-        <div class="row">
-            <div class="col-md-3">
-                <div class="card summary-card total">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="text-muted">Total Declarations</h6>
-                                <h3>@declarations.Count</h3>
-                                <small class="text-muted">@declarations.Sum(d => d.TotalAmount).ToString("C")</small>
-                            </div>
-                            <div class="icon">
-                                <i class="bi bi-files"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card summary-card paid">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="text-muted">Active Year</h6>
-                                <h3>@(GetCurrentFinancialYear() ?? "N/A")</h3>
-                                <small class="text-muted">@GetActiveDeclarationCount() active</small>
-                            </div>
-                            <div class="icon">
-                                <i class="bi bi-calendar-check"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card summary-card pending">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="text-muted">Highest Rate</h6>
-                                <h3>@(GetHighestDividendRate()?.ToString("P2") ?? "N/A")</h3>
-                                <small class="text-muted">@GetHighestDividendYear()</small>
-                            </div>
-                            <div class="icon">
-                                <i class="bi bi-graph-up-arrow"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card summary-card rate">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="text-muted">Latest Declaration</h6>
-                                <h3>@(GetLatestDeclaration()?.DeclarationNumber ?? "N/A")</h3>
-                                <small class="text-muted">@(GetLatestDeclaration()?.DeclarationDate.ToShortDateString() ?? "")</small>
-                            </div>
-                            <div class="icon">
-                                <i class="bi bi-file-earmark-plus"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tabs Navigation -->
-    <ul class="nav nav-tabs mb-4" id="dividendTabs">
-        <li class="nav-item">
-            <button class="nav-link @(activeTab == "declarations" ? "active" : "")"
-                    @onclick="@(() => SwitchTab("declarations"))">
-                <i class="bi bi-file-earmark-text me-1"></i>Declarations
-            </button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link @(activeTab == "payments" ? "active" : "")"
-                    @onclick="@(() => SwitchTab("payments"))">
-                <i class="bi bi-wallet2 me-1"></i>Payments
-            </button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link @(activeTab == "projections" ? "active" : "")"
-                    @onclick="@(() => SwitchTab("projections"))">
-                <i class="bi bi-graph-up me-1"></i>Projections
-            </button>
-        </li>
-    </ul>
-
-    <!-- Tab Content -->
-    <div class="tab-content">
-        @if (activeTab == "declarations")
+    @if (failed)
+    {
+        <div class="ms-card"><EmptyState Icon="bi-wifi-off" Title="Couldn't load dividends" Text="@error">
+            <div style="margin-top:14px"><button class="ms-btn" @onclick="Load"><i class="bi bi-arrow-clockwise"></i> Retry</button></div></EmptyState></div>
+    }
+    else
+    {
+        @if (loading)
         {
-            <div class="dividend-declarations">
-                @if (isLoading)
-                {
-                    <div class="text-center py-5">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                        <p>Loading dividend declarations...</p>
-                    </div>
-                }
-                else if (filteredDeclarations.Any())
-                {
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Declaration #</th>
-                                    <th>Financial Year</th>
-                                    <th>Rate</th>
-                                    <th>Total Amount</th>
-                                    <th>Declaration Date</th>
-                                    <th>Status</th>
-                                    <th class="text-end">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var declaration in pagedDeclarations)
-                                {
-                                    <tr>
-                                        <td>@declaration.DeclarationNumber</td>
-                                        <td>@declaration.FinancialYear</td>
-                                        <td>@declaration.Rate.ToString("P2")</td>
-                                        <td>@declaration.TotalAmount.ToString("C")</td>
-                                        <td>@declaration.DeclarationDate.ToShortDateString()</td>
-                                        <td>
-                                            <span class="badge @GetStatusClass(declaration.Status)">
-                                                @declaration.Status
-                                            </span>
-                                        </td>
-                                        <td class="text-end">
-                                            <button class="btn btn-outline-primary btn-sm"
-                                                    @onclick="() => ViewDeclaration(declaration.FinancialYear)"
-                                                    title="View">
-                                                <i class="bi bi-eye"></i> View
-                                            </button>
-                                            <button class="btn btn-outline-secondary btn-sm"
-                                                    @onclick="() => EditDeclaration(declaration.FinancialYear)"
-                                                    title="Edit">
-                                                <i class="bi bi-pencil"></i> Edit
-                                            </button>
-                                            <button class="btn btn-outline-danger btn-sm"
-                                                    @onclick="() => ConfirmDeleteDeclaration(declaration)"
-                                                    title="Delete">
-                                                <i class="bi bi-trash"></i> Delete
-                                            </button>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Pagination -->
-                    @if (totalDeclarationPages > 1)
-                    {
-                        <nav class="mt-3">
-                            <ul class="pagination justify-content-center">
-                                <li class="page-item @(currentDeclarationPage == 1 ? "disabled" : "")">
-                                    <button class="page-link" @onclick="() => ChangeDeclarationPage(currentDeclarationPage - 1)">
-                                        <i class="bi bi-chevron-left"></i>
-                                    </button>
-                                </li>
-                                @for (int i = 1; i <= totalDeclarationPages; i++)
-                                {
-                                    <li class="page-item @(i == currentDeclarationPage ? "active" : "")">
-                                        <button class="page-link" @onclick="() => ChangeDeclarationPage(i)">@i</button>
-                                    </li>
-                                }
-                                <li class="page-item @(currentDeclarationPage == totalDeclarationPages ? "disabled" : "")">
-                                    <button class="page-link" @onclick="() => ChangeDeclarationPage(currentDeclarationPage + 1)">
-                                        <i class="bi bi-chevron-right"></i>
-                                    </button>
-                                </li>
-                            </ul>
-                        </nav>
-                    }
-                }
-                else
-                {
-                    <div class="empty-state text-center py-5">
-                        <i class="bi bi-file-earmark-text empty-icon"></i>
-                        <h4>No dividend declarations found</h4>
-                        <p>Try adjusting your search or declare a new dividend</p>
-                        <button class="btn btn-primary" @onclick="NavigateToDeclareDividend">
-                            <i class="bi bi-file-earmark-plus me-2"></i>
-                            Declare Dividend
-                        </button>
-                    </div>
-                }
-            </div>
+            <div class="ms-grid stats">@for (int i = 0; i < 4; i++) { <div class="ms-skel" style="height:110px"></div> }</div>
         }
         else
- @if (activeTab == "payments")
         {
-            <div class="dividend-payments">
-                @if (isLoading)
-                {
-                    <div class="text-center py-5">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
+            <div class="ms-grid stats">
+                <StatCard Label="Total declared" Icon="bi-cash-stack" Prefix="KES" Value="@Money(summary?.TotalDividends ?? 0)" />
+                <StatCard Label="Paid out" Icon="bi-check2-circle" Tone="blue" Prefix="KES" Value="@Money(summary?.PaidDividends ?? 0)" Foot="@($"{summary?.PaidMembersCount ?? 0} members")" />
+                <StatCard Label="Pending" Icon="bi-hourglass-split" Tone="gold" Prefix="KES" Value="@Money(summary?.PendingDividends ?? 0)" Foot="@($"{summary?.PendingMembersCount ?? 0} members")" />
+                <StatCard Label="Latest rate" Icon="bi-percent" Tone="red" Value="@(summary?.CurrentDividendRate is decimal r ? (r * 100).ToString("0.##") + "%" : "—")" Foot="@summary?.CurrentDividendYear" />
+            </div>
+        }
+
+        <div class="ms-tabs ms-mt" role="tablist">
+            <button role="tab" class="@(tab == "declarations" ? "on" : "")" @onclick='() => SetTab("declarations")'><i class="bi bi-megaphone"></i> Declarations <em>@declarations.Count</em></button>
+            <button role="tab" class="@(tab == "payments" ? "on" : "")" @onclick='() => SetTab("payments")'><i class="bi bi-wallet2"></i> Payments <em>@payments.Count</em></button>
+            <button role="tab" class="@(tab == "projections" ? "on" : "")" @onclick='() => SetTab("projections")'><i class="bi bi-calculator"></i> Projections</button>
+        </div>
+
+        @if (tab == "projections")
+        {
+            <div class="ms-split">
+                <section class="ms-card">
+                    <div class="ms-card-head"><div><h3>Dividend calculator</h3><p>Estimate next year's payout from expected profit.</p></div></div>
+                    <div class="ms-card-body">
+                        <div class="ms-grid-form">
+                            <Field Class="c12" Label="Estimated profit (KES)"><input class="ms-input" type="number" min="0" @bind="calc.EstimatedProfit" /></Field>
+                            <Field Class="c6" Label="Total shares"><input class="ms-input" type="number" min="0" @bind="calc.TotalShares" /></Field>
+                            <Field Class="c6" Label="Payout ratio (%)"><input class="ms-input" type="number" min="1" max="100" @bind="calc.PayoutRatio" /></Field>
                         </div>
-                        <p>Loading dividend payments...</p>
+                        <div style="margin-top:14px"><button class="ms-btn primary @(calcBusy ? "busy" : "")" @onclick="Calculate">@if (calcBusy) { <span class="ms-spin"></span> } <i class="bi bi-calculator"></i> Calculate</button></div>
                     </div>
-                }
-                else if (filteredPayments.Any())
+                </section>
+                <aside class="ms-card ms-calc" aria-live="polite">
+                    <div><small style="color:var(--ms-text-3);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:11px">Projected payout</small></div>
+                    <div class="big">@(result == null ? "—" : "KES " + result.PayoutAmount.ToString("N0"))</div>
+                    @if (result != null)
+                    {
+                        <div class="row"><span>Dividend rate</span><b>@result.DividendRate.ToString("0.##")%</b></div>
+                        <div class="row"><span>Per share</span><b>KES @result.PerShareAmount.ToString("N2")</b></div>
+                        <div class="row"><span>Total dividends</span><b>KES @result.TotalDividends.ToString("N0")</b></div>
+                    }
+                    else { <small class="ms-hint">Fill in the figures and press Calculate.</small> }
+                </aside>
+            </div>
+
+            @if (declarations.Count > 0)
+            {
+                <section class="ms-card ms-mt">
+                    <div class="ms-card-head"><div><h3>Rate history</h3></div></div>
+                    <div class="ms-card-body" style="display:grid;gap:12px">
+                        @{ var maxRate = declarations.Max(d => d.Rate); }
+                        @foreach (var d in declarations.OrderBy(d => d.DeclarationDate))
+                        {
+                            var w = maxRate > 0 ? (double)(d.Rate / maxRate) * 100 : 0;
+                            <div style="display:flex;align-items:center;gap:12px">
+                                <span class="ms-num" style="width:90px;font-weight:700">@d.FinancialYear</span>
+                                <div class="ms-bar" style="flex:1"><i style="width:@(w.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></i></div>
+                                <span class="ms-num" style="width:64px;text-align:right">@((d.Rate * 100).ToString("0.##"))%</span>
+                            </div>
+                        }
+                    </div>
+                </section>
+            }
+        }
+        else
+        {
+            <div class="ms-card">
+                <div class="ms-toolbar">
+                    <div class="ms-searchbox">
+                        <i class="bi bi-search"></i>
+                        <input class="ms-input" type="search" placeholder="@(tab == "declarations" ? "Search declaration number or year…" : "Search member, payment number or year…")" aria-label="Search" @bind="search" @bind:event="oninput" @bind:after="ResetPage" />
+                    </div>
+                </div>
+
+                @if (loading)
                 {
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Payment #</th>
-                                    <th>Member</th>
-                                    <th>Declaration</th>
-                                    <th>Amount</th>
-                                    <th>Payment Date</th>
-                                    <th>Method</th>
-                                    <th>Status</th>
-                                    <th class="text-end">Actions</th>
-                                </tr>
-                            </thead>
+                    <div class="ms-card-body">@for (int i = 0; i < 5; i++) { <div class="ms-skel" style="height:52px;margin-bottom:10px"></div> }</div>
+                }
+                else if (tab == "declarations")
+                {
+                    @if (!FDecl.Any())
+                    {
+                        <EmptyState Icon="bi-megaphone" Title="No declarations" Text="Declare a dividend to get started."><div style="margin-top:14px"><a class="ms-btn primary" href="dividends/declare">Declare dividend</a></div></EmptyState>
+                    }
+                    else
+                    {
+                        <div class="ms-table-wrap"><table class="ms-table">
+                            <thead><tr><th>Declaration</th><th>Year</th><th class="r">Rate</th><th class="r">Total</th><th>Progress</th><th>Payment date</th><th>Status</th><th class="r" style="width:150px"></th></tr></thead>
                             <tbody>
-                                @foreach (var payment in pagedPayments)
+                                @foreach (var d in PDecl)
                                 {
-                                    <tr>
-                                        <td>@(payment.PaymentNumber ?? "N/A")</td>
-                                        <td>
-                                            <div class="member-name">@payment.MemberName</div>
-                                            <small class="text-muted">ID: @payment.MemberId</small>
-                                        </td>
-                                        <td>@payment.FinancialYear</td>
-                                        <td>@payment.Amount.ToString("C")</td>
-                                        <td>@(payment.PaymentDate?.ToShortDateString() ?? "Pending")</td>
-                                        <td>@(payment.PaymentMethod ?? "Not set")</td>
-                                        <td>
-                                            <span class="badge @GetPaymentStatusClass(payment.Status)">
-                                                @payment.Status
-                                            </span>
-                                        </td>
-                                        <td class="text-end">
-                                            <button class="btn btn-outline-primary btn-sm"
-                                                    @onclick="() => ViewPayment(payment.DividendId)"
-                                                    title="View">
-                                                <i class="bi bi-eye"></i> View
-                                            </button>
-                                            @if (payment.Status == "Pending")
-                                            {
-                                                <button class="btn btn-outline-success btn-sm"
-                                                        @onclick="() => ShowProcessPaymentModal(payment)"
-                                                        title="Process">
-                                                    <i class="bi bi-check-circle"></i> Process
-                                                </button>
-                                            }
-                                        </td>
+                                    var pct = d.TotalAmount > 0 ? (double)(d.PaidAmount / d.TotalAmount) * 100 : 0;
+                                    <tr class="clickable" @onclick="() => ViewDecl(d)">
+                                        <td class="ms-num"><b>@d.DeclarationNumber</b></td>
+                                        <td>@d.FinancialYear</td>
+                                        <td class="r ms-num">@((d.Rate * 100).ToString("0.##"))%</td>
+                                        <td class="r ms-num"><b>KES @d.TotalAmount.ToString("N0")</b></td>
+                                        <td style="min-width:130px"><div class="ms-bar"><i style="width:@(Math.Min(100, pct).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></i></div><small style="color:var(--ms-text-3)">@d.PaymentCount payments</small></td>
+                                        <td class="ms-num">@(d.PaymentDate?.ToString("d MMM yyyy") ?? "—")</td>
+                                        <td><StatusPill Status="@d.Status" /></td>
+                                        <td @onclick:stopPropagation="true"><div class="ms-row-actions">
+                                            <button class="ms-ib" title="View" aria-label="View @d.DeclarationNumber" @onclick="() => ViewDecl(d)"><i class="bi bi-eye"></i></button>
+                                            <button class="ms-ib" title="Edit" aria-label="Edit @d.DeclarationNumber" @onclick="() => EditDecl(d)"><i class="bi bi-pencil"></i></button>
+                                            <button class="ms-ib danger" title="Delete" aria-label="Delete @d.DeclarationNumber" @onclick="() => delDecl = d"><i class="bi bi-trash3"></i></button>
+                                        </div></td>
                                     </tr>
                                 }
-                            </tbody>
-                        </table>
-                    </div>
-
-                    @if (totalPaymentPages > 1)
-                    {
-                        <nav class="mt-3">
-                            <ul class="pagination justify-content-center">
-                                <li class="page-item @(currentPaymentPage == 1 ? "disabled" : "")">
-                                    <button class="page-link" @onclick="() => ChangePaymentPage(currentPaymentPage - 1)">
-                                        <i class="bi bi-chevron-left"></i>
-                                    </button>
-                                </li>
-                                @for (int i = 1; i <= totalPaymentPages; i++)
-                                {
-                                    <li class="page-item @(i == currentPaymentPage ? "active" : "")">
-                                        <button class="page-link" @onclick="() => ChangePaymentPage(i)">@i</button>
-                                    </li>
-                                }
-                                <li class="page-item @(currentPaymentPage == totalPaymentPages ? "disabled" : "")">
-                                    <button class="page-link" @onclick="() => ChangePaymentPage(currentPaymentPage + 1)">
-                                        <i class="bi bi-chevron-right"></i>
-                                    </button>
-                                </li>
-                            </ul>
-                        </nav>
+                            </tbody></table></div>
+                        <Pager Total="FDecl.Count()" @bind-Page="page" @bind-PageSize="pageSize" />
                     }
                 }
                 else
                 {
-                    <div class="empty-state text-center py-5">
-                        <i class="bi bi-wallet2 empty-icon"></i>
-                        <h4>No dividend payments found</h4>
-                        @if (payments.Any())
-                        {
-                            <p>No payments match your search criteria</p>
-                        }
-                        else
-                        {
-                            <p>Process payments from dividend declarations</p>
-                            <button class="btn btn-primary" @onclick="NavigateToProcessPayments">
-                                <i class="bi bi-currency-exchange me-2"></i>
-                                Process Payments
-                            </button>
-                        }
-                    </div>
+                    @if (!FPay.Any())
+                    {
+                        <EmptyState Icon="bi-wallet2" Title="No payments" Text="Payments appear here after a declaration is approved." />
+                    }
+                    else
+                    {
+                        <div class="ms-table-wrap"><table class="ms-table">
+                            <thead><tr><th>Payment</th><th>Member</th><th>Year</th><th class="r">Shares</th><th class="r">Amount</th><th>Paid on</th><th>Status</th><th class="r" style="width:130px"></th></tr></thead>
+                            <tbody>
+                                @foreach (var p in PPay)
+                                {
+                                    <tr class="clickable" @onclick="() => ViewPay(p.Id)">
+                                        <td class="ms-num">@p.PaymentNumber</td>
+                                        <td><div class="ms-cell-person"><Avatar Name="@p.MemberName" Size="sm" /><div><b>@p.MemberName</b><small>@p.MemberNumber</small></div></div></td>
+                                        <td>@p.DeclarationYear</td>
+                                        <td class="r ms-num">@p.Shares.ToString("N0")</td>
+                                        <td class="r ms-num"><b>KES @p.Amount.ToString("N0")</b></td>
+                                        <td class="ms-num">@(p.PaymentDate?.ToString("d MMM yyyy") ?? "—")</td>
+                                        <td><StatusPill Status="@p.Status" /></td>
+                                        <td @onclick:stopPropagation="true"><div class="ms-row-actions">
+                                            @if (p.Status == "Pending") { <button class="ms-btn sm primary" @onclick="() => OpenPay(p)">Pay</button> }
+                                            <button class="ms-ib" title="View" aria-label="View payment @p.PaymentNumber" @onclick="() => ViewPay(p.Id)"><i class="bi bi-eye"></i></button>
+                                        </div></td>
+                                    </tr>
+                                }
+                            </tbody></table></div>
+                        <Pager Total="FPay.Count()" @bind-Page="page" @bind-PageSize="pageSize" />
+                    }
                 }
             </div>
         }
-        else if (activeTab == "projections")
-        {
-            <div class="dividend-projections">
-                <div class="card">
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h5><i class="bi bi-graph-up me-2"></i>Dividend Projections</h5>
-                                <div class="chart-container" style="height: 300px;">
-                                    <canvas id="dividendTrendChart"></canvas>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <h5><i class="bi bi-calendar me-2"></i>Projection Calculator</h5>
-                                <div class="calculator">
-                                    <div class="mb-3">
-                                        <label class="form-label">Estimated Profit</label>
-                                        <div class="input-group">
-                                            <span class="input-group-text">$</span>
-                                            <input type="number" class="form-control" @bind="projectionCalculator.EstimatedProfit" />
-                                        </div>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Total Shares</label>
-                                        <input type="number" class="form-control" @bind="projectionCalculator.TotalShares" />
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Payout Ratio (%)</label>
-                                        <input type="number" class="form-control" @bind="projectionCalculator.PayoutRatio" />
-                                    </div>
-                                    <button class="btn btn-primary" @onclick="CalculateProjection">
-                                        <i class="bi bi-calculator me-2"></i>Calculate
-                                    </button>
-
-                                    @if (projectionResult != null)
-                                    {
-                                        <div class="results mt-4 p-3 bg-light rounded">
-                                            <h6>Projection Results</h6>
-                                            <div class="row">
-                                                <div class="col-6">
-                                                    <p class="mb-1">Dividend Rate:</p>
-                                                    <h4>@projectionResult.DividendRate.ToString("P2")</h4>
-                                                </div>
-                                                <div class="col-6">
-                                                    <p class="mb-1">Per Share:</p>
-                                                    <h4>@projectionResult.PerShareAmount.ToString("C")</h4>
-                                                </div>
-                                            </div>
-                                            <div class="mt-2">
-                                                <p class="mb-1">Total Dividend Pool:</p>
-                                                <h4>@projectionResult.TotalDividends.ToString("C")</h4>
-                                            </div>
-                                        </div>
-                                    }
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        }
-    </div>
+    }
 </div>
 
-<!-- Delete Confirmation Modal -->
-@if (showDeleteModal)
-{
-    <div class="modal-backdrop show"></div>
-    <div class="modal show d-block" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Confirm Delete</h5>
-                    <button type="button" class="btn-close" @onclick="CancelDelete"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Delete dividend declaration <strong>@dividendToDelete?.DeclarationNumber</strong>?</p>
-                    <p class="text-danger">This will also delete all associated payments.</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CancelDelete">
-                        Cancel
-                    </button>
-                    <button type="button" class="btn btn-danger" @onclick="DeleteDeclaration">
-                        Delete
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
+<ConfirmDialog Open="delDecl != null" Danger="true" Title="Delete declaration" ConfirmText="Delete" Busy="busy" OnConfirm="DeleteDecl" OnCancel="() => delDecl = null">
+    <p style="margin:0 0 6px">Delete <b>@delDecl?.DeclarationNumber</b> (@delDecl?.FinancialYear)?</p>
+    <p class="ms-hint" style="margin:0">Declarations that already have payments may be refused by the server.</p>
+</ConfirmDialog>
 
-<!-- Process Payment Modal -->
-@if (showProcessPaymentModal)
-{
-    <div class="modal-backdrop show"></div>
-    <div class="modal show d-block" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Process Dividend Payment</h5>
-                    <button type="button" class="btn-close" @onclick="CancelProcessPayment"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Process payment for <strong>@paymentToProcess?.MemberName</strong> of <strong>@paymentToProcess?.Amount.ToString("C")</strong>?</p>
-                    <div class="mb-3">
-                        <label class="form-label">Payment Method</label>
-                        <select class="form-select" @bind="paymentMethod">
-                            <option value="">Select method</option>
-                            <option value="Bank Transfer">Bank Transfer</option>
-                            <option value="M-Pesa">M-Pesa</option>
-                            <option value="Cheque">Cheque</option>
-                            <option value="Cash">Cash</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Payment Date</label>
-                        <input type="date" class="form-control" @bind="paymentDate" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Remarks</label>
-                        <textarea class="form-control" @bind="paymentRemarks"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CancelProcessPayment">
-                        Cancel
-                    </button>
-                    <button type="button" class="btn btn-primary" @onclick="ProcessPayment">
-                        Process Payment
-                    </button>
-                </div>
-            </div>
+<Modal Open="payTarget != null" OnClose="() => payTarget = null" Title="Pay dividend" Subtitle="@(payTarget == null ? "" : $"{payTarget.MemberName} · KES {payTarget.Amount:N0}")">
+    <ChildContent>
+        <div class="ms-grid-form">
+            <Field Class="c6" Label="Payment method"><select class="ms-select" @bind="payMethod"><option>Bank Transfer</option><option>M-Pesa</option><option>Cash</option><option>Cheque</option></select></Field>
+            <Field Class="c6" Label="Payment date"><input class="ms-input" type="date" @bind="payDate" /></Field>
+            <Field Class="c12" Label="Remarks"><textarea class="ms-input" @bind="payRemarks"></textarea></Field>
         </div>
-    </div>
-}
+    </ChildContent>
+    <Footer>
+        <button type="button" class="ms-btn" @onclick="() => payTarget = null">Cancel</button>
+        <button type="button" class="ms-btn primary @(busy ? "busy" : "")" @onclick="Pay">@if (busy) { <span class="ms-spin"></span> }Confirm payment</button>
+    </Footer>
+</Modal>
 
 @code {
-    private HttpClient Http => _httpClientFactory.CreateClient("ApiClient");
-    private bool isLoading = true;
-    private string errorMessage = string.Empty;
-
-    // Data properties
-    private DividendSummaryDto? dividendSummary;
+    private DividendSummaryDto? summary;
     private List<DividendDeclarationDto> declarations = new();
     private List<DividendPaymentDto> payments = new();
+    private string tab = "declarations", search = "", error = "";
+    private bool loading = true, failed, busy, calcBusy;
+    private int page = 1, pageSize = 10;
 
-    // Filter properties
-    private string searchTerm = string.Empty;
-    private string activeTab = "declarations";
+    private DividendDeclarationDto? delDecl;
+    private DividendPaymentDto? payTarget;
+    private string payMethod = "Bank Transfer", payRemarks = "";
+    private DateTime payDate = DateTime.Today;
 
-    // Modal properties
-    private bool showDeleteModal = false;
-    private DividendDeclarationDto? dividendToDelete = null;
-    private bool showProcessPaymentModal = false;
-    private DividendPaymentDto? paymentToProcess = null;
-    private string paymentMethod = string.Empty;
-    private DateTime paymentDate = DateTime.Today;
-    private string paymentRemarks = string.Empty;
+    private ProjectionCalculatorDto calc = new();
+    private ProjectionResultDto? result;
 
-    // Pagination properties
-    private int currentDeclarationPage = 1;
-    private int currentPaymentPage = 1;
-    private const int pageSize = 10;
+    private IEnumerable<DividendDeclarationDto> FDecl => declarations
+        .Where(d => string.IsNullOrWhiteSpace(search) || (d.DeclarationNumber ?? "").Contains(search.Trim(), StringComparison.OrdinalIgnoreCase) || (d.FinancialYear ?? "").Contains(search.Trim(), StringComparison.OrdinalIgnoreCase))
+        .OrderByDescending(d => d.DeclarationDate);
+    private IEnumerable<DividendDeclarationDto> PDecl => FDecl.Skip((page - 1) * pageSize).Take(pageSize);
 
-    // Projection properties
-    private ProjectionCalculatorDto projectionCalculator = new();
-    private ProjectionResultDto? projectionResult = null;
+    private IEnumerable<DividendPaymentDto> FPay => payments
+        .Where(p => string.IsNullOrWhiteSpace(search) || (p.MemberName ?? "").Contains(search.Trim(), StringComparison.OrdinalIgnoreCase) || (p.PaymentNumber ?? "").Contains(search.Trim(), StringComparison.OrdinalIgnoreCase) || (p.DeclarationYear ?? "").Contains(search.Trim(), StringComparison.OrdinalIgnoreCase))
+        .OrderByDescending(p => p.PaymentDate ?? DateTime.MaxValue);
+    private IEnumerable<DividendPaymentDto> PPay => FPay.Skip((page - 1) * pageSize).Take(pageSize);
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
     {
-        await LoadData();
-    }
-
-    private async Task LoadData()
-    {
+        loading = true; failed = false; error = "";
         try
         {
-            isLoading = true;
-            errorMessage = string.Empty;
-            StateHasChanged();
-
-            // Load summary data
-            var summaryResponse = await Http.GetAsync("api/dividends/summary");
-            if (summaryResponse.IsSuccessStatusCode)
-            {
-                dividendSummary = await summaryResponse.Content.ReadFromJsonAsync<DividendSummaryDto>();
-            }
-
-            // Load declarations
-            var declarationsResponse = await Http.GetAsync("api/dividends/declarations");
-            if (declarationsResponse.IsSuccessStatusCode)
-            {
-                declarations = await declarationsResponse.Content.ReadFromJsonAsync<List<DividendDeclarationDto>>();
-            }
-
-            // Load payments - THIS IS THE CRITICAL FIX
-            var paymentsResponse = await Http.GetAsync("api/dividends/payments");
-            if (paymentsResponse.IsSuccessStatusCode)
-            {
-                payments = await paymentsResponse.Content.ReadFromJsonAsync<List<DividendPaymentDto>>();
-            }
-            else
-            {
-                var errorContent = await paymentsResponse.Content.ReadAsStringAsync();
-                errorMessage = $"Failed to load payments: {errorContent}";
-            }
+            var http = HttpClientFactory.CreateClient("ApiClient");
+            var s = http.GetAsync("api/dividends/summary");
+            var d = http.GetAsync("api/dividends/declarations");
+            var p = http.GetAsync("api/dividends/payments");
+            await Task.WhenAll(s, d, p);
+            if (s.Result.IsSuccessStatusCode) summary = await s.Result.Content.ReadFromJsonAsync<DividendSummaryDto>();
+            if (d.Result.IsSuccessStatusCode) declarations = await d.Result.Content.ReadFromJsonAsync<List<DividendDeclarationDto>>() ?? new();
+            else { failed = true; error = $"Declarations: server answered {(int)d.Result.StatusCode}."; }
+            if (p.Result.IsSuccessStatusCode) payments = await p.Result.Content.ReadFromJsonAsync<List<DividendPaymentDto>>() ?? new();
         }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to load data: {ex.Message}";
-        }
-        finally
-        {
-            isLoading = false;
-            StateHasChanged();
-        }
-    }
-    // Filtered data
-    private IEnumerable<DividendDeclarationDto> filteredDeclarations => declarations
-        .Where(d => string.IsNullOrEmpty(searchTerm) ||
-                   d.DeclarationNumber.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                   d.FinancialYear.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
-
-    private IEnumerable<DividendPaymentDto> filteredPayments => payments
-        .Where(p => string.IsNullOrEmpty(searchTerm) ||
-                   p.MemberName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                   p.PaymentNumber.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                   p.DeclarationYear.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
-
-    // Paginated data
-    private IEnumerable<DividendDeclarationDto> pagedDeclarations => filteredDeclarations
-        .OrderByDescending(d => d.DeclarationDate)
-        .Skip((currentDeclarationPage - 1) * pageSize)
-        .Take(pageSize);
-
-    private IEnumerable<DividendPaymentDto> pagedPayments => filteredPayments
-        .OrderByDescending(p => p.PaymentDate ?? DateTime.MaxValue)
-        .Skip((currentPaymentPage - 1) * pageSize)
-        .Take(pageSize);
-
-    // Total pages
-    private int totalDeclarationPages => (int)Math.Ceiling((double)filteredDeclarations.Count() / pageSize);
-    private int totalPaymentPages => (int)Math.Ceiling((double)filteredPayments.Count() / pageSize);
-
-    // Helper methods
-    private string GetStatusClass(string status) => status switch
-    {
-        "Processed" => "bg-success",
-        "Pending" => "bg-warning text-dark",
-        "Cancelled" => "bg-secondary",
-        _ => "bg-info"
-    };
-
-    private string GetPaymentStatusClass(string status) => status switch
-    {
-        "Paid" => "bg-success",
-        "Pending" => "bg-warning text-dark",
-        "Failed" => "bg-danger",
-        _ => "bg-secondary"
-    };
-
-    // Navigation methods
-    private void SwitchTab(string tab)
-    {
-        activeTab = tab;
-        currentDeclarationPage = 1;
-        currentPaymentPage = 1;
+        catch (Exception ex) { failed = true; error = ex.Message; }
+        finally { loading = false; }
     }
 
-    private void NavigateToDeclareDividend() => NavigationManager.NavigateTo("/dividends/declare");
-    private void NavigateToProcessPayments() => NavigationManager.NavigateTo("/dividends/process");
-    private void ViewDeclaration(string financialYear)
+    private static string Money(decimal v)
     {
-        // Normalize the financial year format for URL
-        var urlFriendlyYear = financialYear.Replace("/", "-");
-        NavigationManager.NavigateTo($"/dividends/declarations/financial-year/{urlFriendlyYear}");
+        var a = Math.Abs(v);
+        if (a >= 1_000_000m) return (v / 1_000_000m).ToString("0.##") + "M";
+        if (a >= 10_000m) return (v / 1_000m).ToString("0.#") + "K";
+        return v.ToString("N0");
     }
 
-    private void EditDeclaration(string financialYear)
-    {
-        // Normalize the financial year format for URL
-        var urlFriendlyYear = financialYear.Replace("/", "-");
-        NavigationManager.NavigateTo($"/dividends/declarations/financial-year/{urlFriendlyYear}/edit");
-    }
-    private void ViewPayment(int id) => NavigationManager.NavigateTo($"/dividends/payments/{id}");
+    private void SetTab(string t) { tab = t; page = 1; search = ""; }
+    private void ResetPage() => page = 1;
+    private static string Slug(string? y) => (y ?? "").Replace("/", "-");
+    private void ViewDecl(DividendDeclarationDto d) => NavigationManager.NavigateTo($"/dividends/declarations/financial-year/{Slug(d.FinancialYear)}");
+    private void EditDecl(DividendDeclarationDto d) => NavigationManager.NavigateTo($"/dividends/declarations/financial-year/{Slug(d.FinancialYear)}/edit");
+    private void ViewPay(int id) => NavigationManager.NavigateTo($"/dividends/payments/{id}");
+    private void OpenPay(DividendPaymentDto p) { payTarget = p; payMethod = "Bank Transfer"; payDate = DateTime.Today; payRemarks = ""; }
 
-    // Helper methods for the cards
-    private string? GetCurrentFinancialYear()
+    private async Task DeleteDecl()
     {
-        var currentYear = DateTime.Now.Year;
-        var currentDeclaration = declarations.FirstOrDefault(d =>
-            d.FinancialYear.Contains(currentYear.ToString()));
-        return currentDeclaration?.FinancialYear;
-    }
-
-    private int GetActiveDeclarationCount()
-    {
-        return declarations.Count(d => d.Status == "Active");
-    }
-
-    private decimal? GetHighestDividendRate()
-    {
-        return declarations.Any() ? declarations.Max(d => d.Rate) : null;
-    }
-
-    private string GetHighestDividendYear()
-    {
-        var highest = declarations.OrderByDescending(d => d.Rate).FirstOrDefault();
-        return highest?.FinancialYear ?? string.Empty;
-    }
-
-    private DividendDeclarationDto? GetLatestDeclaration()
-    {
-        return declarations.OrderByDescending(d => d.DeclarationDate).FirstOrDefault();
-    }
-    // Declaration methods
-    private void ConfirmDeleteDeclaration(DividendDeclarationDto declaration)
-    {
-        dividendToDelete = declaration;
-        showDeleteModal = true;
-    }
-
-    private void CancelDelete()
-    {
-        showDeleteModal = false;
-        dividendToDelete = null;
-    }
-
-    private async Task DeleteDeclaration()
-    {
-        if (dividendToDelete == null) return;
-
+        if (delDecl == null) return;
+        busy = true;
         try
         {
-            var response = await Http.DeleteAsync($"api/dividends/{dividendToDelete.DeclarationId}");
-
-            if (response.IsSuccessStatusCode)
-            {
-                await LoadData();
-            }
-            else
-            {
-                errorMessage = "Failed to delete dividend declaration";
-            }
+            var http = HttpClientFactory.CreateClient("ApiClient");
+            var r = await http.DeleteAsync($"api/dividends/declarations/{delDecl.DeclarationId}");
+            if (r.IsSuccessStatusCode) { await JS.InvokeVoidAsync("ms.toast", "success", "Declaration deleted", delDecl.DeclarationNumber); delDecl = null; await Load(); }
+            else await JS.InvokeVoidAsync("ms.toast", "error", "Couldn't delete declaration", $"The server answered {(int)r.StatusCode}.");
         }
-        catch (Exception ex)
-        {
-            errorMessage = $"Error deleting dividend declaration: {ex.Message}";
-        }
-        finally
-        {
-            showDeleteModal = false;
-            dividendToDelete = null;
-        }
+        catch (Exception ex) { await JS.InvokeVoidAsync("ms.toast", "error", "Couldn't delete declaration", ex.Message); }
+        finally { busy = false; delDecl = null; }
     }
 
-    // Payment methods
-    private void ShowProcessPaymentModal(DividendPaymentDto payment)
+    private async Task Pay()
     {
-        paymentToProcess = payment;
-        paymentMethod = "Bank Transfer";
-        paymentDate = DateTime.Today;
-        paymentRemarks = string.Empty;
-        showProcessPaymentModal = true;
-    }
-
-    private void CancelProcessPayment()
-    {
-        showProcessPaymentModal = false;
-        paymentToProcess = null;
-    }
-
-    private async Task ProcessPayment()
-    {
-        if (paymentToProcess == null || string.IsNullOrEmpty(paymentMethod)) return;
-
+        if (payTarget == null) return;
+        busy = true;
         try
         {
-            var processDto = new
-            {
-                PaymentDate = paymentDate,
-                PaymentMethod = paymentMethod,
-                Remarks = paymentRemarks
-            };
-
-            var response = await Http.PutAsJsonAsync($"api/dividends/{paymentToProcess.Id}/process", processDto);
-
-            if (response.IsSuccessStatusCode)
-            {
-                await LoadData();
-            }
-            else
-            {
-                errorMessage = "Failed to process payment";
-            }
+            var http = HttpClientFactory.CreateClient("ApiClient");
+            var r = await http.PostAsJsonAsync($"api/dividends/payments/{payTarget.Id}/process", new { PaymentDate = payDate, PaymentMethod = payMethod, Remarks = payRemarks });
+            if (r.IsSuccessStatusCode) { await JS.InvokeVoidAsync("ms.toast", "success", "Payment processed", payTarget.MemberName); payTarget = null; await Load(); }
+            else await JS.InvokeVoidAsync("ms.toast", "error", "Couldn't process payment", $"The server answered {(int)r.StatusCode}.");
         }
-        catch (Exception ex)
-        {
-            errorMessage = $"Error processing payment: {ex.Message}";
-        }
-        finally
-        {
-            showProcessPaymentModal = false;
-            paymentToProcess = null;
-        }
+        catch (Exception ex) { await JS.InvokeVoidAsync("ms.toast", "error", "Couldn't process payment", ex.Message); }
+        finally { busy = false; }
     }
 
-    // Pagination methods
-    private void ChangeDeclarationPage(int page)
+    private async Task Calculate()
     {
-        if (page >= 1 && page <= totalDeclarationPages)
-        {
-            currentDeclarationPage = page;
-        }
-    }
-
-    private void ChangePaymentPage(int page)
-    {
-        if (page >= 1 && page <= totalPaymentPages)
-        {
-            currentPaymentPage = page;
-        }
-    }
-
-    // Projection methods
-    private async Task CalculateProjection()
-    {
+        if (calc.EstimatedProfit <= 0 || calc.TotalShares <= 0 || calc.PayoutRatio <= 0) { await JS.InvokeVoidAsync("ms.toast", "error", "Fill in all three figures"); return; }
+        calcBusy = true;
         try
         {
-            if (projectionCalculator.EstimatedProfit > 0 && projectionCalculator.TotalShares > 0 && projectionCalculator.PayoutRatio > 0)
-            {
-                var response = await Http.PostAsJsonAsync("api/dividends/calculate-projection", projectionCalculator);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    projectionResult = await response.Content.ReadFromJsonAsync<ProjectionResultDto>();
-                }
-                else
-                {
-                    errorMessage = "Failed to calculate projection";
-                }
-            }
+            var http = HttpClientFactory.CreateClient("ApiClient");
+            var r = await http.PostAsJsonAsync("api/dividends/calculate-projection", calc);
+            if (r.IsSuccessStatusCode) result = await r.Content.ReadFromJsonAsync<ProjectionResultDto>();
+            else await JS.InvokeVoidAsync("ms.toast", "error", "Couldn't calculate projection");
         }
-        catch (Exception ex)
-        {
-            errorMessage = $"Error calculating projection: {ex.Message}";
-        }
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender && activeTab == "projections")
-        {
-            await InitializeChart();
-        }
-    }
-
-    private async Task InitializeChart()
-    {
-        try
-        {
-            // Get historical dividend data
-            var response = await Http.GetAsync("api/dividends/declarations");
-            if (response.IsSuccessStatusCode)
-            {
-                var declarations = await response.Content.ReadFromJsonAsync<List<DividendDeclarationDto>>();
-
-                // Prepare chart data
-                var labels = declarations?.Select(d => d.FinancialYear).ToArray();
-                var amounts = declarations?.Select(d => (double)d.TotalAmount).ToArray();
-
-                // Initialize Chart.js
-                await JSRuntime.InvokeVoidAsync("initializeDividendChart", labels, amounts);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error initializing chart: {ex.Message}");
-        }
+        catch (Exception ex) { await JS.InvokeVoidAsync("ms.toast", "error", "Couldn't calculate projection", ex.Message); }
+        finally { calcBusy = false; }
     }
 }
-
-<style>
-
-    .summary-cards .card {
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        transition: transform 0.2s;
-        height: 100%;
-    }
-
-        .summary-cards .card:hover {
-            transform: translateY(-5px);
-        }
-
-    .summary-cards .card-body {
-        padding: 1.25rem;
-    }
-
-    .summary-cards .icon {
-        font-size: 2.5rem;
-        opacity: 0.2;
-        color: inherit;
-    }
-
-    .summary-card.total {
-        border-left: 4px solid #6f42c1;
-        color: #6f42c1;
-    }
-
-    .summary-card.paid {
-        border-left: 4px solid #198754;
-        color: #198754;
-    }
-
-    .summary-card.pending {
-        border-left: 4px solid #fd7e14;
-        color: #fd7e14;
-    }
-
-    .summary-card.rate {
-        border-left: 4px solid #0dcaf0;
-        color: #0dcaf0;
-    }
-
-    .summary-cards h3 {
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-    }
-
-    .summary-cards h6 {
-        font-size: 0.8rem;
-        margin-bottom: 0.5rem;
-    }
-    .dividends-container {
-        padding: 20px;
-        background-color: #f8f9fa;
-    }
-
-    .dividends-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 10px 0;
-    }
-
-    .header-title {
-        display: flex;
-        align-items: center;
-    }
-
-        .header-title h2 {
-            margin: 0;
-            font-weight: 600;
-        }
-
-    .header-icon {
-        font-size: 2rem;
-        margin-right: 15px;
-        color: #0d6efd;
-    }
-
-    .header-actions {
-        display: flex;
-        gap: 15px;
-    }
-
-    .search-box {
-        position: relative;
-        width: 250px;
-    }
-
-        .search-box i {
-            position: absolute;
-            left: 10px;
-            top: 10px;
-            color: #6c757d;
-        }
-
-        .search-box input {
-            padding-left: 35px;
-        }
-
-    .summary-cards .card {
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        transition: transform 0.2s;
-    }
-
-        .summary-cards .card:hover {
-            transform: translateY(-5px);
-        }
-
-    .summary-cards .card-body {
-        padding: 1.25rem;
-    }
-
-    .summary-cards .icon {
-        font-size: 2.5rem;
-        opacity: 0.2;
-    }
-
-    .summary-card.total {
-        border-left: 4px solid #6f42c1;
-    }
-
-    .summary-card.paid {
-        border-left: 4px solid #198754;
-    }
-
-    .summary-card.pending {
-        border-left: 4px solid #fd7e14;
-    }
-
-    .summary-card.rate {
-        border-left: 4px solid #0dcaf0;
-    }
-
-    .empty-state {
-        padding: 40px;
-        background-color: white;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-    }
-
-    .empty-icon {
-        font-size: 3rem;
-        color: #6c757d;
-        margin-bottom: 15px;
-    }
-
-    .chart-container {
-        position: relative;
-        margin: 20px 0;
-    }
-
-    .calculator {
-        padding: 20px;
-        background-color: white;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-    }
-
-    .results {
-        border-left: 4px solid #0d6efd;
-    }
-
-    .badge {
-        padding: 0.5em 0.75em;
-        font-weight: 500;
-    }
-
-    .table th {
-        font-weight: 600;
-        text-transform: uppercase;
-        font-size: 0.8rem;
-        letter-spacing: 0.5px;
-    }
-
-    .member-name {
-        font-weight: 500;
-    }
-</style>

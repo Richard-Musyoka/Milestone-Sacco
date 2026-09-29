@@ -1,0 +1,59 @@
+@* Original flat illustration (savannah, acacia, SACCO office, growing savings). Colours follow the brand colour. *@
+<svg class="sa-art @Class" viewBox="@(Portrait ? "90 -40 620 740" : "0 0 800 600")" preserveAspectRatio="@(Portrait ? "xMidYMin slice" : "xMidYMid slice")" role="img" aria-label="Illustration of a community SACCO office under acacia trees with savings growing">
+    <rect class="sa-sky" x="-400" y="-600" width="1600" height="1200" />
+    <circle class="sa-sun" cx="620" cy="150" r="70" />
+    <circle class="sa-sun2" cx="620" cy="150" r="110" />
+    <g class="sa-birds">
+        <path d="M150 120 q10 -10 20 0 q10 -10 20 0" />
+        <path d="M205 95 q7 -7 14 0 q7 -7 14 0" />
+        <path d="M430 80 q8 -8 16 0 q8 -8 16 0" />
+    </g>
+    <path class="sa-hill3" d="M0 360 C140 300 260 330 380 320 C520 305 640 260 800 300 L800 900 L0 900 Z" />
+    <path class="sa-hill2" d="M0 420 C120 380 260 400 400 385 C560 368 660 350 800 380 L800 900 L0 900 Z" />
+    <!-- acacia, left -->
+    <g class="sa-tree">
+        <path d="M150 400 L156 330 L140 305 M156 330 L175 300" />
+        <ellipse cx="160" cy="298" rx="78" ry="16" />
+        <ellipse cx="130" cy="306" rx="40" ry="10" />
+    </g>
+    <!-- acacia, right -->
+    <g class="sa-tree">
+        <path d="M690 392 L694 318 L676 296 M694 318 L712 292" />
+        <ellipse cx="696" cy="290" rx="92" ry="18" />
+    </g>
+    <!-- SACCO office -->
+    <g class="sa-house">
+        <rect class="sa-wall" x="300" y="300" width="200" height="130" rx="6" />
+        <path class="sa-roof" d="M285 305 L400 245 L515 305 Z" />
+        <rect class="sa-sign" x="350" y="310" width="100" height="22" rx="5" />
+        <rect class="sa-door" x="382" y="362" width="36" height="68" rx="4" />
+        <rect class="sa-win" x="320" y="350" width="40" height="34" rx="4" />
+        <rect class="sa-win" x="440" y="350" width="40" height="34" rx="4" />
+        <circle class="sa-coin-ico" cx="400" cy="276" r="12" />
+    </g>
+    <!-- savings bars -->
+    <g class="sa-bars">
+        <rect x="560" y="400" width="30" height="40" rx="6" />
+        <rect x="600" y="375" width="30" height="65" rx="6" />
+        <rect x="640" y="345" width="30" height="95" rx="6" />
+        <rect x="680" y="310" width="30" height="130" rx="6" />
+        <path class="sa-arrow" d="M555 385 L605 355 L645 325 L700 285" />
+        <path class="sa-arrow-head" d="M690 280 L706 281 L700 296 Z" />
+    </g>
+    <!-- people -->
+    <g class="sa-people">
+        <g class="p1"><circle cx="210" cy="418" r="13" /><rect x="194" y="433" width="32" height="46" rx="14" /></g>
+        <g class="p2"><circle cx="248" cy="424" r="11" /><rect x="235" y="437" width="26" height="40" rx="12" /></g>
+        <g class="p3"><circle cx="535" cy="430" r="12" /><rect x="520" y="444" width="30" height="42" rx="13" /></g>
+    </g>
+    <path class="sa-hill1" d="M0 470 C160 440 300 470 430 460 C600 446 700 430 800 450 L800 900 L0 900 Z" />
+    <g class="sa-coins">
+        <ellipse cx="120" cy="520" rx="26" ry="8" /><ellipse cx="120" cy="510" rx="26" ry="8" /><ellipse cx="120" cy="500" rx="26" ry="8" />
+        <ellipse cx="170" cy="528" rx="22" ry="7" /><ellipse cx="170" cy="519" rx="22" ry="7" />
+    </g>
+</svg>
+
+@code {
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public bool Portrait { get; set; }
+}

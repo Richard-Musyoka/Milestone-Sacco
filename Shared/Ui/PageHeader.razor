@@ -1,0 +1,13 @@
+<div class="ms-page-head">
+    <div>
+        <h1>@Title</h1>
+        @if (!string.IsNullOrEmpty(Subtitle)) { <p>@Subtitle</p> }
+    </div>
+    @if (ChildContent != null) { <div class="ms-page-actions">@ChildContent</div> }
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

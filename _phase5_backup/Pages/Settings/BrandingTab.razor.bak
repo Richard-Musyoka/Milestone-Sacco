@@ -1,0 +1,133 @@
+@using Microsoft.AspNetCore.Components.Forms
+@using SaccoManagementSystem.Services
+@inject IJSRuntime JS
+
+<fieldset class="cc-fs" disabled="@ReadOnly">
+    <div class="cc-card">
+        <h3><i class="bi bi-image"></i> Logo</h3>
+        <p class="sub">Appears in the sidebar, on the sign-in page and as the browser tab icon.</p>
+        <div class="cc-logo-row">
+            <div class="cc-drop">
+                @if (!string.IsNullOrEmpty(Cfg.LogoDataUrl))
+                {
+                    <img src="@Cfg.LogoDataUrl" alt="Current logo" />
+                }
+                else
+                {
+                    <span><i class="bi bi-cloud-arrow-up"></i>Drop a logo<br />or click</span>
+                }
+                <InputFile OnChange="OnLogo" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif" aria-label="Upload logo" />
+            </div>
+            <div>
+                <h4>@(string.IsNullOrEmpty(Cfg.LogoDataUrl) ? "No logo yet" : "Logo ready")</h4>
+                <p>Square works best. PNG, JPG, WebP, SVG or GIF, up to 600 KB.</p>
+                @if (!string.IsNullOrEmpty(Cfg.LogoDataUrl))
+                {
+                    <button type="button" class="ms-btn sm" @onclick="RemoveLogo"><i class="bi bi-trash3"></i> Remove logo</button>
+                }
+                @if (!string.IsNullOrEmpty(logoError)) { <div class="ms-alert bad" style="margin-top:10px"><i class="bi bi-exclamation-triangle-fill"></i><div>@logoError</div></div> }
+            </div>
+        </div>
+    </div>
+
+    <div class="cc-card">
+        <h3><i class="bi bi-palette2"></i> Brand colour</h3>
+        <p class="sub">Buttons, highlights, charts and the sign-in page all follow this one colour.</p>
+        <div class="cc-sws">
+            @foreach (var s in Swatches)
+            {
+                <button type="button" class="cc-sw @(Same(s.Hex) ? "on" : "")" style="background:@s.Hex;--sw:@s.Hex" @onclick="() => Set(s.Hex)" aria-label="@s.Name">@s.Name</button>
+            }
+        </div>
+        <div class="cc-hexrow">
+            <input type="color" value="@Cfg.BrandColor" @onchange="OnPicker" aria-label="Custom colour" />
+            <input class="ms-input" value="@Cfg.BrandColor" maxlength="7" @onchange="OnHex" aria-label="Hex colour" />
+            <span class="ms-hint">Any colour you like.</span>
+        </div>
+        <div class="cc-contrast @(Readable ? "ok" : "warn")">
+            <i class="bi @(Readable ? "bi-check-circle-fill" : "bi-info-circle-fill")"></i>
+            @(Readable ? "White text on this colour is easy to read." : "White text would be hard to read, so buttons will use dark text automatically.")
+        </div>
+    </div>
+
+    <div class="cc-split">
+        <div class="cc-card">
+            <h3><i class="bi bi-eye"></i> Live preview</h3>
+            <p class="sub">Inside the app</p>
+            <div class="cc-pv" style="--pv:@Cfg.BrandColor">
+                <div class="cc-pv-app">
+                    <div class="cc-pv-side @Cfg.SidebarStyle">
+                        <div class="cc-pv-brand"><span>@if (!string.IsNullOrEmpty(Cfg.LogoDataUrl)) { <img src="@Cfg.LogoDataUrl" alt="" /> } else { @Initial }</span>@Short</div>
+                        <div class="i on">Dashboard</div><div class="i">Members</div><div class="i">Loans</div><div class="i">Reports</div>
+                    </div>
+                    <div class="cc-pv-body">
+                        <div class="cc-pv-card">Total savings<b>@Cfg.CurrencySymbol 2,480,000</b></div>
+                        <div class="cc-pv-bars"><i style="height:40%"></i><i style="height:62%"></i><i style="height:50%"></i><i style="height:78%"></i><i style="height:100%"></i></div>
+                        <div class="cc-pv-btn">Add member</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="cc-card">
+            <h3><i class="bi bi-box-arrow-in-right"></i> Sign-in page</h3>
+            <p class="sub">What members see first</p>
+            <div class="cc-pv" style="--pv:@Cfg.BrandColor">
+                <div class="cc-pv-login">
+                    <div>
+                        <div class="cc-pv-brand" style="color:var(--ms-text)"><span style="border:1px solid var(--ms-border)">@if (!string.IsNullOrEmpty(Cfg.LogoDataUrl)) { <img src="@Cfg.LogoDataUrl" alt="" /> } else { @Initial }</span>@Short</div>
+                        <i class="f"></i><i class="f"></i>
+                        <div class="btn">Sign in</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</fieldset>
+
+@code {
+    [Parameter] public OrgConfig Cfg { get; set; } = new();
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public Action? OnChanged { get; set; }
+
+    private string logoError = "";
+    private sealed record Sw(string Name, string Hex);
+    private static readonly Sw[] Swatches =
+    {
+        new("Emerald", "#0B7A52"), new("Blue", "#2559C7"), new("Navy", "#12305A"), new("Gold", "#B7861A"), new("Teal", "#0B7285"),
+        new("Violet", "#5B34C9"), new("Crimson", "#B42318"), new("Rose", "#B8236B"), new("Orange", "#C2540A"), new("Slate", "#334155"),
+    };
+
+    private string Initial => string.IsNullOrEmpty(Cfg.Name) ? "S" : Cfg.Name.Substring(0, 1).ToUpperInvariant();
+    private string Short => string.IsNullOrEmpty(Cfg.Name) ? "Sacco" : (Cfg.Name.Length > 12 ? Cfg.Name.Substring(0, 12) : Cfg.Name);
+    private bool Same(string hex) => string.Equals(hex, Cfg.BrandColor, StringComparison.OrdinalIgnoreCase);
+    private bool Readable => ConfigStore.Contrast(SafeHex(), "#FFFFFF") >= 4.5;
+    private string SafeHex() => System.Text.RegularExpressions.Regex.IsMatch(Cfg.BrandColor ?? "", "^#[0-9a-fA-F]{6}$") ? Cfg.BrandColor : "#0B7A52";
+
+    private void Set(string hex) { Cfg.BrandColor = hex.ToUpperInvariant(); OnChanged?.Invoke(); }
+    private void OnPicker(ChangeEventArgs e) { if (e.Value is string s) Set(s); }
+    private void OnHex(ChangeEventArgs e)
+    {
+        var s = (e.Value as string ?? "").Trim();
+        if (!s.StartsWith('#')) s = "#" + s;
+        if (System.Text.RegularExpressions.Regex.IsMatch(s, "^#[0-9a-fA-F]{6}$")) Set(s);
+    }
+
+    private void RemoveLogo() { Cfg.LogoDataUrl = ""; logoError = ""; OnChanged?.Invoke(); }
+
+    private async Task OnLogo(InputFileChangeEventArgs e)
+    {
+        logoError = "";
+        var f = e.File;
+        var okType = f.ContentType is "image/png" or "image/jpeg" or "image/webp" or "image/svg+xml" or "image/gif";
+        if (!okType) { logoError = "Please choose a PNG, JPG, WebP, SVG or GIF image."; return; }
+        if (f.Size > 600_000) { logoError = "That file is larger than 600 KB. Try a smaller or compressed version."; return; }
+        try
+        {
+            using var ms = new MemoryStream();
+            await f.OpenReadStream(600_000).CopyToAsync(ms);
+            Cfg.LogoDataUrl = "data:" + f.ContentType + ";base64," + Convert.ToBase64String(ms.ToArray());
+            OnChanged?.Invoke();
+        }
+        catch (Exception ex) { logoError = "Couldn't read that file: " + ex.Message; }
+    }
+}

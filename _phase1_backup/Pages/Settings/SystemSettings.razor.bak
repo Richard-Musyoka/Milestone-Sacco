@@ -1,0 +1,337 @@
+@page "/settings"
+@using Sacco_Management_System.Models
+@using System.ComponentModel.DataAnnotations
+@inject HttpClient Http
+@inject IJSRuntime JsRuntime
+@inject NavigationManager NavigationManager
+
+<div class="settings-container">
+    <EditForm Model="settings" OnValidSubmit="HandleValidSubmit" @ref="editForm">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-gear me-2"></i>
+                            Settings Menu
+                        </h5>
+                    </div>
+                    <div class="list-group list-group-flush">
+                        <button type="button" class="list-group-item list-group-item-action @(activeTab == "general" ? "active" : "")"
+                                @onclick='() => SetActiveTab("general")'>
+                            <i class="bi bi-building me-2"></i> General
+                        </button>
+                        <button type="button" class="list-group-item list-group-item-action @(activeTab == "financial" ? "active" : "")"
+                                @onclick='() => SetActiveTab("financial")'>
+                            <i class="bi bi-cash-stack me-2"></i> Financial
+                        </button>
+                        <button type="button" class="list-group-item list-group-item-action @(activeTab == "loan" ? "active" : "")"
+                                @onclick='() => SetActiveTab("loan")'>
+                            <i class="bi bi-bank2 me-2"></i> Loan
+                        </button>
+                        <button type="button" class="list-group-item list-group-item-action @(activeTab == "notification" ? "active" : "")"
+                                @onclick='() => SetActiveTab("notification")'>
+                            <i class="bi bi-bell me-2"></i> Notifications
+                        </button>
+                        <button type="button" class="list-group-item list-group-item-action @(activeTab == "security" ? "active" : "")"
+                                @onclick='() => SetActiveTab("security")'>
+                            <i class="bi bi-shield-lock me-2"></i> Security
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-9">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="@GetActiveTabIcon() me-2"></i>
+                            @GetActiveTabTitle()
+                        </h5>
+                        <div class="badge @(isDirty ? "bg-warning" : "bg-success")">
+                            @(isDirty ? "Unsaved Changes" : "All Changes Saved")
+                        </div>
+                    </div>
+
+                    <div class="card-body">
+                        @if (isLoading)
+                        {
+                            <div class="text-center py-5">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-3">Loading settings...</p>
+                            </div>
+                        }
+                        else if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                @errorMessage
+                            </div>
+                        }
+                        else
+                        {
+                            <CascadingValue Value="editForm?.EditContext">
+                                @if (activeTab == "general")
+                                {
+                                    <GeneralSettingsTab Settings="@settings" OnSettingsChanged="@HandleSettingsChange" />
+                                }
+                                else if (activeTab == "financial")
+                                {
+                                    <FinancialSettingsTab Settings="@settings" OnSettingsChanged="@HandleSettingsChange" />
+                                }
+                                else if (activeTab == "loan")
+                                {
+                                    <LoanSettingsTab Settings="@settings" OnSettingsChanged="@HandleSettingsChange" />
+                                }
+                                else if (activeTab == "notification")
+                                {
+                                    <NotificationSettingsTab Settings="@settings" OnSettingsChanged="@HandleSettingsChange" />
+                                }
+                                else if (activeTab == "security")
+                                {
+                                    <SecuritySettingsTab Settings="@settings" OnSettingsChanged="@HandleSettingsChange" />
+                                }
+                            </CascadingValue>
+                        }
+                    </div>
+
+                    <div class="card-footer bg-light d-flex justify-content-between">
+                        <button type="button" class="btn btn-outline-danger"
+                                @onclick="ResetToDefaults" disabled="@isLoading">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i> Reset to Defaults
+                        </button>
+                        <div>
+                            <button type="button" class="btn btn-secondary me-2"
+                                    @onclick="CancelChanges" disabled="@(!isDirty || isLoading)">
+                                Cancel
+                            </button>
+                            <button type="submit" class="btn btn-primary"
+                                    disabled="@(!isDirty || isLoading || isSaving)">
+                                @if (isSaving)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-save me-1"></i>
+                                }
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    private string activeTab = "general";
+    private bool isDirty = false;
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private string errorMessage = string.Empty;
+    private SaccoSettings settings = new();
+    private SaccoSettings originalSettings = new();
+    private EditForm? editForm;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Use NavigationManager to ensure proper base address
+            var requestUri = $"{NavigationManager.BaseUri}api/settings";
+            var response = await Http.GetAsync(requestUri);
+
+            if (response.IsSuccessStatusCode)
+            {
+                settings = await response.Content.ReadFromJsonAsync<SaccoSettings>() ??
+                          SaccoSettings.GetDefaultSettings();
+            }
+            else
+            {
+                settings = SaccoSettings.GetDefaultSettings();
+                errorMessage = "Failed to load settings from server";
+            }
+
+            originalSettings = (SaccoSettings)settings.Clone();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load settings: {ex.Message}";
+            settings = SaccoSettings.GetDefaultSettings();
+            originalSettings = (SaccoSettings)settings.Clone();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+        StateHasChanged();
+    }
+
+    private string GetActiveTabTitle() => activeTab switch
+    {
+        "general" => "General Settings",
+        "financial" => "Financial Settings",
+        "loan" => "Loan Settings",
+        "notification" => "Notification Settings",
+        "security" => "Security Settings",
+        _ => "Settings"
+    };
+
+    private string GetActiveTabIcon() => activeTab switch
+    {
+        "general" => "bi-building",
+        "financial" => "bi-cash-stack",
+        "loan" => "bi-bank2",
+        "notification" => "bi-bell",
+        "security" => "bi-shield-lock",
+        _ => "bi-gear"
+    };
+
+    private void HandleSettingsChange()
+    {
+        isDirty = !settings.Equals(originalSettings);
+        StateHasChanged();
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        await SaveSettings();
+    }
+
+    private void CancelChanges()
+    {
+        settings = (SaccoSettings)originalSettings.Clone();
+        isDirty = false;
+        StateHasChanged();
+    }
+
+    private async Task SaveSettings()
+    {
+        isSaving = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            var requestUri = $"{NavigationManager.BaseUri}api/settings";
+            var response = await Http.PutAsJsonAsync(requestUri, settings);
+
+            if (response.IsSuccessStatusCode)
+            {
+                originalSettings = (SaccoSettings)settings.Clone();
+                isDirty = false;
+                await JsRuntime.InvokeVoidAsync("showToast", "success", "Settings saved successfully");
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Server error: {response.StatusCode} - {errorContent}";
+                await JsRuntime.InvokeVoidAsync("showToast", "error", "Failed to save settings");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Network error: {ex.Message}";
+            await JsRuntime.InvokeVoidAsync("showToast", "error", "Error saving settings");
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ResetToDefaults()
+    {
+        if (!await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to reset all settings to defaults?"))
+            return;
+
+        settings = SaccoSettings.GetDefaultSettings();
+        isDirty = true;
+        StateHasChanged();
+    }
+}
+
+<style>
+    .settings-container {
+        padding: 1.5rem;
+    }
+
+    .card {
+        border-radius: 0.5rem;
+        border: 1px solid rgba(0, 0, 0, 0.125);
+    }
+
+    .card-header {
+        border-radius: 0.5rem 0.5rem 0 0 !important;
+    }
+
+    .list-group-item {
+        border-left: 0;
+        border-right: 0;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+        .list-group-item:first-child {
+            border-top: 0;
+        }
+
+        .list-group-item:last-child {
+            border-bottom: 0;
+        }
+
+        .list-group-item.active {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+            color: white;
+        }
+
+    .form-label {
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-control, .form-select {
+        border-radius: 0.375rem;
+    }
+
+    .form-check-input {
+        cursor: pointer;
+    }
+
+    .badge {
+        font-size: 0.85rem;
+        font-weight: 500;
+        padding: 0.35em 0.65em;
+    }
+
+    .spinner-border {
+        width: 3rem;
+        height: 3rem;
+    }
+
+    .validation-message {
+        color: #dc3545;
+        font-size: 0.875rem;
+    }
+
+    .alert {
+        border-radius: 0.5rem;
+    }
+
+    .btn {
+        border-radius: 0.375rem;
+    }
+</style>

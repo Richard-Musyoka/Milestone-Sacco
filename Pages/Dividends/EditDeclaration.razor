@@ -1,417 +1,183 @@
-﻿@page "/dividends/declarations/financial-year/{FinancialYear}/edit"
-@using Microsoft.AspNetCore.Components
+@page "/dividends/declarations/financial-year/{FinancialYear}/edit"
 @using System.ComponentModel.DataAnnotations
 @using System.Net
 @inject NavigationManager NavigationManager
 @inject IHttpClientFactory HttpClientFactory
-@inject IJSRuntime JSRuntime
+@inject IJSRuntime JS
 
-<div class="dividend-declaration-container">
-    @if (isLoading && !showPreview)
+<PageTitle>Edit dividend · @Brand.Name</PageTitle>
+
+<div class="ms-page">
+    <button type="button" class="ms-back" @onclick="Back"><i class="bi bi-arrow-left"></i> @YearDisplay</button>
+    <PageHeader Title="@($"Edit {YearDisplay} dividend")" Subtitle="Changing the rate or record date recalculates every member's dividend." />
+
+    @if (loading)
     {
-        <div class="loading-container">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <h4>Loading dividend details...</h4>
-        </div>
+        <div class="ms-skel" style="height:260px;max-width:980px"></div>
     }
-    else if (errorMessage != null)
+    else if (req == null)
     {
-        <div class="alert alert-danger">
-            <i class="bi bi-exclamation-triangle me-2"></i>
-            @errorMessage
-            <button class="btn-close float-end" @onclick="() => errorMessage = null"></button>
-        </div>
-    }
-    else if (dividendDeclaration == null)
-    {
-        <div class="not-found-container">
-            <i class="bi bi-exclamation-circle-fill text-danger fs-1"></i>
-            <h3>Dividend Not Found</h3>
-            <p>The requested dividend declaration could not be found. Please check the financial year and try again.</p>
-            <button class="btn btn-primary" @onclick="ReturnToDividends">
-                <i class="bi bi-arrow-left me-2"></i> Return to Dividends
-            </button>
-        </div>
+        <div class="ms-card"><EmptyState Icon="bi-megaphone" Title="Declaration not found" Text="@(string.IsNullOrEmpty(error) ? "It may have been removed." : error)" /></div>
     }
     else
     {
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <div class="header-title">
-                    <i class="bi bi-file-earmark-plus header-icon"></i>
-                    <h3>Edit Dividend Declaration</h3>
-                </div>
-            </div>
+        <EditForm Model="req" OnValidSubmit="Review">
+            <DataAnnotationsValidator />
+            @if (!string.IsNullOrEmpty(error)) { <div class="ms-alert bad" role="alert"><i class="bi bi-exclamation-circle-fill"></i><div>@error</div></div> }
 
-            <div class="card-body">
-                <EditForm Model="@dividendDeclaration" OnValidSubmit="@HandleValidSubmit">
-                    <DataAnnotationsValidator />
-                    <ValidationSummary />
-
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Financial Year</label>
-                            <InputSelect class="form-select" @bind-Value="dividendDeclaration.FinancialYear">
-                                <option value="">Select Financial Year</option>
-                                @foreach (var year in financialYears)
-                                {
-                                    <option value="@year">@year</option>
-                                }
-                            </InputSelect>
-                            <ValidationMessage For="@(() => dividendDeclaration.FinancialYear)" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Declaration Date</label>
-                            <InputDate class="form-control" @bind-Value="dividendDeclaration.DeclarationDate" />
-                            <ValidationMessage For="@(() => dividendDeclaration.DeclarationDate)" />
-                        </div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <label class="form-label">Dividend Rate</label>
-                            <div class="input-group">
-                                <InputNumber class="form-control" @bind-Value="dividendDeclaration.Rate"
-                                             step="0.0001" min="0.0001" max="1" />
-                                <span class="input-group-text">%</span>
+            <div class="ms-split">
+                <div class="ms-form" style="max-width:none">
+                    <section class="ms-fs">
+                        <div class="ms-fs-head"><i class="bi bi-megaphone"></i><div><h3>Declaration</h3><small>Year and rate</small></div></div>
+                        <div class="ms-fs-body">
+                            <div class="ms-grid-form">
+                                <Field Class="c6" Label="Financial year"><InputText class="ms-input" @bind-Value="req.FinancialYear" disabled /></Field>
+                                <Field Class="c6" Label="Dividend rate (%)" Required="true">
+                                    <div class="ms-input-icon"><span>%</span><input class="ms-input" type="number" step="0.01" min="0.01" max="100" value="@ratePct.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)" @onchange="OnRate" /></div>
+                                    <ValidationMessage For="@(() => req.Rate)" class="ms-err" />
+                                </Field>
                             </div>
-                            <ValidationMessage For="@(() => dividendDeclaration.Rate)" />
-                            <small class="text-muted">Enter as decimal (0.10 for 10%)</small>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Record Date</label>
-                            <InputDate class="form-control" @bind-Value="dividendDeclaration.RecordDate" />
-                            <ValidationMessage For="@(() => dividendDeclaration.RecordDate)" />
-                            <small class="text-muted">Members must be registered by this date</small>
+                    </section>
+                    <section class="ms-fs">
+                        <div class="ms-fs-head"><i class="bi bi-calendar-event"></i><div><h3>Dates</h3><small>Declaration, record and payment</small></div></div>
+                        <div class="ms-fs-body">
+                            <div class="ms-grid-form">
+                                <Field Class="c4" Label="Declaration date" Required="true" For="@(() => req.DeclarationDate)"><InputDate class="ms-input" @bind-Value="req.DeclarationDate" /></Field>
+                                <Field Class="c4" Label="Record date" Required="true" For="@(() => req.RecordDate)"><InputDate class="ms-input" @bind-Value="req.RecordDate" /></Field>
+                                <Field Class="c4" Label="Payment date" Required="true" For="@(() => req.PaymentDate)"><InputDate class="ms-input" @bind-Value="req.PaymentDate" /></Field>
+                                <Field Class="c12" Label="Notes"><InputTextArea class="ms-input" @bind-Value="req.Notes" /></Field>
+                            </div>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Target Payment Date</label>
-                            <InputDate class="form-control" @bind-Value="dividendDeclaration.PaymentDate" />
-                            <ValidationMessage For="@(() => dividendDeclaration.PaymentDate)" />
-                        </div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-12">
-                            <label class="form-label">Notes</label>
-                            <InputTextArea class="form-control" @bind-Value="dividendDeclaration.Notes" rows="3" />
-                        </div>
-                    </div>
-
-                    <div class="d-flex justify-content-between mt-4">
-                        <button type="button" class="btn btn-secondary" @onclick="ReturnToDividends" disabled="@isLoading">
-                            <i class="bi bi-x-circle me-2"></i>Cancel
-                        </button>
-                        <button type="submit" class="btn btn-primary" disabled="@isLoading">
-                            @if (isLoading)
-                            {
-                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                            }
-                            else
-                            {
-                                <i class="bi bi-calculator me-2"></i>
-                            }
-                            Recalculate Dividend
-                        </button>
-                    </div>
-                </EditForm>
-            </div>
-        </div>
-
-        @if (showPreview)
-        {
-            <div class="card mt-4">
-                <div class="card-header bg-info text-white">
-                    <h4><i class="bi bi-eye me-2"></i>Dividend Declaration Preview</h4>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h5>Declaration Details</h5>
-                            <dl class="row">
-                                <dt class="col-sm-4">Financial Year</dt>
-                                <dd class="col-sm-8">@dividendDeclaration.FinancialYear</dd>
-
-                                <dt class="col-sm-4">Dividend Rate</dt>
-                                <dd class="col-sm-8">@dividendDeclaration.Rate.ToString("P2")</dd>
-
-                                <dt class="col-sm-4">Declaration Date</dt>
-                                <dd class="col-sm-8">@dividendDeclaration.DeclarationDate.ToShortDateString()</dd>
-
-                                <dt class="col-sm-4">Record Date</dt>
-                                <dd class="col-sm-8">@dividendDeclaration.RecordDate?.ToShortDateString()</dd>
-
-                                <dt class="col-sm-4">Payment Date</dt>
-                                <dd class="col-sm-8">@dividendDeclaration.PaymentDate?.ToShortDateString()</dd>
-                            </dl>
-                        </div>
-                        <div class="col-md-6">
-                            <h5>Impact Summary</h5>
-                            <dl class="row">
-                                <dt class="col-sm-6">Eligible Members</dt>
-                                <dd class="col-sm-6">@eligibleMembers.ToString("N0")</dd>
-
-                                <dt class="col-sm-6">Total Shares</dt>
-                                <dd class="col-sm-6">@totalShares.ToString("N0")</dd>
-
-                                <dt class="col-sm-6">Total Dividend Pool</dt>
-                                <dd class="col-sm-6">@((totalShares * dividendDeclaration.Rate).ToString("C"))</dd>
-
-                                <dt class="col-sm-6">Average per Member</dt>
-                                <dd class="col-sm-6">@((eligibleMembers > 0 ? (totalShares * dividendDeclaration.Rate / eligibleMembers) : 0).ToString("C"))</dd>
-                            </dl>
-                        </div>
-                    </div>
-
-                    <div class="alert alert-warning mt-3">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        This action will recalculate dividends for all eligible members and cannot be undone.
-                    </div>
-
-                    <div class="d-flex justify-content-between mt-4">
-                        <button class="btn btn-outline-secondary" @onclick="TogglePreview" disabled="@isLoading">
-                            <i class="bi bi-pencil me-2"></i>Edit Details
-                        </button>
-                        <button class="btn btn-success" @onclick="UpdateDeclaration" disabled="@isLoading">
-                            @if (isLoading)
-                            {
-                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                            }
-                            else
-                            {
-                                <i class="bi bi-check-circle me-2"></i>
-                            }
-                            Confirm and Update Dividend
-                        </button>
+                    </section>
+                    <div class="ms-formbar">
+                        <span class="sp">Review the impact, then save</span>
+                        <button type="button" class="ms-btn" @onclick="Back" disabled="@busy">Cancel</button>
+                        <button type="submit" class="ms-btn primary @(busy && !reviewed ? "busy" : "")">@if (busy && !reviewed) { <span class="ms-spin"></span> } else { <i class="bi bi-eye"></i> } Review impact</button>
                     </div>
                 </div>
+
+                <aside class="ms-card ms-calc" aria-live="polite">
+                    <div><small style="color:var(--ms-text-3);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:11px">Impact preview</small></div>
+                    @if (reviewed)
+                    {
+                        <div class="big">KES @req.TotalAmount.ToString("N0")</div>
+                        <div class="row"><span>Rate</span><b>@ratePct.ToString("0.##")%</b></div>
+                        <div class="row"><span>Eligible members</span><b>@eligible.ToString("N0")</b></div>
+                        <div class="row"><span>Qualifying shares</span><b>@totalShares.ToString("N0")</b></div>
+                        <button type="button" class="ms-btn primary @(busy ? "busy" : "")" @onclick="() => confirm = true">@if (busy) { <span class="ms-spin"></span> } <i class="bi bi-check2-circle"></i> Save changes</button>
+                    }
+                    else
+                    {
+                        <div class="big">—</div>
+                        <small class="ms-hint">Press "Review impact" to recalculate before saving.</small>
+                    }
+                </aside>
             </div>
-        }
+        </EditForm>
     }
 </div>
+
+<ConfirmDialog Open="confirm" Title="Update declaration" ConfirmText="Update and recalculate" Busy="busy" OnConfirm="Save" OnCancel="() => confirm = false">
+    <p style="margin:0">This recalculates dividends for all eligible members. Continue?</p>
+</ConfirmDialog>
 
 @code {
     [Parameter] public string FinancialYear { get; set; } = string.Empty;
 
-    private DividendDeclarationRequest dividendDeclaration = new();
-    private bool showPreview = false;
-    private bool isLoading = false;
-    private string? errorMessage;
-    private decimal totalShares = 0;
-    private int eligibleMembers = 0;
-    private HttpClient Http => HttpClientFactory.CreateClient("ApiClient");
+    private DividendDeclarationRequest? req;
+    private decimal ratePct, totalShares;
+    private int eligible;
+    private bool loading = true, busy, reviewed, confirm;
+    private string error = "";
+    private string YearDisplay => FinancialYear.Replace("-", "/");
+    private string ApiYear => Uri.EscapeDataString(YearDisplay);
 
-    private List<string> financialYears = new()
-    {
-        DateTime.Now.Year + "/" + (DateTime.Now.Year + 1),
-        DateTime.Now.AddYears(-1).Year + "/" + DateTime.Now.Year,
-        DateTime.Now.AddYears(-2).Year + "/" + DateTime.Now.AddYears(-1).Year
-    };
+    protected override async Task OnParametersSetAsync() => await Load();
 
-    protected override async Task OnParametersSetAsync()
+    private async Task Load()
     {
-        if (!string.IsNullOrEmpty(FinancialYear))
-        {
-            await LoadDividendDetails();
-        }
-    }
-
-    private async Task LoadDividendDetails()
-    {
+        loading = true; error = "";
         try
         {
-            isLoading = true;
-            errorMessage = null;
-            StateHasChanged();
-
-            var normalizedYear = WebUtility.UrlEncode(FinancialYear.Replace("-", "/"));
-            var response = await Http.GetAsync($"api/dividends/declarations/financial-year/{normalizedYear}");
-
-            if (response.IsSuccessStatusCode)
+            var http = HttpClientFactory.CreateClient("ApiClient");
+            var r = await http.GetAsync($"api/dividends/declarations/financial-year/{ApiYear}");
+            if (r.IsSuccessStatusCode)
             {
-                dividendDeclaration = await response.Content.ReadFromJsonAsync<DividendDeclarationRequest>();
-                if (dividendDeclaration != null)
-                {
-                    await LoadEligibleMembersData();
-                }
+                req = await r.Content.ReadFromJsonAsync<DividendDeclarationRequest>();
+                if (req != null) ratePct = req.Rate * 100m;
             }
-            else if (response.StatusCode == HttpStatusCode.NotFound)
-            {
-                errorMessage = $"No dividend found for financial year {FinancialYear}";
-                dividendDeclaration = null;
-            }
-            else
-            {
-                errorMessage = $"Error loading dividend: {response.StatusCode}";
-                try
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    if (!string.IsNullOrEmpty(errorContent))
-                    {
-                        errorMessage += $" - {errorContent}";
-                    }
-                }
-                catch
-                {
-                    // Ignore if we can't read error content
-                }
-            }
+            else { req = null; if (r.StatusCode != HttpStatusCode.NotFound) error = $"The server answered {(int)r.StatusCode}."; }
         }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to load dividend details: {ex.Message}";
-        }
-        finally
-        {
-            isLoading = false;
-            StateHasChanged();
-        }
+        catch (Exception ex) { req = null; error = ex.Message; }
+        finally { loading = false; }
     }
 
-    private async Task LoadEligibleMembersData()
+    private void OnRate(ChangeEventArgs e)
     {
+        if (req != null && decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v)) { ratePct = v; req.Rate = v / 100m; reviewed = false; }
+    }
+
+    private async Task Review()
+    {
+        if (req == null) return;
+        error = "";
+        if (req.RecordDate < req.DeclarationDate) { error = "Record date must be on or after the declaration date."; return; }
+        if (req.PaymentDate < req.RecordDate) { error = "Payment date must be on or after the record date."; return; }
+
+        busy = true;
         try
         {
-            if (dividendDeclaration?.RecordDate == null) return;
-
-            var response = await Http.GetAsync(
-                $"api/dividends/members/eligible-for-dividend?recordDate={dividendDeclaration.RecordDate:yyyy-MM-dd}");
-
-            if (response.IsSuccessStatusCode)
+            var http = HttpClientFactory.CreateClient("ApiClient");
+            var r = await http.GetAsync($"api/dividends/members/eligible-for-dividend?recordDate={req.RecordDate:yyyy-MM-dd}");
+            if (r.IsSuccessStatusCode)
             {
-                var result = await response.Content.ReadFromJsonAsync<EligibleMembersResponse>();
-                totalShares = result?.TotalShares ?? 0;
-                eligibleMembers = result?.EligibleMembersCount ?? 0;
+                var res = await r.Content.ReadFromJsonAsync<EligibleMembersResponse>();
+                totalShares = res?.TotalShares ?? 0;
+                eligible = res?.EligibleMembersCount ?? 0;
+                req.TotalAmount = totalShares * req.Rate;
+                reviewed = true;
             }
-            else
-            {
-                await JSRuntime.InvokeVoidAsync("console.error",
-                    $"Error loading eligible members: {response.StatusCode}");
-            }
+            else error = $"Couldn't calculate the impact ({(int)r.StatusCode}).";
         }
-        catch (Exception ex)
-        {
-            await JSRuntime.InvokeVoidAsync("console.error", $"Error loading eligible members: {ex.Message}");
-        }
+        catch (Exception ex) { error = ex.Message; }
+        finally { busy = false; }
     }
 
-    private async Task HandleValidSubmit()
+    private async Task Save()
     {
-        if (dividendDeclaration.RecordDate < dividendDeclaration.DeclarationDate)
-        {
-            errorMessage = "Record date must be after declaration date";
-            return;
-        }
-
-        if (dividendDeclaration.PaymentDate < dividendDeclaration.RecordDate)
-        {
-            errorMessage = "Payment date must be after record date";
-            return;
-        }
-
-        isLoading = true;
+        if (req == null) return;
+        busy = true; error = "";
         try
         {
-            await LoadEligibleMembersData();
-            dividendDeclaration.TotalAmount = totalShares * dividendDeclaration.Rate;
-            showPreview = true;
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Error calculating dividend: {ex.Message}";
-        }
-        finally
-        {
-            isLoading = false;
-        }
-    }
-
-    private async Task UpdateDeclaration()
-    {
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
-            "Are you sure you want to update this dividend declaration? This will recalculate dividends for all eligible members.");
-
-        if (!confirmed) return;
-
-        isLoading = true;
-        try
-        {
-            dividendDeclaration.TotalAmount = totalShares * dividendDeclaration.Rate;
-            var normalizedYear = WebUtility.UrlEncode(FinancialYear.Replace("-", "/"));
-
-            var response = await Http.PutAsJsonAsync(
-                $"api/dividends/declarations/financial-year/{normalizedYear}",
-                dividendDeclaration);
-
-            if (response.IsSuccessStatusCode)
+            req.TotalAmount = totalShares * req.Rate;
+            var http = HttpClientFactory.CreateClient("ApiClient");
+            var r = await http.PutAsJsonAsync($"api/dividends/declarations/financial-year/{ApiYear}", req);
+            if (r.IsSuccessStatusCode)
             {
-                await JSRuntime.InvokeVoidAsync("showToast",
-                    new { type = "success", message = "Dividend updated successfully" });
-                NavigationManager.NavigateTo($"/dividends/declarations/financial-year/{normalizedYear}");
+                await JS.InvokeVoidAsync("ms.toast", "success", "Declaration updated", YearDisplay);
+                NavigationManager.NavigateTo($"/dividends/declarations/financial-year/{FinancialYear}");
+                return;
             }
-            else if (response.StatusCode == HttpStatusCode.Conflict)
-            {
-                errorMessage = "Dividend cannot be modified - it may already be processed";
-            }
-            else
-            {
-                errorMessage = $"Error updating dividend: {response.StatusCode}";
-                try
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    if (!string.IsNullOrEmpty(errorContent))
-                    {
-                        errorMessage += $" - {errorContent}";
-                    }
-                }
-                catch
-                {
-                    // Ignore if we can't read error content
-                }
-            }
+            error = r.StatusCode == HttpStatusCode.Conflict
+                ? "This declaration can't be modified — it may already be approved or processed."
+                : $"Couldn't update the declaration ({(int)r.StatusCode}). {await r.Content.ReadAsStringAsync()}";
         }
-        catch (Exception ex)
-        {
-            errorMessage = $"Error updating dividend: {ex.Message}";
-        }
-        finally
-        {
-            isLoading = false;
-        }
+        catch (Exception ex) { error = ex.Message; }
+        finally { busy = false; confirm = false; }
     }
 
-    private void TogglePreview()
-    {
-        showPreview = !showPreview;
-    }
-
-    private void ReturnToDividends()
-    {
-        NavigationManager.NavigateTo("/dividends");
-    }
+    private void Back() => NavigationManager.NavigateTo($"/dividends/declarations/financial-year/{FinancialYear}");
 
     public class DividendDeclarationRequest
     {
-        [Required(ErrorMessage = "Financial Year is required")]
-        public string FinancialYear { get; set; } = string.Empty;
-
-        [Required(ErrorMessage = "Declaration Date is required")]
-        public DateTime DeclarationDate { get; set; } = DateTime.Today;
-
-        [Required(ErrorMessage = "Record Date is required")]
-        public DateTime? RecordDate { get; set; } = DateTime.Today.AddDays(30);
-
-        [Required(ErrorMessage = "Payment Date is required")]
-        public DateTime? PaymentDate { get; set; } = DateTime.Today.AddDays(60);
-
-        [Required(ErrorMessage = "Dividend Rate is required")]
-        [Range(0.0001, 1, ErrorMessage = "Rate must be between 0.01% and 100%")]
-        public decimal Rate { get; set; } = 0.1m;
-
+        [Required] public string FinancialYear { get; set; } = string.Empty;
+        [Required(ErrorMessage = "Declaration date is required")] public DateTime DeclarationDate { get; set; } = DateTime.Today;
+        [Required(ErrorMessage = "Record date is required")] public DateTime? RecordDate { get; set; }
+        [Required(ErrorMessage = "Payment date is required")] public DateTime? PaymentDate { get; set; }
+        [Range(0.0001, 1, ErrorMessage = "Rate must be between 0.01% and 100%")] public decimal Rate { get; set; } = 0.1m;
         public decimal TotalAmount { get; set; }
-        public string Notes { get; set; } = string.Empty;
+        public string? Notes { get; set; } = string.Empty;
     }
 
     public class EligibleMembersResponse

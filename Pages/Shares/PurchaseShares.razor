@@ -1,179 +1,130 @@
 @page "/shares/purchase"
 @page "/shares/purchase/{MemberId}"
-@using Microsoft.AspNetCore.Components
+@using System.ComponentModel.DataAnnotations
 @using SaccoManagementSystem.Models
 @using static Sacco_Management_System.Pages.Members.ListMember
 @inject NavigationManager NavigationManager
-@inject IHttpClientFactory _httpClientFactory
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS
 
-<div>
-    <div class="card">
-        <div class="card-header">
-            <h3>
-                <i class="bi bi-pie-chart-fill me-2"></i>
-                @(MemberId == 0 ? "Purchase New Shares" : "Purchase Additional Shares")
-            </h3>
-        </div>
-        <div class="card-body">
-            @if (isLoading)
-            {
-                <div class="text-center py-5">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
+<PageTitle>Purchase shares · @Brand.Name</PageTitle>
+
+<div class="ms-page">
+    <button type="button" class="ms-back" @onclick="Back"><i class="bi bi-arrow-left"></i> Shares</button>
+    <PageHeader Title="Purchase shares" Subtitle="Record a share purchase for a member." />
+
+    @if (loading)
+    {
+        <div class="ms-skel" style="height:260px;max-width:980px"></div>
+    }
+    else
+    {
+        <EditForm Model="dto" OnValidSubmit="Save">
+            <DataAnnotationsValidator />
+            @if (!string.IsNullOrEmpty(error)) { <div class="ms-alert bad" role="alert"><i class="bi bi-exclamation-circle-fill"></i><div>@error</div></div> }
+
+            <div class="ms-split">
+                <div class="ms-form" style="max-width:none">
+                    <section class="ms-fs">
+                        <div class="ms-fs-head"><i class="bi bi-person"></i><div><h3>Shareholder</h3><small>Who is buying</small></div></div>
+                        <div class="ms-fs-body">
+                            <Field Label="Member" Required="true">
+                                <SearchPicker TItem="Member" Items="members" Title="@(m => m.FullName)" Sub="@(m => m.MemberNo)"
+                                              Match="@((m, q) => m.FullName.Contains(q, StringComparison.OrdinalIgnoreCase) || (m.MemberNo ?? "").Contains(q, StringComparison.OrdinalIgnoreCase))"
+                                              Placeholder="Search by name or member number…" @bind-Selected="member" />
+                            </Field>
+                        </div>
+                    </section>
+                    <section class="ms-fs">
+                        <div class="ms-fs-head"><i class="bi bi-pie-chart"></i><div><h3>Purchase</h3><small>Units, price and type</small></div></div>
+                        <div class="ms-fs-body">
+                            <div class="ms-grid-form">
+                                <Field Class="c6" Label="Units" Required="true" For="@(() => dto.Units)"><InputNumber id="units" class="ms-input" @bind-Value="dto.Units" /></Field>
+                                <Field Class="c6" Label="Unit price (KES)" Required="true" For="@(() => dto.UnitPrice)" Hint="Defaults to the latest active price">
+                                    <div class="ms-input-icon"><span>KES</span><InputNumber id="price" class="ms-input" @bind-Value="dto.UnitPrice" /></div>
+                                </Field>
+                                <Field Class="c6" Label="Share type" Required="true">
+                                    <InputSelect id="shareType" class="ms-select" @bind-Value="dto.ShareType">@foreach (var t in ShareTypes.All) { <option value="@t">@t</option> }</InputSelect>
+                                </Field>
+                                <Field Class="c6" Label="Purchase date" Required="true" For="@(() => dto.PurchaseDate)"><InputDate id="date" class="ms-input" @bind-Value="dto.PurchaseDate" /></Field>
+                                <Field Class="c12" Label="Remarks"><InputTextArea id="remarks" class="ms-input" @bind-Value="dto.Remarks" /></Field>
+                            </div>
+                        </div>
+                    </section>
+                    <div class="ms-formbar">
+                        <span class="sp">Fields marked * are required</span>
+                        <button type="button" class="ms-btn" @onclick="Back" disabled="@busy">Cancel</button>
+                        <button type="submit" class="ms-btn primary @(busy ? "busy" : "")">@if (busy) { <span class="ms-spin"></span> } else { <i class="bi bi-check2"></i> } Record purchase</button>
                     </div>
-                    <p>Loading member data...</p>
                 </div>
-            }
-            else
-            {
-                <EditForm Model="@purchaseDto" OnValidSubmit="@HandleValidSubmit">
-                    <DataAnnotationsValidator />
-                    <ValidationSummary />
 
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Member</label>
-                            @if (MemberId == 0)
-                            {
-                                <InputSelect class="form-select" @bind-Value="purchaseDto.MemberId">
-                                    <option value="">Select Member</option>
-                                    @foreach (var member in members)
-                                    {
-                                        <option value="@member.MemberId">@member.FullName (@member.MemberNo)</option>
-                                    }
-                                </InputSelect>
-                                <ValidationMessage For="@(() => purchaseDto.MemberId)" />
-                            }
-                            else
-                            {
-                                <input type="text" class="form-control" value="@member?.FullName (@member?.MemberNo)" disabled />
-                                <input type="hidden" @bind="purchaseDto.MemberId" />
-                            }
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Purchase Date</label>
-                            <InputDate class="form-control" @bind-Value="purchaseDto.PurchaseDate" />
-                            <ValidationMessage For="@(() => purchaseDto.PurchaseDate)" />
-                        </div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <label class="form-label">Number of Units</label>
-                            <InputNumber class="form-control" @bind-Value="purchaseDto.Units" />
-                            <ValidationMessage For="@(() => purchaseDto.Units)" />
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Unit Price</label>
-                            <InputNumber class="form-control" @bind-Value="purchaseDto.UnitPrice" />
-                            <ValidationMessage For="@(() => purchaseDto.UnitPrice)" />
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Share Type</label>
-                            <InputSelect class="form-select" @bind-Value="purchaseDto.ShareType">
-                                @foreach (var type in ShareTypes.All)
-                                {
-                                    <option value="@type">@type</option>
-                                }
-                            </InputSelect>
-                            <ValidationMessage For="@(() => purchaseDto.ShareType)" />
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Remarks</label>
-                        <InputTextArea class="form-control" @bind-Value="purchaseDto.Remarks" />
-                    </div>
-
-                    <div class="d-flex justify-content-end">
-                        <button type="button" class="btn btn-secondary me-2" @onclick="Cancel">
-                            Cancel
-                        </button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check-circle me-1"></i>
-                            Confirm Purchase
-                        </button>
-                    </div>
-                </EditForm>
-            }
-        </div>
-    </div>
+                <aside class="ms-card ms-calc" aria-live="polite">
+                    <div><small style="color:var(--ms-text-3);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:11px">Total cost</small></div>
+                    <div class="big">KES @((dto.Units * dto.UnitPrice).ToString("N0"))</div>
+                    <div class="row"><span>Units</span><b>@dto.Units.ToString("N0")</b></div>
+                    <div class="row"><span>Unit price</span><b>KES @dto.UnitPrice.ToString("N2")</b></div>
+                    <div class="row"><span>Type</span><b>@dto.ShareType</b></div>
+                    @if (member != null) { <div class="row"><span>Buyer</span><b>@member.FullName</b></div> }
+                </aside>
+            </div>
+        </EditForm>
+    }
 </div>
 
 @code {
-    private HttpClient Http => _httpClientFactory.CreateClient("ApiClient");
-    private SharePurchaseDto purchaseDto = new();
+    [CascadingParameter] public DrawerContext? Drawer { get; set; }
+    private Task Leave(string url) { if (Drawer != null) return Drawer.Saved(); NavigationManager.NavigateTo(url); return Task.CompletedTask; }
+
+    [Parameter] public string? MemberId { get; set; }
+
+    private SharePurchaseDto dto = new() { Units = 1, PurchaseDate = DateTime.Today, Status = "Active", ShareType = "Ordinary", UnitPrice = 100m };
     private List<Member> members = new();
     private Member? member;
-    private bool isLoading = true;
-    private string errorMessage = string.Empty;
-
-    [Parameter]
-    public int MemberId { get; set; }
+    private bool loading = true, busy;
+    private string error = "";
 
     protected override async Task OnInitializedAsync()
     {
-        purchaseDto.PurchaseDate = DateTime.Now;
-        purchaseDto.Status = "Active"; // Set default status
-        purchaseDto.ShareType = "Ordinary"; // Set default share type
-
         try
         {
-            // Load members list
-            var response = await Http.GetAsync("api/members");
-            if (response.IsSuccessStatusCode)
+            var http = HttpClientFactory.CreateClient("ApiClient");
+            var m = http.GetAsync("api/members");
+            var s = http.GetAsync("api/shares/summary");
+            await Task.WhenAll(m, s);
+            if (m.Result.IsSuccessStatusCode) members = await m.Result.Content.ReadFromJsonAsync<List<Member>>() ?? new();
+            if (s.Result.IsSuccessStatusCode)
             {
-                members = await response.Content.ReadFromJsonAsync<List<Member>>();
+                var sum = await s.Result.Content.ReadFromJsonAsync<ShareSummaryDto>();
+                if (sum != null && sum.CurrentSharePrice > 0) dto.UnitPrice = sum.CurrentSharePrice;
             }
-
-            // If MemberId is specified, load member details
-            if (MemberId != 0)
-            {
-                purchaseDto.MemberId = MemberId;
-                member = members.FirstOrDefault(m => m.MemberId == MemberId);
-
-                // Get current share price
-                var priceResponse = await Http.GetAsync("api/shares/summary");
-                if (priceResponse.IsSuccessStatusCode)
-                {
-                    var summary = await priceResponse.Content.ReadFromJsonAsync<ShareSummaryDto>();
-                    purchaseDto.UnitPrice = summary?.CurrentSharePrice ?? 100.00m; // Default price if null
-                }
-            }
+            if (int.TryParse(MemberId, out var id) && id > 0) member = members.FirstOrDefault(x => x.MemberId == id);
         }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to load data: {ex.Message}";
-        }
-        finally
-        {
-            isLoading = false;
-        }
+        catch (Exception ex) { error = $"Failed to load data: {ex.Message}"; }
+        finally { loading = false; }
     }
 
-    private async Task HandleValidSubmit()
+    private async Task Save()
     {
+        error = "";
+        if (member == null) { error = "Please select a member."; return; }
+        busy = true;
         try
         {
-            var response = await Http.PostAsJsonAsync("api/shares/add", purchaseDto);
-
-            if (response.IsSuccessStatusCode)
+            dto.MemberId = member.MemberId;
+            var http = HttpClientFactory.CreateClient("ApiClient");
+            var r = await http.PostAsJsonAsync("api/shares/add", dto);
+            if (r.IsSuccessStatusCode)
             {
-                NavigationManager.NavigateTo("/shares");
+                await JS.InvokeVoidAsync("ms.toast", "success", "Purchase recorded", $"{dto.Units:N0} units for {member.FullName}");
+                await Leave($"/shares/member/{member.MemberId}");
+                return;
             }
-            else
-            {
-                errorMessage = await response.Content.ReadAsStringAsync();
-            }
+            var body = await r.Content.ReadAsStringAsync();
+            error = string.IsNullOrWhiteSpace(body) ? "The server couldn't record this purchase." : body;
         }
-        catch (Exception ex)
-        {
-            errorMessage = $"Purchase failed: {ex.Message}";
-        }
+        catch (Exception ex) { error = $"Purchase failed: {ex.Message}"; }
+        finally { busy = false; }
     }
 
-    private void Cancel()
-    {
-        NavigationManager.NavigateTo("/shares");
-    }
+    private Task Back() { if (Drawer != null) return Drawer.Close(); NavigationManager.NavigateTo("/shares"); return Task.CompletedTask; }
 }

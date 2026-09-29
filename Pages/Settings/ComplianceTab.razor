@@ -1,0 +1,53 @@
+@using SaccoManagementSystem.Services
+
+<fieldset class="cc-fs" disabled="@ReadOnly">
+    <div class="cc-card">
+        <h3><i class="bi bi-patch-check"></i> Registration and regulation</h3>
+        <p class="sub">Printed on statements and member documents.</p>
+        <div class="cc-two">
+            <div class="ms-field"><label class="ms-label">SACCO type</label>
+                <InputSelect @bind-Value="Cfg.SaccoType" @bind-Value:after="Changed" class="ms-select">
+                    @foreach (var t in Types) { <option value="@t">@t</option> }
+                </InputSelect>
+                <span class="ms-hint">@TypeHint</span></div>
+            <div class="ms-field"><label class="ms-label">SASRA licence / authorisation number</label><InputText @bind-Value="Cfg.SasraLicenceNo" @bind-Value:after="Changed" class="ms-input" placeholder="Leave blank if not licensed by SASRA" /></div>
+            <div class="ms-field"><label class="ms-label">SACCO KRA PIN</label><InputText @bind-Value="Cfg.KraPin" @bind-Value:after="Changed" class="ms-input" maxlength="11" placeholder="P051234567X" style="text-transform:uppercase" /></div>
+            <div class="ms-field"><label class="ms-label">AGM usually held in</label>
+                <select class="ms-select" value="@Cfg.AgmMonth" @onchange="OnAgm">@for (var m = 1; m <= 12; m++) { var mm = m; <option value="@mm">@(new DateTime(2000, mm, 1).ToString("MMMM"))</option> }</select>
+                <span class="ms-hint">Used for reminders and dividend timelines.</span></div>
+        </div>
+    </div>
+
+    <div class="cc-card">
+        <h3><i class="bi bi-percent"></i> Taxes and statutory deductions</h3>
+        <p class="sub">Defaults reflect common Kenyan practice. Confirm the current rates with KRA and your auditor before relying on them.</p>
+        <div class="cc-two">
+            <div class="ms-field"><label class="ms-label">Withholding tax on dividends</label><div class="cc-adorn"><InputNumber @bind-Value="Cfg.WhtDividendPct" @bind-Value:after="Changed" class="ms-input suf" /><em class="end">%</em></div></div>
+            <div class="ms-field"><label class="ms-label">Withholding tax on interest on deposits</label><div class="cc-adorn"><InputNumber @bind-Value="Cfg.WhtInterestPct" @bind-Value:after="Changed" class="ms-input suf" /><em class="end">%</em></div></div>
+            <div class="ms-field"><label class="ms-label">Excise duty on fees and commissions</label><div class="cc-adorn"><InputNumber @bind-Value="Cfg.ExciseDutyPct" @bind-Value:after="Changed" class="ms-input suf" /><em class="end">%</em></div><span class="ms-hint">Charged on loan processing and other fees.</span></div>
+            <div class="ms-field"><label class="ms-label">Transfer to statutory reserve</label><div class="cc-adorn"><InputNumber @bind-Value="Cfg.StatutoryReservePct" @bind-Value:after="Changed" class="ms-input suf" /><em class="end">%</em></div><span class="ms-hint">Share of each year's surplus kept in the reserve fund (the Act sets a minimum of 20%).</span></div>
+        </div>
+        <div class="cc-kv" style="margin-top:16px">
+            <div><small>Dividend of 10,000 pays</small><b>@Cfg.CurrencySymbol @((10000m * (100 - Cfg.WhtDividendPct) / 100).ToString("N0"))</b></div>
+            <div><small>Fee of 1,000 costs the member</small><b>@Cfg.CurrencySymbol @((1000m * (100 + Cfg.ExciseDutyPct) / 100).ToString("N0"))</b></div>
+            <div><small>Surplus of 1M keeps in reserve</small><b>@Cfg.CurrencySymbol @((1000000m * Cfg.StatutoryReservePct / 100).ToString("N0"))</b></div>
+        </div>
+        @if (Cfg.StatutoryReservePct < 20)
+        {
+            <div class="cc-contrast warn"><i class="bi bi-exclamation-triangle-fill"></i> Below 20% is lower than the statutory minimum for co-operatives.</div>
+        }
+    </div>
+</fieldset>
+
+@code {
+    [Parameter] public OrgConfig Cfg { get; set; } = new();
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public Action? OnChanged { get; set; }
+
+    private static readonly string[] Types = { "Deposit-taking (DT)", "Non-withdrawable deposit-taking (NWDT)", "Non-deposit-taking (credit only)" };
+    private string TypeHint => Cfg.SaccoType.StartsWith("Deposit-taking") ? "Runs FOSA / withdrawable savings. Licensed and supervised by SASRA."
+        : Cfg.SaccoType.StartsWith("Non-withdrawable") ? "BOSA only. Authorised by SASRA once past the regulatory threshold."
+        : "Supervised by the Commissioner for Co-operative Development.";
+    private void Changed() => OnChanged?.Invoke();
+    private void OnAgm(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out var m)) { Cfg.AgmMonth = m; Changed(); } }
+}

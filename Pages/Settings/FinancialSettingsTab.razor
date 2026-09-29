@@ -1,71 +1,58 @@
-﻿@using System.ComponentModel.DataAnnotations
 @using Sacco_Management_System.Models
 
-<div class="row g-3">
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="sharePrice" class="form-label">Share Price *</label>
-            <InputNumber id="sharePrice" @bind-Value="Settings.SharePrice" class="form-control"
-                         @oninput="() => OnSettingsChanged?.Invoke()" />
+<div class="ms-group" style="padding-top:22px">
+    <h4>Shares</h4>
+    <p class="sub">Pricing and limits for member share purchases.</p>
+    <div class="ms-form-grid">
+        <div class="ms-field">
+            <label class="ms-label" for="sp">Share price <span class="req">*</span></label>
+            <div class="ms-adorn"><em>@Settings.Currency</em><InputNumber id="sp" @bind-Value="Settings.SharePrice" @bind-Value:after="Changed" class="ms-input pre" /></div>
             <ValidationMessage For="@(() => Settings.SharePrice)" />
         </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="dividendRate" class="form-label">Dividend Rate (%) *</label>
-            <InputNumber id="dividendRate" @bind-Value="Settings.DividendRate" class="form-control"
-                         @oninput="() => OnSettingsChanged?.Invoke()" />
+        <div class="ms-field">
+            <label class="ms-label" for="dr">Dividend rate <span class="req">*</span></label>
+            <div class="ms-adorn"><InputNumber id="dr" @bind-Value="Settings.DividendRate" @bind-Value:after="Changed" class="ms-input suf" /><em class="end">%</em></div>
             <ValidationMessage For="@(() => Settings.DividendRate)" />
         </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="minimumShares" class="form-label">Minimum Shares *</label>
-            <InputNumber id="minimumShares" @bind-Value="Settings.MinimumShares" class="form-control"
-                         @oninput="() => OnSettingsChanged?.Invoke()" />
+        <div class="ms-field">
+            <label class="ms-label" for="minSh">Minimum shares <span class="req">*</span></label>
+            <InputNumber id="minSh" @bind-Value="Settings.MinimumShares" @bind-Value:after="Changed" class="ms-input" />
+            <span class="ms-hint">A new member must hold at least @Settings.Currency @((Settings.SharePrice * Settings.MinimumShares).ToString("N0")).</span>
             <ValidationMessage For="@(() => Settings.MinimumShares)" />
         </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="maximumShares" class="form-label">Maximum Shares *</label>
-            <InputNumber id="maximumShares" @bind-Value="Settings.MaximumShares" class="form-control"
-                         @oninput="() => OnSettingsChanged?.Invoke()" />
+        <div class="ms-field">
+            <label class="ms-label" for="maxSh">Maximum shares <span class="req">*</span></label>
+            <InputNumber id="maxSh" @bind-Value="Settings.MaximumShares" @bind-Value:after="Changed" class="ms-input" />
+            <span class="ms-hint">Ceiling per member: @Settings.Currency @((Settings.SharePrice * Settings.MaximumShares).ToString("N0")).</span>
             <ValidationMessage For="@(() => Settings.MaximumShares)" />
         </div>
     </div>
+</div>
 
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="interestMethod" class="form-label">Interest Calculation Method *</label>
-            <InputSelect id="interestMethod" @bind-Value="Settings.InterestCalculationMethod" class="form-select"
-                         @onchange="() => OnSettingsChanged?.Invoke()">
-                <option value="">Select Method</option>
-                <option value="Declining Balance">Declining Balance</option>
-                <option value="Flat Rate">Flat Rate</option>
-                <option value="Reducing Balance">Reducing Balance</option>
+<div class="ms-group">
+    <h4>Interest &amp; penalties</h4>
+    <p class="sub">Default calculation rules for loan schedules.</p>
+    <div class="ms-form-grid">
+        <div class="ms-field">
+            <label class="ms-label" for="im">Interest calculation method <span class="req">*</span></label>
+            <InputSelect id="im" @bind-Value="Settings.InterestCalculationMethod" @bind-Value:after="Changed" class="ms-select">
+                <option value="">Select method</option>
+                <option value="Declining Balance">Declining balance</option>
+                <option value="Flat Rate">Flat rate</option>
+                <option value="Reducing Balance">Reducing balance</option>
             </InputSelect>
             <ValidationMessage For="@(() => Settings.InterestCalculationMethod)" />
         </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="penaltyRate" class="form-label">Penalty Rate (%) *</label>
-            <InputNumber id="penaltyRate" @bind-Value="Settings.PenaltyRate" class="form-control"
-                         @oninput="() => OnSettingsChanged?.Invoke()" />
+        <div class="ms-field">
+            <label class="ms-label" for="pr">Penalty rate <span class="req">*</span></label>
+            <div class="ms-adorn"><InputNumber id="pr" @bind-Value="Settings.PenaltyRate" @bind-Value:after="Changed" class="ms-input suf" /><em class="end">%</em></div>
             <ValidationMessage For="@(() => Settings.PenaltyRate)" />
         </div>
     </div>
 </div>
 
 @code {
-    [Parameter]
-    public SaccoSettings Settings { get; set; } = new();
-
-    [Parameter]
-    public Action? OnSettingsChanged { get; set; }
+    [Parameter] public SaccoSettings Settings { get; set; } = new();
+    [Parameter] public Action? OnSettingsChanged { get; set; }
+    private void Changed() => OnSettingsChanged?.Invoke();
 }

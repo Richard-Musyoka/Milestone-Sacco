@@ -1,78 +1,78 @@
-﻿@using System.ComponentModel.DataAnnotations
 @using Sacco_Management_System.Models
+@using SaccoManagementSystem.Services
 
-<div class="row g-3">
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="saccoName" class="form-label">SACCO Name *</label>
-            <InputText id="saccoName" @bind-Value="Settings.SACCOName" class="form-control"
-                       @oninput="() => OnSettingsChanged?.Invoke()" />
-            <ValidationMessage For="@(() => Settings.SACCOName)" />
+<fieldset class="cc-fs" disabled="@ReadOnly">
+    <div class="cc-card">
+        <h3><i class="bi bi-building"></i> Identity</h3>
+        <p class="sub">How your SACCO is named on the sign-in page, statements, receipts and reports.</p>
+        <div class="cc-two">
+            <div class="ms-field">
+                <label class="ms-label" for="saccoName">SACCO name <span class="req">*</span></label>
+                <InputText id="saccoName" Value="Settings.SACCOName" ValueChanged="SetName" ValueExpression="@(() => Settings.SACCOName)" class="ms-input" />
+                <ValidationMessage For="@(() => Settings.SACCOName)" />
+            </div>
+            <div class="ms-field">
+                <label class="ms-label" for="regNo">Registration number <span class="req">*</span></label>
+                <InputText id="regNo" @bind-Value="Settings.RegistrationNumber" @bind-Value:after="Changed" class="ms-input" />
+                <ValidationMessage For="@(() => Settings.RegistrationNumber)" />
+            </div>
+            <div class="ms-field full">
+                <label class="ms-label" for="tag">Tagline</label>
+                <InputText id="tag" @bind-Value="Cfg.Tagline" @bind-Value:after="Changed" class="ms-input" maxlength="120" placeholder="Together we build wealth" />
+                <span class="ms-hint">Shown under the name on the sign-in page.</span>
+            </div>
         </div>
     </div>
 
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="registrationNumber" class="form-label">Registration Number *</label>
-            <InputText id="registrationNumber" @bind-Value="Settings.RegistrationNumber" class="form-control"
-                       @oninput="() => OnSettingsChanged?.Invoke()" />
-            <ValidationMessage For="@(() => Settings.RegistrationNumber)" />
+    <div class="cc-card">
+        <h3><i class="bi bi-telephone"></i> Contact</h3>
+        <p class="sub">Printed on statements and shown to members who need help.</p>
+        <div class="cc-two">
+            <div class="ms-field"><label class="ms-label" for="em">Email</label><InputText id="em" @bind-Value="Cfg.Email" @bind-Value:after="Changed" class="ms-input" placeholder="info@yoursacco.co.ke" /></div>
+            <div class="ms-field"><label class="ms-label" for="ph">Phone</label><InputText id="ph" @bind-Value="Cfg.Phone" @bind-Value:after="Changed" class="ms-input" placeholder="+254 700 000 000" /></div>
+            <div class="ms-field"><label class="ms-label" for="web">Website</label><InputText id="web" @bind-Value="Cfg.Website" @bind-Value:after="Changed" class="ms-input" placeholder="https://" /></div>
+            <div class="ms-field"><label class="ms-label" for="adr">Physical address</label><InputText id="adr" @bind-Value="Cfg.Address" @bind-Value:after="Changed" class="ms-input" placeholder="Building, street, town" /></div>
+            <div class="ms-field"><label class="ms-label" for="pbox">Postal address</label><InputText id="pbox" @bind-Value="Cfg.PostalAddress" @bind-Value:after="Changed" class="ms-input" placeholder="P.O. Box 1234-00100, Nairobi" /></div>
+            <div class="ms-field"><label class="ms-label" for="cty">County</label>
+                <InputSelect id="cty" @bind-Value="Cfg.County" @bind-Value:after="Changed" class="ms-select">
+                    @foreach (var c in ProfileStore.Counties) { <option value="@c">@c</option> }
+                </InputSelect></div>
+            <div class="ms-field"><label class="ms-label" for="fy">Year founded</label><InputNumber id="fy" @bind-Value="Cfg.FoundedYear" @bind-Value:after="Changed" class="ms-input" placeholder="e.g. 2012" /><span class="ms-hint">Used for "years serving" on the website.</span></div>
         </div>
     </div>
 
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="fiscalYearStart" class="form-label">Fiscal Year Start *</label>
-            <InputDate id="fiscalYearStart" @bind-Value="Settings.FiscalYearStart" class="form-control"
-                       @oninput="() => OnSettingsChanged?.Invoke()" />
-            <ValidationMessage For="@(() => Settings.FiscalYearStart)" />
+    <div class="cc-card">
+        <h3><i class="bi bi-calendar3"></i> Financial year</h3>
+        <p class="sub">Pick the month your year begins. Dividends, reports and year-end closing follow it.</p>
+        <div class="cc-months" role="group" aria-label="First month of the financial year">
+            @for (var m = 1; m <= 12; m++)
+            {
+                var mm = m;
+                <button type="button" class="@(StartMonth == mm ? "on" : "")" @onclick="() => SetMonth(mm)">@Months[mm - 1]</button>
+            }
         </div>
+        <p class="sub" style="margin:14px 0 0"><i class="bi bi-arrow-right-short"></i> Runs <b>@Settings.FiscalYearStart.ToString("d MMM yyyy")</b> to <b>@Settings.FiscalYearEnd.ToString("d MMM yyyy")</b>.</p>
+        <ValidationMessage For="@(() => Settings.FiscalYearStart)" />
     </div>
-
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="fiscalYearEnd" class="form-label">Fiscal Year End *</label>
-            <InputDate id="fiscalYearEnd" @bind-Value="Settings.FiscalYearEnd" class="form-control"
-                       @oninput="() => OnSettingsChanged?.Invoke()" />
-            <ValidationMessage For="@(() => Settings.FiscalYearEnd)" />
-        </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="currency" class="form-label">Currency *</label>
-            <InputSelect id="currency" @bind-Value="Settings.Currency" class="form-select"
-                         @onchange="() => OnSettingsChanged?.Invoke()">
-                <option value="">Select Currency</option>
-                <option value="KES">Kenyan Shilling (KES)</option>
-                <option value="USD">US Dollar (USD)</option>
-                <option value="EUR">Euro (EUR)</option>
-                <option value="GBP">British Pound (GBP)</option>
-            </InputSelect>
-            <ValidationMessage For="@(() => Settings.Currency)" />
-        </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="timezone" class="form-label">Timezone *</label>
-            <InputSelect id="timezone" @bind-Value="Settings.Timezone" class="form-select"
-                         @onchange="() => OnSettingsChanged?.Invoke()">
-                <option value="">Select Timezone</option>
-                <option value="Africa/Nairobi">East Africa Time (Nairobi)</option>
-                <option value="UTC">UTC</option>
-                <option value="America/New_York">Eastern Time (New York)</option>
-                <option value="Europe/London">GMT (London)</option>
-            </InputSelect>
-            <ValidationMessage For="@(() => Settings.Timezone)" />
-        </div>
-    </div>
-</div>
+</fieldset>
 
 @code {
-    [Parameter]
-    public SaccoSettings Settings { get; set; } = new();
+    [Parameter] public OrgConfig Cfg { get; set; } = new();
+    [Parameter] public SaccoSettings Settings { get; set; } = new();
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public Action? OnChanged { get; set; }
 
-    [Parameter]
-    public Action? OnSettingsChanged { get; set; }
+    private static readonly string[] Months = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+    private int StartMonth => Settings.FiscalYearStart.Month;
+    private void Changed() => OnChanged?.Invoke();
+
+    private void SetName(string v) { Settings.SACCOName = v; Cfg.Name = v; Changed(); }
+
+    private void SetMonth(int m)
+    {
+        var y = Settings.FiscalYearStart.Year;
+        Settings.FiscalYearStart = new DateTime(y, m, 1);
+        Settings.FiscalYearEnd = Settings.FiscalYearStart.AddYears(1).AddDays(-1);
+        Changed();
+    }
 }

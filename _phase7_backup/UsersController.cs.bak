@@ -1,0 +1,171 @@
+using System.Security.Cryptography;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using SaccoManagementSystem.Security;
+
+namespace SaccoManagementSystem.Controllers
+{
+    /// <summary>User administration. Admin-only (enforced by ApiGuardMiddleware via Access.DenyApi).</summary>
+    [ApiController]
+    [Route("api/users")]
+    [Authorize]
+    public class UsersController : ControllerBase
+    {
+        private readonly IDbFactory _db;
+        private readonly SecurityStore _store;
+        private readonly RoleLookup _roles;
+        private readonly AuthService _auth;
+        private readonly SmtpOtpSender _mail;
+
+        public UsersController(IDbFactory db, SecurityStore store, RoleLookup roles, AuthService auth, SmtpOtpSender mail) { _db = db; _store = store; _roles = roles; _auth = auth; _mail = mail; }
+
+        public sealed record TestMailDto(string To);
+        public sealed record CreateDto(string FirstName, string LastName, string Email, string? Phone, string Role);
+        public sealed record UpdateDto(string FirstName, string LastName, string? Phone, string Role, bool IsActive);
+
+        private int Me => AuthService.UserId(User) ?? 0;
+
+        [HttpGet]
+        public async Task<IActionResult> List()
+        {
+            await using var c = await _db.OpenAsync();
+            var rows = await c.QueryAsync(@"
+                SELECT Id, ISNULL(FirstName,'') AS FirstName, ISNULL(LastName,'') AS LastName, Email, PhoneNumber, Role, IsActive,
+                       LockoutEndUtc, TotpEnabled, LastLoginUtc,
+                       (SELECT COUNT(*) FROM UserPasskeys p WHERE p.UserId = Users.Id) AS Passkeys,
+                       (SELECT COUNT(*) FROM UserSessions s WHERE s.UserId = Users.Id AND s.RevokedUtc IS NULL) AS Sessions
+                FROM Users ORDER BY FirstName, LastName",
+                r => new
+                {
+                    id = r.Int("Id"),
+                    firstName = r.Str("FirstName"),
+                    lastName = r.Str("LastName"),
+                    email = r.Str("Email"),
+                    phone = r.StrN("PhoneNumber"),
+                    role = Roles.Normalise(r.Str("Role")),
+                    isActive = r.Bool("IsActive"),
+                    isLocked = r.DateN("LockoutEndUtc") is DateTime l && l > DateTime.UtcNow,
+                    twoStep = r.Bool("TotpEnabled") || r.Int("Passkeys") > 0,
+                    lastLoginUtc = r.DateN("LastLoginUtc"),
+                    sessions = r.Int("Sessions"),
+                });
+            return Ok(new
+            {
+                me = Me,
+                roles = Roles.All.Select(x => new { name = x, description = Roles.Describe(x) }),
+                users = rows
+            });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Create([FromBody] CreateDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.FirstName) || string.IsNullOrWhiteSpace(dto.LastName) || string.IsNullOrWhiteSpace(dto.Email))
+                return BadRequest(new { message = "First name, last name and email are required." });
+            if (!dto.Email.Contains('@')) return BadRequest(new { message = "Enter a valid email address." });
+            if (!Roles.All.Contains(dto.Role)) return BadRequest(new { message = "Unknown role." });
+            if (await _store.EmailExistsAsync(dto.Email)) return Conflict(new { message = "A user with this email already exists." });
+
+            var temp = TempPassword();
+            var id = await _store.CreateUserAsync(dto.FirstName.Trim(), null, dto.LastName.Trim(), dto.Email.Trim(), dto.Email.Trim(), dto.Phone, PasswordHasher.Hash(temp), dto.Role);
+            await ExpirePassword(id);
+            return Ok(new { id, tempPassword = temp });
+        }
+
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateDto dto)
+        {
+            if (!Roles.All.Contains(dto.Role)) return BadRequest(new { message = "Unknown role." });
+            var current = await _store.GetUserAsync(id);
+            if (current == null) return NotFound();
+
+            var wasAdmin = Roles.Normalise(current.Role) == Roles.Admin && current.IsActive;
+            var stillAdmin = dto.Role == Roles.Admin && dto.IsActive;
+            if (id == Me && (dto.Role != Roles.Normalise(current.Role) || !dto.IsActive))
+                return BadRequest(new { message = "You can't change your own role or deactivate yourself." });
+            if (wasAdmin && !stillAdmin && await ActiveAdmins() <= 1)
+                return BadRequest(new { message = "At least one active administrator is required." });
+
+            await using var c = await _db.OpenAsync();
+            await c.ExecAsync(@"UPDATE Users SET FirstName = @f, LastName = @l, PhoneNumber = @p, Role = @r, IsActive = @a WHERE Id = @id",
+                ("f", dto.FirstName.Trim()), ("l", dto.LastName.Trim()), ("p", dto.Phone), ("r", dto.Role), ("a", dto.IsActive), ("id", id));
+
+            _roles.Forget(id);
+            if (!dto.IsActive || dto.Role != Roles.Normalise(current.Role)) await _store.RevokeAllSessionsAsync(id);   // sign them out so new access applies
+            return Ok(new { success = true });
+        }
+
+        [HttpPost("{id:int}/reset-password")]
+        public async Task<IActionResult> ResetPassword(int id)
+        {
+            var u = await _store.GetUserAsync(id);
+            if (u == null) return NotFound();
+            var temp = TempPassword();
+            await _store.SetPasswordAsync(id, PasswordHasher.Hash(temp), 5);
+            await ExpirePassword(id);
+            await UnlockInternal(id);
+            await _store.RevokeAllSessionsAsync(id);
+            return Ok(new { tempPassword = temp });
+        }
+
+        [HttpPost("{id:int}/unlock")]
+        public async Task<IActionResult> Unlock(int id)
+        {
+            await UnlockInternal(id);
+            return Ok(new { success = true });
+        }
+
+        [HttpPost("{id:int}/revoke-sessions")]
+        public async Task<IActionResult> RevokeSessions(int id)
+        {
+            await _store.RevokeAllSessionsAsync(id);
+            return Ok(new { success = true });
+        }
+
+        /// <summary>Codes that are still valid, for handing over when email delivery fails. Every view is written to the sign-in history.</summary>
+        [HttpGet("otp-backup")]
+        public async Task<IActionResult> OtpBackup()
+        {
+            var me = await _store.GetUserAsync(Me);
+            await _store.LogAsync(Me, me?.Email, "otp-backup-viewed", true, AuthService.Client(HttpContext));
+            return Ok(new { codes = await _auth.OtpBackupAsync(), emailConfigured = _mail.Configured });
+        }
+
+        [HttpPost("test-email")]
+        public async Task<IActionResult> TestEmail([FromBody] TestMailDto dto)
+        {
+            var r = await _mail.SendAsync("email", dto.To?.Trim() ?? "", "123456", "signin", "there");
+            return r.Ok ? Ok(new { success = true }) : BadRequest(new { success = false, message = r.Error });
+        }
+
+        // ------------------------------------------------------------ helpers
+        private async Task<int> ActiveAdmins()
+        {
+            await using var c = await _db.OpenAsync();
+            return await c.ScalarAsync<int>("SELECT COUNT(*) FROM Users WHERE Role = 'Admin' AND IsActive = 1");
+        }
+
+        private async Task UnlockInternal(int id)
+        {
+            await using var c = await _db.OpenAsync();
+            await c.ExecAsync("UPDATE Users SET FailedLoginCount = 0, LockoutEndUtc = NULL WHERE Id = @id", ("id", id));
+        }
+
+        /// <summary>Marks the password as already expired so the user is prompted to choose their own at first sign-in.</summary>
+        private async Task ExpirePassword(int id)
+        {
+            await using var c = await _db.OpenAsync();
+            await c.ExecAsync("UPDATE Users SET PasswordChangedUtc = DATEADD(YEAR, -1, SYSUTCDATETIME()) WHERE Id = @id", ("id", id));
+        }
+
+        private static string TempPassword()
+        {
+            const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ", lower = "abcdefghijkmnpqrstuvwxyz", digits = "23456789", symbols = "!@#$%*?";
+            var all = upper + lower + digits + symbols;
+            string Pick(string set) => set[RandomNumberGenerator.GetInt32(set.Length)].ToString();
+            var chars = new List<string> { Pick(upper), Pick(lower), Pick(digits), Pick(symbols) };
+            while (chars.Count < 14) chars.Add(Pick(all));
+            return string.Concat(chars.OrderBy(_ => RandomNumberGenerator.GetInt32(int.MaxValue)));
+        }
+    }
+}

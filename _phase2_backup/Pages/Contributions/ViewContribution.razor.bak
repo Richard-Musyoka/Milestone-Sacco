@@ -1,0 +1,266 @@
+﻿@page "/contributions/view/{ContributionId:int}"
+@using SaccoManagementSystem.Models
+@using System.ComponentModel.DataAnnotations
+@inject NavigationManager NavigationManager
+@inject IHttpClientFactory _httpClientFactory
+
+@if (isLoading)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p>Loading contribution details...</p>
+    </div>
+}
+else if (contribution == null)
+{
+    <div class="alert alert-danger mt-4">
+        <h4>Contribution not found</h4>
+        <p>The requested contribution could not be loaded.</p>
+    <button class="btn btn-secondary" @onclick="NavigateBack">
+        </button>
+    </div>
+}
+else
+{
+    <div>
+        <!-- Header with back button and title -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <button class="btn btn-outline-secondary" @onclick="NavigateBack">
+                <i class="bi bi-arrow-left"></i> Back
+            </button>
+            <h2 class="mb-0">Contribution Details</h2>
+            <div class="actions">
+                <button class="btn btn-outline-primary me-2" @onclick="() => EditContribution(contribution.ContributionId)">
+                    <i class="bi bi-pencil"></i> Edit
+                </button>
+                <button class="btn btn-outline-danger" @onclick="ConfirmDelete">
+                    <i class="bi bi-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+
+        <!-- Receipt Card -->
+        <div class="card receipt-card mb-4">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Receipt: CT-@contribution.ContributionId.ToString("D3")</h4>
+                    <span class="badge @GetStatusClass(contribution.Status)">
+                        @contribution.Status
+                    </span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="detail-item">
+                            <span class="detail-label">Member:</span>
+                            <span class="detail-value">@contribution.MemberName</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Member ID:</span>
+                            <span class="detail-value">@contribution.MemberId</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Contribution Type:</span>
+                            <span class="detail-value">@contribution.Type</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-item">
+                            <span class="detail-label">Amount:</span>
+                            <span class="detail-value">@contribution.Amount.ToString("C")</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Date:</span>
+                            <span class="detail-value">@contribution.Date.ToString("d")</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Payment Method:</span>
+                            <span class="detail-value">@contribution.PaymentMethod</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="detail-item">
+                            <span class="detail-label">Transaction Reference:</span>
+                            <span class="detail-value">@contribution.TransactionRef</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Remarks:</span>
+                            <span class="detail-value">@contribution.Remarks</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer text-muted">
+                <small>Created on @contribution.Date.ToString("f")</small>
+            </div>
+        </div>
+
+        <!-- Print and Download Buttons -->
+        <div class="d-flex justify-content-end mb-4">
+            <button class="btn btn-outline-secondary me-2">
+                <i class="bi bi-printer"></i> Print Receipt
+            </button>
+            <button class="btn btn-outline-secondary">
+                <i class="bi bi-download"></i> Download PDF
+            </button>
+        </div>
+    </div>
+}
+
+<!-- Delete Confirmation Modal -->
+@if (showDeleteModal)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete contribution <strong>CT-@contribution?.ContributionId.ToString("D3")</strong>?</p>
+                    <p class="text-danger">This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CancelDelete">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-danger" @onclick="DeleteContribution">
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int ContributionId { get; set; }
+
+    private HttpClient Http => _httpClientFactory.CreateClient("ApiClient");
+    private ContributionViewModel? contribution;
+    private bool isLoading = true;
+    private bool showDeleteModal = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadContribution();
+    }
+
+    private async Task LoadContribution()
+    {
+        try
+        {
+            isLoading = true;
+            contribution = await Http.GetFromJsonAsync<ContributionViewModel>($"api/contributions/get/{ContributionId}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading contribution: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void NavigateBack()
+    {
+        NavigationManager.NavigateTo("/contributions");
+    }
+
+    private void EditContribution(int id)
+    {
+        NavigationManager.NavigateTo($"/contributions/edit/{id}");
+    }
+
+    private void ConfirmDelete()
+    {
+        showDeleteModal = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteModal = false;
+    }
+
+    private async Task DeleteContribution()
+    {
+        try
+        {
+            var response = await Http.DeleteAsync($"api/contributions/delete/{ContributionId}");
+            if (response.IsSuccessStatusCode)
+            {
+                NavigationManager.NavigateTo("/contributions");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting contribution: {ex.Message}");
+        }
+        finally
+        {
+            showDeleteModal = false;
+        }
+    }
+   
+
+    private string GetStatusClass(string status) => status switch
+    {
+        "Paid" or "Confirmed" => "bg-success",
+        "Pending" => "bg-warning text-dark",
+        "Overdue" => "bg-danger",
+        _ => "bg-secondary"
+    };
+}
+
+<style>
+    .contribution-view-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .receipt-card {
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .detail-item {
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .detail-label {
+        font-weight: 600;
+        color: #555;
+        display: inline-block;
+        width: 160px;
+    }
+
+    .detail-value {
+        color: #333;
+    }
+
+    .actions {
+        min-width: 200px;
+        text-align: right;
+    }
+
+    @@media (max-width: 768px) {
+        .detail-label {
+            display: block;
+            width: 100%;
+            margin-bottom: 5px;
+        }
+    }
+</style>

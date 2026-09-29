@@ -1,146 +1,105 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.SqlClient;
-using SaccoManagementSystem.Models;
+using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using SaccoManagementSystem.Security;
 
 namespace SaccoManagementSystem.Controllers
 {
+    /// <summary>Anonymous sign-in endpoints. The browser calls these directly (fetch) so the auth cookie lands in the browser.</summary>
     [ApiController]
     [Route("api/[controller]")]
+    [AllowAnonymous]
     public class AuthController : ControllerBase
     {
-        private readonly string _connectionString;
+        private readonly AuthService _auth;
+        private readonly SecurityStore _store;
+        private readonly IConfiguration _cfg;
+        private readonly SaccoManagementSystem.Services.ConfigStore _conf;
 
-        public AuthController(IConfiguration configuration)
+        public AuthController(AuthService auth, SecurityStore store, IConfiguration cfg, SaccoManagementSystem.Services.ConfigStore conf)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _auth = auth;
+            _store = store;
+            _cfg = cfg;
+            _conf = conf;
+        }
+
+        public sealed record LoginDto([Required] string Email, [Required] string Password, bool RememberMe);
+        public sealed record TokenCodeDto(string Token, string Code, bool TrustDevice);
+        public sealed record OtpSendDto(string Token, string Channel);
+        public sealed record OtpVerifyDto(string Token, Guid OtpId, string Code, bool TrustDevice);
+        public sealed record PasskeyOptionsDto(string? MfaToken);
+        public sealed record ForgotDto(string Email);
+        public sealed record MemberStartDto(string Identifier, bool RememberMe);
+        public sealed record ResetDto(string Email, string Code, string NewPassword);
+        public sealed record RegisterDto(string FirstName, string? MiddleName, string LastName, string? UserName, string Email, string? PhoneNumber, string Password);
+
+        private IActionResult Respond(AuthResult r)
+        {
+            if (r.Ok) return Ok(new { success = true, status = r.Status, message = r.Message, data = r.Data });
+            var body = new { success = false, status = r.Status, message = r.Message };
+            return r.Status switch
+            {
+                "invalid" => Unauthorized(body),
+                "expired" => Unauthorized(body),
+                "locked" => StatusCode(423, body),
+                "disabled" => StatusCode(403, body),
+                "closed" => StatusCode(403, body),
+                "exists" => Conflict(body),
+                "throttled" => StatusCode(429, body),
+                _ => BadRequest(body),
+            };
+        }
+
+        [HttpGet("config")]
+        public async Task<IActionResult> Config()
+        {
+            var first = await _store.CountUsersAsync() == 0;
+            var open = first;   // after the first administrator, accounts are created in Users & roles
+            var policy = await _store.GetPolicyAsync();
+            return Ok(new { allowRegistration = open, firstUser = first, passwordComplexity = policy.PasswordComplexity, brand = Sacco_Management_System.Shared.Brand.Name });
         }
 
         [HttpPost("login")]
-        public IActionResult Login([FromBody] LoginModel login)
-        {
-            try
-            {
-                using (var conn = new SqlConnection(_connectionString))
-                {
-                    conn.Open();
+        public async Task<IActionResult> Login([FromBody] LoginDto dto) => Respond(await _auth.LoginAsync(HttpContext, dto.Email, dto.Password, dto.RememberMe));
 
-                    // 🔓 Plain text password check (temporary for testing)
-                    string sql = "SELECT TOP 1 Id, Email FROM Users WHERE Email = @Email AND Password = @Password";
+        /// <summary>Member portal: member number / ID / phone, then a one-time code through mfa/otp/send + mfa/otp/verify.</summary>
+        [HttpPost("member/start")]
+        public async Task<IActionResult> MemberStart([FromBody] MemberStartDto dto) => Respond(await _auth.MemberStartAsync(HttpContext, dto.Identifier, dto.RememberMe));
 
-                    using (var cmd = new SqlCommand(sql, conn))
-                    {
-                        cmd.Parameters.Add("@Email", System.Data.SqlDbType.NVarChar).Value = login.Email;
-                        cmd.Parameters.Add("@Password", System.Data.SqlDbType.NVarChar).Value = login.Password;  // ❌ No hashing here
+        [HttpPost("mfa/totp")]
+        public async Task<IActionResult> Totp([FromBody] TokenCodeDto dto) => Respond(await _auth.VerifyTotpAsync(HttpContext, dto.Token, dto.Code, dto.TrustDevice));
 
-                        using (var reader = cmd.ExecuteReader())
-                        {
-                            if (reader.Read())
-                            {
-                                var userId = reader["Id"].ToString();
-                                var email = reader["Email"].ToString();
+        [HttpPost("mfa/backup")]
+        public async Task<IActionResult> Backup([FromBody] TokenCodeDto dto) => Respond(await _auth.VerifyBackupAsync(HttpContext, dto.Token, dto.Code, dto.TrustDevice));
 
-                                return Ok(new
-                                {
-                                    success = true,
-                                    message = "Login successful",
-                                    user = new { id = userId, email = email }
-                                });
-                            }
-                            else
-                            {
-                                return Unauthorized(new { success = false, message = "Invalid credentials" });
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { success = false, message = "Login failed", error = ex.Message });
-            }
-        }
+        [HttpPost("mfa/otp/send")]
+        public async Task<IActionResult> OtpSend([FromBody] OtpSendDto dto) => Respond(await _auth.SendOtpAsync(HttpContext, dto.Token, dto.Channel));
 
+        [HttpPost("mfa/otp/verify")]
+        public async Task<IActionResult> OtpVerify([FromBody] OtpVerifyDto dto) => Respond(await _auth.VerifyOtpAsync(HttpContext, dto.Token, dto.OtpId, dto.Code, dto.TrustDevice));
+
+        [HttpPost("passkey/options")]
+        public async Task<IActionResult> PasskeyOptions([FromBody] PasskeyOptionsDto dto) => Respond(await _auth.PasskeyLoginOptionsAsync(HttpContext, dto?.MfaToken));
+
+        [HttpPost("passkey/verify")]
+        public async Task<IActionResult> PasskeyVerify([FromBody] AuthService.AssertionDto dto) => Respond(await _auth.PasskeyLoginVerifyAsync(HttpContext, dto));
 
         [HttpPost("register")]
-        public IActionResult Register([FromBody] RegisterModel register)
+        public async Task<IActionResult> Register([FromBody] RegisterDto dto)
+            => Respond(await _auth.RegisterAsync(HttpContext, dto.FirstName, dto.MiddleName, dto.LastName, dto.UserName, dto.Email, dto.PhoneNumber, dto.Password));
+
+        [HttpPost("forgot")]
+        public async Task<IActionResult> Forgot([FromBody] ForgotDto dto) => Respond(await _auth.ForgotPasswordAsync(HttpContext, dto.Email));
+
+        [HttpPost("reset")]
+        public async Task<IActionResult> Reset([FromBody] ResetDto dto) => Respond(await _auth.ResetPasswordAsync(HttpContext, dto.Email, dto.Code, dto.NewPassword));
+
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout()
         {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(register.FirstName) ||
-                    string.IsNullOrWhiteSpace(register.LastName) ||
-                    string.IsNullOrWhiteSpace(register.Email) ||
-                    string.IsNullOrWhiteSpace(register.Password))
-                {
-                    return BadRequest(new { success = false, message = "Please fill all required fields." });
-                }
-
-                using (var conn = new SqlConnection(_connectionString))
-                {
-                    conn.Open();
-
-                    // Check for existing email
-                    var checkCmd = new SqlCommand("SELECT COUNT(*) FROM Users WHERE Email = @Email", conn);
-                    checkCmd.Parameters.AddWithValue("@Email", register.Email);
-                    int exists = (int)checkCmd.ExecuteScalar();
-
-                    if (exists > 0)
-                    {
-                        return Conflict(new { success = false, message = "User with this email already exists." });
-                    }
-
-                    // Insert new user
-                    var insertCmd = new SqlCommand(@"
-                        INSERT INTO Users (FirstName, MiddleName, LastName, UserName, Password, Email, PhoneNumber, CreatedDate)
-                        VALUES (@FirstName, @MiddleName, @LastName, @UserName, @Password, @Email, @PhoneNumber, GETDATE())", conn);
-
-                    insertCmd.Parameters.AddWithValue("@FirstName", register.FirstName);
-                    insertCmd.Parameters.AddWithValue("@MiddleName", string.IsNullOrEmpty(register.MiddleName) ? (object)DBNull.Value : register.MiddleName);
-                    insertCmd.Parameters.AddWithValue("@LastName", register.LastName);
-                    insertCmd.Parameters.AddWithValue("@UserName", string.IsNullOrEmpty(register.UserName) ? register.Email : register.UserName);
-                    insertCmd.Parameters.AddWithValue("@Password", register.Password);
-                    insertCmd.Parameters.AddWithValue("@Email", register.Email);
-                    insertCmd.Parameters.AddWithValue("@PhoneNumber", string.IsNullOrEmpty(register.PhoneNumber) ? (object)DBNull.Value : register.PhoneNumber);
-
-                    int rows = insertCmd.ExecuteNonQuery();
-
-                    if (rows > 0)
-                    {
-                        return Ok(new { success = true, message = "Registration successful!" });
-                    }
-                    else
-                    {
-                        return StatusCode(500, new { success = false, message = "Registration failed. Please try again." });
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { success = false, message = "An error occurred.", error = ex.Message });
-            }
+            await _auth.SignOutAsync(HttpContext);
+            return Ok(new { success = true });
         }
-
-
-        [HttpGet("test-connection")]
-        public IActionResult TestConnection()
-        {
-            try
-            {
-                using (var conn = new SqlConnection(_connectionString))
-                {
-                    conn.Open();
-                    return Ok(new { success = true, message = "Connection successful!" });
-                }
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { success = false, message = "Connection failed", error = ex.Message });
-            }
-        }
-    }
-
-    public class LoginModel
-    {
-        public string Email { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
     }
 }

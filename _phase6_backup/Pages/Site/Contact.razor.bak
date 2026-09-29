@@ -1,0 +1,33 @@
+@page "/contact"
+@inject ConfigStore Cfg
+@inject SiteStore Site
+
+<PageTitle>Contact · @Brand.Name</PageTitle>
+<SitePageHead Title="Contact us" Text="Visit, call or send us a message. We're here to help." />
+
+<section class="ws-sec">
+    <div class="ws-wrap ws-contact">
+        <div class="ws-info">
+            @if (!string.IsNullOrWhiteSpace(C.Phone)) { <div><i class="bi bi-telephone"></i><div><small>Call us</small><b><a href="@("tel:" + C.Phone.Replace(" ", ""))" style="text-decoration:none">@C.Phone</a></b></div></div> }
+            @if (!string.IsNullOrWhiteSpace(Site.Current.WhatsApp)) { <div><i class="bi bi-whatsapp"></i><div><small>WhatsApp</small><b><a href="@("https://wa.me/" + new string(Site.Current.WhatsApp.Where(char.IsDigit).ToArray()))" target="_blank" rel="noopener" style="text-decoration:none">@Site.Current.WhatsApp</a></b></div></div> }
+            @if (!string.IsNullOrWhiteSpace(C.Email)) { <div><i class="bi bi-envelope"></i><div><small>Email</small><b><a href="@("mailto:" + C.Email)" style="text-decoration:none">@C.Email</a></b></div></div> }
+            @if (!string.IsNullOrWhiteSpace(C.Address)) { <div><i class="bi bi-geo-alt"></i><div><small>Visit us</small><b>@C.Address</b>@if (!string.IsNullOrWhiteSpace(C.PostalAddress)) { <small style="margin-top:4px">@C.PostalAddress</small> }</div></div> }
+            @if (!string.IsNullOrWhiteSpace(Site.Current.OfficeHours)) { <div><i class="bi bi-clock"></i><div><small>Office hours</small><b>@Site.Current.OfficeHours</b></div></div> }
+            @if (!string.IsNullOrWhiteSpace(C.MpesaPaybill)) { <div><i class="bi bi-phone" style="background:#16a34a;color:#fff"></i><div><small>M-Pesa Paybill</small><b>@C.MpesaPaybill</b><small style="margin-top:4px">Account: your @C.MpesaAccountRef.ToLowerInvariant()</small></div></div> }
+            @if (!string.IsNullOrWhiteSpace(C.BankName) && !string.IsNullOrWhiteSpace(C.BankAccountNo)) { <div><i class="bi bi-bank"></i><div><small>@C.BankName@(string.IsNullOrWhiteSpace(C.BankBranch) ? "" : ", " + C.BankBranch)</small><b>@C.BankAccountNo</b><small style="margin-top:4px">@C.BankAccountName</small></div></div> }
+            @if (!string.IsNullOrWhiteSpace(Site.Current.MapQuery))
+            {
+                <div class="ws-map" style="padding:0;display:block"><iframe title="Map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="@("https://maps.google.com/maps?q=" + Uri.EscapeDataString(Site.Current.MapQuery) + "&output=embed")"></iframe></div>
+            }
+        </div>
+        <div class="ws-card" style="padding:28px">
+            <h3 style="font-size:22px;margin-bottom:4px">Send us a message</h3>
+            <p style="margin-bottom:18px">We usually reply within one working day.</p>
+            <EnquiryForm Kind="General" />
+        </div>
+    </div>
+</section>
+
+@code {
+    private OrgConfig C => Cfg.Current;
+}

@@ -1,0 +1,258 @@
+@page "/chamas/{ChamaId:int}"
+@using System.Security.Claims
+@using System.Text.Json
+@using SaccoManagementSystem.Services
+@using SaccoManagementSystem.Security
+@inject ChamaStore Store
+@inject MemberExtrasStore Directory
+@inject ConfigStore Cfg
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>@(c?.Name ?? "Chama") · @Brand.Name</PageTitle>
+
+<div class="ms-page">
+    <button type="button" class="ms-back" @onclick='() => Nav.NavigateTo("chamas")'><i class="bi bi-arrow-left"></i> Chamas</button>
+
+    @if (c == null)
+    {
+        @if (loaded) { <div class="ms-card"><EmptyState Icon="bi-people" Title="Chama not found" Text="It may have been removed." /></div> }
+        else { <div class="ms-skel" style="height:220px;border-radius:26px"></div> }
+    }
+    else
+    {
+        <section class="ch-hero" style="--cc:@c.Color">
+            <div class="ch-hero-top">
+                <span class="ch-type"><i class="bi @Chamas.TypeIcon(c.Type)"></i> @c.Type</span>
+                <StatusPill Status="@c.Status" />
+                <div class="ch-hero-actions">
+                    <a class="ms-btn sm" href="@("chamas/" + c.Id + "/edit")"><i class="bi bi-pencil"></i> Edit</a>
+                    <a class="ms-btn sm primary" href="payments/record"><i class="bi bi-wallet2"></i> Receive payment</a>
+                </div>
+            </div>
+            <h1>@c.Name</h1>
+            <p>@Sym @c.ContributionAmount.ToString("N0") per member, @c.Frequency.ToLowerInvariant()@(string.IsNullOrWhiteSpace(c.MeetingDay) ? "" : " · meets " + c.MeetingDay + "s")@(string.IsNullOrWhiteSpace(c.MeetingPlace) ? "" : " at " + c.MeetingPlace)</p>
+            @if (!string.IsNullOrWhiteSpace(c.Description)) { <p class="ch-desc">@c.Description</p> }
+            <div class="ch-hero-stats">
+                <div><small>Members</small><b>@c.Members</b></div>
+                <div><small>Round</small><b>@c.CurrentCycle@(c.Rotates && payouts.Count > 0 ? " of " + payouts.Max(p => p.CycleNo) : "")</b></div>
+                <div><small>@(c.Rotates ? "Pot this round" : "Collected this round")</small><b>@Sym @c.CollectedThisRound.ToString("N0")<small>@(c.Rotates ? " / " + c.Pot.ToString("N0") : "")</small></b></div>
+                <div><small>@(c.Rotates ? "Paid out so far" : "Group savings")</small><b>@Sym @(c.Rotates ? c.TotalPaidOut.ToString("N0") : (c.TotalCollected - c.TotalPaidOut).ToString("N0"))</b></div>
+            </div>
+        </section>
+
+        <div class="ms-tabs" role="tablist">
+            @if (c.Rotates) { <button role="tab" class="@(tab == "rotation" ? "on" : "")" @onclick='() => tab = "rotation"'><i class="bi bi-arrow-repeat"></i> Rotation</button> }
+            <button role="tab" class="@(tab == "round" ? "on" : "")" @onclick='() => tab = "round"'><i class="bi bi-check2-square"></i> This round <em>@PaidCount/@active.Count</em></button>
+            <button role="tab" class="@(tab == "members" ? "on" : "")" @onclick='() => tab = "members"'><i class="bi bi-people"></i> Members <em>@active.Count</em></button>
+            <button role="tab" class="@(tab == "history" ? "on" : "")" @onclick='() => tab = "history"'><i class="bi bi-clock-history"></i> History</button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(error)) { <div class="ms-alert bad"><i class="bi bi-exclamation-circle-fill"></i><div>@error</div></div> }
+
+        @if (tab == "rotation" && c.Rotates)
+        {
+            <section class="ms-card">
+                <div class="ms-card-head">
+                    <div><h3>Who receives when</h3><p>The pot goes to one member each round until everyone has had a turn.</p></div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <button type="button" class="ms-btn sm" @onclick="Shuffle" disabled="@busy"><i class="bi bi-shuffle"></i> Draw lots</button>
+                        <button type="button" class="ms-btn sm" @onclick="Schedule" disabled="@busy"><i class="bi bi-list-ol"></i> Use member order</button>
+                        @if (Current != null && canPay) { <button type="button" class="ms-btn sm primary" @onclick="() => { payOpen = true; payRef = string.Empty; }"><i class="bi bi-gift"></i> Pay out round @c.CurrentCycle</button> }
+                    </div>
+                </div>
+                <div class="ms-card-body">
+                    @if (payouts.Count == 0)
+                    {
+                        <EmptyState Icon="bi-shuffle" Title="No rotation yet" Text="Add at least two members, then draw lots or use the member order." />
+                    }
+                    else
+                    {
+                        <ol class="ch-rot">
+                            @foreach (var p in payouts)
+                            {
+                                var state = p.Status == "Paid" ? "done" : p.CycleNo == c.CurrentCycle ? "now" : "later";
+                                <li class="@state">
+                                    <span class="n">@p.CycleNo</span>
+                                    <Avatar Name="@p.Name" Size="sm" />
+                                    <div class="w"><b>@p.Name</b><small>@(p.Status == "Paid" ? "Received " + p.PaidOn?.ToLocalTime().ToString("d MMM yyyy") + (string.IsNullOrEmpty(p.Reference) ? "" : " · " + p.Reference) : state == "now" ? "Up now · due " + p.DueDate.ToString("ddd d MMM") : "Due " + p.DueDate.ToString("d MMM yyyy"))</small></div>
+                                    <b class="amt">@Sym @p.Amount.ToString("N0")</b>
+                                    <i class="bi @(state == "done" ? "bi-check-circle-fill" : state == "now" ? "bi-hourglass-split" : "bi-circle")"></i>
+                                </li>
+                            }
+                        </ol>
+                    }
+                </div>
+            </section>
+        }
+        else if (tab == "round")
+        {
+            <section class="ms-card">
+                <div class="ms-card-head"><div><h3>Round @c.CurrentCycle contributions</h3><p>@PaidCount of @active.Count members have paid @Sym @c.ContributionAmount.ToString("N0")@(Current != null ? ". Pot goes to " + Current.Name + "." : ".")</p></div></div>
+                <div class="ms-card-body">
+                    <div class="ch-meter lg"><i style="width:@(active.Count == 0 ? 0 : PaidCount * 100 / active.Count)%"></i></div>
+                    <div class="ch-roll">
+                        @foreach (var m in active)
+                        {
+                            var mm = m; var paid = RoundPaid(m.MemberId);
+                            <div class="ch-roll-row @(paid >= c.ContributionAmount ? "ok" : paid > 0 ? "part" : "")">
+                                <Avatar Name="@m.Name" Size="sm" />
+                                <div class="w"><b>@m.Name</b><small>@m.MemberNo · @m.Phone</small></div>
+                                <span class="st">@(paid >= c.ContributionAmount ? "Paid" : paid > 0 ? Sym + " " + paid.ToString("N0") + " of " + c.ContributionAmount.ToString("N0") : "Not yet")</span>
+                                @if (paid < c.ContributionAmount)
+                                {
+                                    <button type="button" class="ms-btn sm" title="Cash handed in at the meeting" @onclick="() => QuickPay(mm)" disabled="@busy"><i class="bi bi-cash"></i> Cash</button>
+                                    <a class="ms-btn sm" href="@("payments/record?member=" + m.MemberId)" data-no-drawer><i class="bi bi-phone"></i> M-Pesa</a>
+                                }
+                                else { <i class="bi bi-check-circle-fill" style="color:var(--ms-accent);font-size:20px"></i> }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </section>
+        }
+        else if (tab == "members")
+        {
+            <section class="ms-card">
+                <div class="ms-card-head"><div><h3>Members</h3><p>Officials and rotation order. Use the arrows to change who receives first.</p></div></div>
+                <div class="ms-card-body">
+                    <div class="ch-add">
+                        @if (directory != null)
+                        {
+                            <div style="flex:1;min-width:240px">
+                                <SearchPicker TItem="MemberExtrasStore.Lite" Items="@(directory.Where(d => !active.Any(a => a.MemberId == d.MemberId)))" Selected="pick" SelectedChanged="@(v => pick = v)"
+                                              Title="@(m => m.Name)" Sub="@(m => m.MemberNo + " · " + m.Phone)" Placeholder="Add a SACCO member to this chama…" />
+                            </div>
+                            <select class="ms-select" style="width:160px" @bind="pickRole">@foreach (var r in ChamaStore.Roles) { <option>@r</option> }</select>
+                            <button type="button" class="ms-btn primary" disabled="@(pick == null || busy)" @onclick="AddMember"><i class="bi bi-person-plus"></i> Add</button>
+                        }
+                    </div>
+                    @if (active.Count == 0) { <EmptyState Icon="bi-people" Title="No members yet" Text="Only registered SACCO members can join a chama here." /> }
+                    else
+                    {
+                        <div class="ch-roll">
+                            @for (var i = 0; i < active.Count; i++)
+                            {
+                                var m = active[i]; var ix = i;
+                                <div class="ch-roll-row">
+                                    <span class="n">@(i + 1)</span>
+                                    <Avatar Name="@m.Name" Size="sm" />
+                                    <div class="w"><b>@m.Name</b><small>@m.MemberNo · joined @m.JoinedOn.ToString("d MMM yyyy")</small></div>
+                                    <select class="ms-select" style="width:150px" value="@m.Role" @onchange="e => SetRole(m, e)">@foreach (var r in ChamaStore.Roles) { <option>@r</option> }</select>
+                                    <button type="button" class="ms-icon-btn" title="Move up" disabled="@(ix == 0)" @onclick="() => Move(ix, -1)"><i class="bi bi-arrow-up"></i></button>
+                                    <button type="button" class="ms-icon-btn" title="Move down" disabled="@(ix == active.Count - 1)" @onclick="() => Move(ix, 1)"><i class="bi bi-arrow-down"></i></button>
+                                    <button type="button" class="ms-icon-btn" title="Remove from chama" @onclick="() => Remove(m)"><i class="bi bi-person-dash"></i></button>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+        else if (tab == "history")
+        {
+            <section class="ms-card">
+                @if (contribs.Count == 0) { <EmptyState Icon="bi-clock-history" Title="Nothing yet" Text="Contributions show up here as members pay." /> }
+                else
+                {
+                    <div class="ms-table-wrap"><table class="ms-table">
+                        <thead><tr><th>Date</th><th>Member</th><th>Round</th><th>Reference</th><th class="r">Amount</th></tr></thead>
+                        <tbody>
+                            @foreach (var x in contribs)
+                            {
+                                <tr><td class="ms-num">@x.PaidOn.ToLocalTime().ToString("d MMM yyyy, HH:mm")</td><td>@NameOf(x.MemberId)</td><td>@x.CycleNo</td><td class="ms-num">@x.Reference</td><td class="r ms-num"><b>@Sym @x.Amount.ToString("N0")</b></td></tr>
+                            }
+                        </tbody>
+                    </table></div>
+                }
+            </section>
+        }
+    }
+</div>
+
+<Modal Open="payOpen" OnClose="() => payOpen = false" Title="@("Pay out round " + c?.CurrentCycle)" Subtitle="@(Current == null ? "" : "Hand the pot to " + Current.Name)">
+    <ChildContent>
+        @if (c != null && Current != null)
+        {
+            <div class="pay-preview"><i class="bi bi-gift"></i><div><b>@Sym @Current.Amount.ToString("N0") to @Current.Name</b><small>Collected so far this round: @Sym @c.CollectedThisRound.ToString("N0")@(c.CollectedThisRound < Current.Amount ? ". Some members haven't paid yet." : ".")</small></div></div>
+            <div class="ms-field" style="margin-top:14px"><label class="ms-label">M-Pesa or bank reference</label><input class="ms-input" @bind="payRef" placeholder="e.g. SJK4H7Q2LM or Cash at meeting" /></div>
+        }
+    </ChildContent>
+    <Footer>
+        <button type="button" class="ms-btn" @onclick="() => payOpen = false">Cancel</button>
+        <button type="button" class="ms-btn primary" disabled="@busy" @onclick="PayOut"><i class="bi bi-check2"></i> Mark as paid out</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter] public int ChamaId { get; set; }
+    [CascadingParameter] private Task<AuthenticationState>? Auth { get; set; }
+
+    private Chama? c;
+    private List<ChamaMember> members = new(), active = new();
+    private List<ChamaPayout> payouts = new();
+    private List<ChamaContribution> contribs = new();
+    private List<MemberExtrasStore.Lite>? directory;
+    private MemberExtrasStore.Lite? pick;
+    private string pickRole = "Member", tab = "", payRef = "";
+    private string? error;
+    private bool loaded, busy, payOpen, canPay;
+    private string Sym => Cfg.Current.CurrencySymbol;
+    private ChamaPayout? Current => payouts.FirstOrDefault(p => p.CycleNo == c?.CurrentCycle && p.Status == "Scheduled");
+    private decimal RoundPaid(int memberId) => contribs.Where(x => x.MemberId == memberId && x.CycleNo == c!.CurrentCycle).Sum(x => x.Amount);
+    private int PaidCount => c == null ? 0 : active.Count(m => RoundPaid(m.MemberId) >= c.ContributionAmount);
+    private string NameOf(int id) => members.FirstOrDefault(m => m.MemberId == id)?.Name ?? "Member " + id;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth != null) canPay = Access.DenyApi((await Auth).User.FindFirstValue(ClaimTypes.Role), "POST", "/api/chamas/1/payout") == null;
+        await Load();
+        try { directory = await Directory.DirectoryAsync(); } catch { directory = new(); }
+    }
+
+    private async Task Load()
+    {
+        c = await Store.GetAsync(ChamaId);
+        loaded = true;
+        if (c == null) return;
+        members = await Store.MembersAsync(ChamaId);
+        active = members.Where(m => m.Status == "Active").OrderBy(m => m.Position).ToList();
+        payouts = c.Rotates ? await Store.PayoutsAsync(ChamaId) : new();
+        contribs = await Store.ContributionsAsync(ChamaId);
+        if (tab == "") tab = c.Rotates ? "rotation" : "round";
+    }
+
+    private async Task<bool> Post(string url, object? body, string ok)
+    {
+        error = null; busy = true;
+        try
+        {
+            var r = await Http.PostAsJsonAsync($"{Nav.BaseUri}api/chamas/{ChamaId}/{url}", body ?? new { });
+            var txt = await r.Content.ReadAsStringAsync();
+            string? msg = null;
+            try { using var d = JsonDocument.Parse(string.IsNullOrWhiteSpace(txt) ? "{}" : txt); if (d.RootElement.ValueKind == JsonValueKind.Object && d.RootElement.TryGetProperty("message", out var m)) msg = m.GetString(); } catch { }
+            if (!r.IsSuccessStatusCode) { error = msg ?? "That didn't work (" + (int)r.StatusCode + ")."; return false; }
+            await JS.InvokeVoidAsync("ms.toast", "success", ok, msg);
+            await Load();
+            return true;
+        }
+        catch (Exception ex) { error = ex.Message; return false; }
+        finally { busy = false; }
+    }
+
+    private Task Shuffle() => Post("shuffle", null, "Lots drawn");
+    private Task Schedule() => Post("schedule", null, "Rotation updated");
+    private async Task PayOut() { if (await Post("payout", new { reference = payRef }, "Pot paid out")) payOpen = false; }
+    private Task QuickPay(ChamaMember m) => Post("contributions", new { memberId = m.MemberId, cycle = c!.CurrentCycle, amount = c.ContributionAmount - RoundPaid(m.MemberId) }, m.Name + " marked as paid");
+    private async Task AddMember() { if (pick == null) return; if (await Post("members", new { memberId = pick.MemberId, role = pickRole }, pick.Name + " added")) pick = null; }
+    private Task Remove(ChamaMember m) => Post("members/" + m.MemberId + "/remove", null, m.Name + " removed");
+    private Task SetRole(ChamaMember m, ChangeEventArgs e) => Post("member-rows/" + m.Id + "/role", new { role = e.Value?.ToString() ?? "Member" }, "Role updated");
+
+    private async Task Move(int i, int dir)
+    {
+        var ids = active.Select(a => a.MemberId).ToList();
+        (ids[i], ids[i + dir]) = (ids[i + dir], ids[i]);
+        await Post("order", ids, "Order changed");
+    }
+}

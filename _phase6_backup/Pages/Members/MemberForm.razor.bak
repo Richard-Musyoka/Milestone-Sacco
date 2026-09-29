@@ -1,0 +1,96 @@
+@using SaccoManagementSystem.Models
+
+<EditForm Model="Model" OnValidSubmit="OnValidSubmit">
+    <DataAnnotationsValidator />
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="ms-alert bad" role="alert" style="max-width:980px"><i class="bi bi-exclamation-circle-fill"></i><div>@ErrorMessage</div></div>
+    }
+
+    <div class="ms-form">
+        <section class="ms-fs">
+            <div class="ms-fs-head"><i class="bi bi-person-vcard"></i><div><h3>Identity</h3><small>Who this member is</small></div></div>
+            <div class="ms-fs-body">
+                <div class="ms-grid-form">
+                    <Field Class="c6" Label="Member number" Hint="Assigned automatically"><InputText id="memberNo" class="ms-input" @bind-Value="Model.MemberNo" disabled /></Field>
+                    <Field Class="c6" Label="Status" Required="true" For="@(() => Model.Status)">
+                        <InputSelect id="status" class="ms-select" @bind-Value="Model.Status">
+                            <option value="">Select status</option>
+                            <option value="Active">Active</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Inactive">Inactive</option>
+                            <option value="Suspended">Suspended</option>
+                        </InputSelect>
+                    </Field>
+                    <Field Class="c6" Label="First name" Required="true" For="@(() => Model.FirstName)"><InputText id="firstName" class="ms-input" autocomplete="given-name" @bind-Value="Model.FirstName" /></Field>
+                    <Field Class="c6" Label="Last name" Required="true" For="@(() => Model.LastName)"><InputText id="lastName" class="ms-input" autocomplete="family-name" @bind-Value="Model.LastName" /></Field>
+                    <Field Class="c6" Label="National ID / Passport"><InputText id="nationalId" class="ms-input" @bind-Value="Model.NationalID" /></Field>
+                    <Field Class="c6" Label="Date of birth"><InputDate id="dob" class="ms-input" @bind-Value="Model.DateOfBirth" /></Field>
+                    <Field Class="c6" Label="Gender">
+                        <InputSelect id="gender" class="ms-select" @bind-Value="Model.Gender">
+                            <option value="">Select gender</option><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option>
+                        </InputSelect>
+                    </Field>
+                    <Field Class="c6" Label="Marital status">
+                        <InputSelect id="maritalStatus" class="ms-select" @bind-Value="Model.MaritalStatus">
+                            <option value="">Select status</option><option value="Single">Single</option><option value="Married">Married</option><option value="Divorced">Divorced</option><option value="Widowed">Widowed</option>
+                        </InputSelect>
+                    </Field>
+                </div>
+            </div>
+        </section>
+
+        <section class="ms-fs">
+            <div class="ms-fs-head"><i class="bi bi-telephone"></i><div><h3>Contact</h3><small>How to reach them</small></div></div>
+            <div class="ms-fs-body">
+                <div class="ms-grid-form">
+                    <Field Class="c6" Label="Email" Required="true" For="@(() => Model.Email)"><InputText id="email" type="email" class="ms-input" autocomplete="email" placeholder="name@example.com" @bind-Value="Model.Email" /></Field>
+                    <Field Class="c6" Label="Phone number" Required="true" For="@(() => Model.PhoneNumber)" Hint="Used for SMS notifications, e.g. +254 712 345 678"><InputText id="phone" type="tel" class="ms-input" autocomplete="tel" placeholder="+254 7…" @bind-Value="Model.PhoneNumber" /></Field>
+                    <Field Class="c12" Label="Address"><InputTextArea id="address" class="ms-input" placeholder="Estate, town, county" @bind-Value="Model.Address" /></Field>
+                </div>
+            </div>
+        </section>
+
+        <section class="ms-fs">
+            <div class="ms-fs-head"><i class="bi bi-briefcase"></i><div><h3>Work</h3><small>Occupation and employer</small></div></div>
+            <div class="ms-fs-body">
+                <div class="ms-grid-form">
+                    <Field Class="c6" Label="Occupation"><InputText id="occupation" class="ms-input" @bind-Value="Model.Occupation" /></Field>
+                    <Field Class="c6" Label="Employer"><InputText id="employer" class="ms-input" @bind-Value="Model.Employer" /></Field>
+                </div>
+            </div>
+        </section>
+
+        <section class="ms-fs">
+            <div class="ms-fs-head"><i class="bi bi-card-checklist"></i><div><h3>Membership</h3><small>Joining details and photo</small></div></div>
+            <div class="ms-fs-body">
+                <div class="ms-grid-form">
+                    <Field Class="c6" Label="Join date"><InputDate id="joinDate" class="ms-input" @bind-Value="Model.JoinDate" /></Field>
+                    <Field Class="c6" Label="Profile image URL" Hint="Paste a link to a photo (optional)"><InputText id="profileImage" class="ms-input" placeholder="https://…" @bind-Value="Model.ProfileImageUrl" /></Field>
+                    <div class="c12" style="display:flex;align-items:center;gap:14px">
+                        <Avatar Name="@($"{Model.FirstName} {Model.LastName}")" ImageUrl="@Model.ProfileImageUrl" Size="xl" />
+                        <div class="ms-hint">Preview — initials show until a valid image link is added.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="ms-formbar">
+            <span class="sp">@(IsEdit ? "Editing an existing member" : "Fields marked * are required")</span>
+            @if (!IsEdit) { <button type="button" class="ms-btn" @onclick="OnReset" disabled="@Busy">Reset</button> }
+            <button type="button" class="ms-btn" @onclick="OnCancel" disabled="@Busy">Cancel</button>
+            <button type="submit" class="ms-btn primary @(Busy ? "busy" : "")">@if (Busy) { <span class="ms-spin"></span> } else { <i class="bi bi-check2"></i> } @(IsEdit ? "Save changes" : "Save member")</button>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter, EditorRequired] public MemberModel Model { get; set; } = new();
+    [Parameter] public bool IsEdit { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
+    [Parameter] public EventCallback OnValidSubmit { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public EventCallback OnReset { get; set; }
+}

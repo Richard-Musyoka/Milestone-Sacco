@@ -1,202 +1,132 @@
-﻿@page "/dividends/declarations/financial-year/{FinancialYear}"
+@page "/dividends/declarations/financial-year/{FinancialYear}"
 @using SaccoManagementSystem.Models
-@inject HttpClient Http
 @inject NavigationManager NavigationManager
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JS
 
+<PageTitle>Dividend @YearDisplay · @Brand.Name</PageTitle>
 
-@if (isLoading)
-{
-    <div class="text-center py-4">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-    </div>
-}
-else if (errorMessage != null)
-{
-    <div class="alert alert-danger">
-        @errorMessage
-    </div>
-}
-else if (declaration == null)
-{
-    <div class="alert alert-warning">
-        No dividend declaration found for @FinancialYearDisplay
-    </div>
-}
-else
-{
-    <div class="card">
-        <div class="card-header bg-primary text-white">
-            <h3>@declaration.DeclarationNumber</h3>
-            <p class="mb-0">Financial Year: @declaration.FinancialYear</p>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-6">
-                    <h5>Declaration Details</h5>
-                    <dl class="row">
-                        <dt class="col-sm-4">Declaration Date</dt>
-                        <dd class="col-sm-8">@declaration.DeclarationDate.ToString("d")</dd>
+<div class="ms-page">
+    <button type="button" class="ms-back" @onclick="Back"><i class="bi bi-arrow-left"></i> Dividends</button>
 
-                        <dt class="col-sm-4">Record Date</dt>
-                        <dd class="col-sm-8">@declaration.RecordDate.ToString("d")</dd>
-
-                        <dt class="col-sm-4">Payment Date</dt>
-                        <dd class="col-sm-8">@(declaration.PaymentDate?.ToString("d") ?? "Not set")</dd>
-                    </dl>
-                </div>
-                <div class="col-md-6">
-                    <h5>Financial Details</h5>
-                    <dl class="row">
-                        <dt class="col-sm-4">Dividend Rate</dt>
-                        <dd class="col-sm-8">@declaration.Rate.ToString("P2")</dd>
-
-                        <dt class="col-sm-4">Total Amount</dt>
-                        <dd class="col-sm-8">@declaration.TotalAmount.ToString("C")</dd>
-
-                        <dt class="col-sm-4">Status</dt>
-                        <dd class="col-sm-8">
-                            <span class="badge @GetStatusClass(declaration.Status)">
-                                @declaration.Status
-                            </span>
-                        </dd>
-                    </dl>
+    @if (loading)
+    {
+        <div class="ms-skel" style="height:150px;border-radius:20px"></div>
+        <div class="ms-grid stats ms-mt">@for (int i = 0; i < 4; i++) { <div class="ms-skel" style="height:110px"></div> }</div>
+    }
+    else if (d == null)
+    {
+        <div class="ms-card"><EmptyState Icon="bi-megaphone" Title="No declaration found" Text="@(string.IsNullOrEmpty(error) ? $"There is no dividend declared for {YearDisplay}." : error)">
+            <div style="margin-top:14px"><a class="ms-btn primary" href="dividends/declare">Declare dividend</a></div></EmptyState></div>
+    }
+    else
+    {
+        <section class="ms-hero">
+            <span class="ms-avatar xl"><i class="bi bi-megaphone"></i></span>
+            <div style="position:relative;z-index:1">
+                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><h2>@d.FinancialYear dividend</h2><StatusPill Status="@d.Status" /></div>
+                <div class="meta">
+                    <span><i class="bi bi-hash"></i>@d.DeclarationNumber</span>
+                    <span><i class="bi bi-percent"></i>@((d.Rate * 100).ToString("0.##"))% rate</span>
+                    <span><i class="bi bi-calendar-event"></i>Declared @d.DeclarationDate.ToString("d MMM yyyy")</span>
                 </div>
             </div>
-
-            <div class="mt-4">
-              
-                <button class="btn btn-outline-secondary ms-2" @onclick="NavigateToList">
-                    <i class="bi bi-arrow-left"></i> Back to List
-                </button>
-
-                @if (declaration.Status == "Pending")
+            <div class="ms-hero-actions">
+                @if (d.Status == "Pending")
                 {
-                    <button class="btn btn-success ms-2" @onclick="ApproveDeclarationAsync" disabled="@isApproving">
-                        @if (isApproving)
-                        {
-                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                        }
-                        <i class="bi bi-check-circle"></i> Approve
-                    </button>
+                    <button class="ms-btn primary" @onclick="() => confirm = true"><i class="bi bi-check2-circle"></i> Approve</button>
+                    <a class="ms-btn" href="dividends/declarations/financial-year/@FinancialYear/edit"><i class="bi bi-pencil"></i> Edit</a>
                 }
+                else if (d.Status == "Approved")
+                {
+                    <a class="ms-btn primary" href="dividends/process"><i class="bi bi-cash-stack"></i> Process payments</a>
+                }
+                <button class="ms-btn" @onclick="Print"><i class="bi bi-printer"></i> Print</button>
             </div>
+        </section>
+
+        @if (!string.IsNullOrEmpty(error)) { <div class="ms-alert bad ms-mt"><i class="bi bi-exclamation-circle-fill"></i><div>@error</div></div> }
+
+        <div class="ms-grid stats ms-mt">
+            <StatCard Label="Total payout" Icon="bi-cash-stack" Prefix="KES" Value="@d.TotalAmount.ToString("N0")" />
+            <StatCard Label="Paid" Icon="bi-check2-circle" Tone="blue" Prefix="KES" Value="@d.PaidAmount.ToString("N0")" Foot="@($"{pct:0.#}% of total")" />
+            <StatCard Label="Remaining" Icon="bi-hourglass-split" Tone="gold" Prefix="KES" Value="@((d.TotalAmount - d.PaidAmount).ToString("N0"))" />
+            <StatCard Label="Payments" Icon="bi-people" Tone="red" Value="@d.PaymentCount.ToString("N0")" Foot="members" />
         </div>
-    </div>
-}
+
+        <div class="ms-card ms-mt" style="padding:16px 18px">
+            <div style="display:flex;justify-content:space-between;font-weight:700;font-size:13px;margin-bottom:8px"><span>Payout progress</span><span>@pct.ToString("0")%</span></div>
+            <div class="ms-bar"><i style="width:@(Math.Min(100, pct).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></i></div>
+        </div>
+
+        <div class="ms-grid two ms-mt">
+            <section class="ms-card">
+                <div class="ms-card-head"><div><h3>Key dates</h3></div></div>
+                <div class="ms-card-body ms-kv">
+                    <div><small>Declaration date</small><b>@d.DeclarationDate.ToString("d MMMM yyyy")</b></div>
+                    <div><small>Record date</small><b>@d.RecordDate.ToString("d MMMM yyyy")</b></div>
+                    <div><small>Payment date</small><b>@(d.PaymentDate?.ToString("d MMMM yyyy") ?? "Not set")</b></div>
+                    <div><small>Created</small><b>@d.CreatedDate.ToString("d MMM yyyy, HH:mm")</b></div>
+                </div>
+            </section>
+            <section class="ms-card">
+                <div class="ms-card-head"><div><h3>Notes</h3></div></div>
+                <div class="ms-card-body">@(string.IsNullOrWhiteSpace(d.Notes) ? "No notes." : d.Notes)</div>
+            </section>
+        </div>
+    }
+</div>
+
+<ConfirmDialog Open="confirm" Title="Approve declaration" ConfirmText="Approve" Busy="busy" OnConfirm="Approve" OnCancel="() => confirm = false">
+    <p style="margin:0 0 6px">Approve the <b>@d?.FinancialYear</b> dividend of <b>KES @d?.TotalAmount.ToString("N0")</b>?</p>
+    <p class="ms-hint" style="margin:0">Once approved, payments can be processed and the declaration can't be edited.</p>
+</ConfirmDialog>
 
 @code {
-    [Parameter]
-    public string FinancialYear { get; set; }
+    [Parameter] public string FinancialYear { get; set; } = "";
 
-    private DividendDeclarationDto declaration;
-    private bool isLoading = true;
-    private string errorMessage;
-    private string FinancialYearDisplay => FinancialYear?.Replace("-", "/") ?? string.Empty;
+    private DividendDeclarationDto? d;
+    private bool loading = true, busy, confirm;
+    private string error = "";
+    private double pct => d != null && d.TotalAmount > 0 ? (double)(d.PaidAmount / d.TotalAmount) * 100 : 0;
+    private string YearDisplay => FinancialYear?.Replace("-", "/") ?? "";
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync() => await Load();
+
+    private async Task Load()
     {
-        if (string.IsNullOrWhiteSpace(FinancialYear))
-        {
-            errorMessage = "Financial year parameter is required";
-            isLoading = false;
-            return;
-        }
-
+        loading = true; error = "";
         try
         {
-            // Encode the financial year for URL safety
-            var encodedYear = Uri.EscapeDataString(FinancialYear);
-            var client = HttpClientFactory.CreateClient("ApiClient");
-            var response = await client.GetAsync($"api/dividends/declarations/financial-year/{encodedYear}");
-
-            if (response.IsSuccessStatusCode)
-            {
-                declaration = await response.Content.ReadFromJsonAsync<DividendDeclarationDto>();
-            }
-            else
-            {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                errorMessage = response.StatusCode == System.Net.HttpStatusCode.NotFound
-                    ? $"No declaration found for financial year {FinancialYearDisplay}"
-                    : $"Error loading declaration: {response.StatusCode}";
-            }
+            var http = HttpClientFactory.CreateClient("ApiClient");
+            var r = await http.GetAsync($"api/dividends/declarations/financial-year/{Uri.EscapeDataString(FinancialYear)}");
+            if (r.IsSuccessStatusCode) d = await r.Content.ReadFromJsonAsync<DividendDeclarationDto>();
+            else { d = null; if (r.StatusCode != System.Net.HttpStatusCode.NotFound) error = $"The server answered {(int)r.StatusCode}."; }
         }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to load declaration: {ex.Message}";
-        }
-        finally
-        {
-            isLoading = false;
-            StateHasChanged();
-        }
+        catch (Exception ex) { d = null; error = ex.Message; }
+        finally { loading = false; }
     }
 
-    private string GetStatusClass(string status) => status switch
+    private async Task Approve()
     {
-        "Processed" => "bg-success",
-        "Approved" => "bg-primary",
-        "Pending" => "bg-warning",
-        _ => "bg-secondary"
-    };
-
-    private void NavigateToEdit()
-    {
-        if (declaration != null)
-        {
-            NavigationManager.NavigateTo($"/dividends/declarations/{FinancialYear}/edit");
-        }
-    }
-    private bool isApproving = false;
-
-    private async Task ApproveDeclarationAsync()
-    {
-        if (declaration == null)
-            return;
-
-        var confirmed = await JS.InvokeAsync<bool>("confirm", "Are you sure you want to approve this declaration?");
-        if (!confirmed)
-            return;
-
-        isApproving = true;
-
+        if (d == null) return;
+        busy = true;
         try
         {
-            var client = HttpClientFactory.CreateClient("ApiClient");
-            var response = await client.PostAsync($"api/dividends/declarations/{declaration.DeclarationId}/approve", null);
-
-            if (response.IsSuccessStatusCode)
-            {
-                var result = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
-                await JS.InvokeVoidAsync("alert", "Declaration approved successfully.");
-                await OnInitializedAsync(); // Refresh the data
-            }
+            var http = HttpClientFactory.CreateClient("ApiClient");
+            var r = await http.PostAsync($"api/dividends/declarations/{d.DeclarationId}/approve", null);
+            if (r.IsSuccessStatusCode) { await JS.InvokeVoidAsync("ms.toast", "success", "Declaration approved", d.DeclarationNumber); confirm = false; await Load(); }
             else
             {
-                var error = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
-                errorMessage = error.TryGetProperty("message", out var msg)
-                    ? msg.GetString()
-                    : "Failed to approve declaration.";
+                var body = await r.Content.ReadAsStringAsync();
+                error = string.IsNullOrWhiteSpace(body) ? "Failed to approve declaration." : body;
+                confirm = false;
             }
         }
-        catch (Exception ex)
-        {
-            errorMessage = $"Error approving declaration: {ex.Message}";
-        }
-        finally
-        {
-            isApproving = false;
-            StateHasChanged();
-        }
+        catch (Exception ex) { error = $"Error approving declaration: {ex.Message}"; confirm = false; }
+        finally { busy = false; }
     }
 
-
-    private void NavigateToList()
-    {
-        NavigationManager.NavigateTo("/dividends");
-    }
+    private void Back() => NavigationManager.NavigateTo("/dividends");
+    private async Task Print() => await JS.InvokeVoidAsync("print");
 }

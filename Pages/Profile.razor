@@ -1,271 +1,325 @@
-﻿@page "/profile"
-@attribute [Authorize]
-@using System.Security.Claims
-@inject AuthenticationStateProvider AuthState
-@inject NavigationManager Nav
+@page "/profile"
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Forms
+@using SaccoManagementSystem.Services
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+@inject HttpClient Http
+@inject ProfileStore Profiles
 
-<div class="profile-page">
-    <div class="container py-4">
-        <div class="card shadow-lg">
-            <div class="profile-cover bg-primary-gradient"></div>
-            <div class="card-body pt-0">
-                <div class="text-center px-4 pb-4 position-relative">
-                    <!-- Profile Avatar -->
-                    <div class="avatar-container">
-                        <img src="@GetAvatar(user)" class="avatar-xl rounded-circle shadow border border-4 border-white" />
-                        <button class="btn btn-sm btn-light rounded-pill avatar-edit-btn">
-                            <i class="bi bi-camera"></i>
-                        </button>
-                    </div>
+<PageTitle>My profile · @Brand.Name</PageTitle>
 
-                    <!-- User Info -->
-                    <h3 class="mt-3 mb-1">@user.Identity.Name</h3>
-                    <p class="text-muted mb-3">
-                        <i class="bi bi-envelope me-1"></i> @user.FindFirst(ClaimTypes.Email)?.Value
-                    </p>
+<div class="ms-page">
+    @if (loading)
+    {
+        <div class="ms-skel" style="height:170px;border-radius:24px"></div>
+        <div class="ms-grid two ms-mt"><div class="ms-skel" style="height:320px"></div><div class="ms-skel" style="height:320px"></div></div>
+    }
+    else if (ov == null)
+    {
+        <div class="ms-card"><EmptyState Icon="bi-wifi-off" Title="Couldn't load your profile" Text="@(loadError ?? "Please try again.")">
+            <div style="margin-top:14px"><button class="ms-btn" @onclick="Load"><i class="bi bi-arrow-clockwise"></i> Retry</button></div></EmptyState></div>
+    }
+    else
+    {
+        <section class="ms-hero pf-hero">
+            <div class="pf-photo">
+                <span class="ms-avatar xl">
+                    @if (!string.IsNullOrEmpty(prof.Photo)) { <img src="@prof.Photo" alt="Your photo" /> } else { @Initials }
+                </span>
+                <label class="pf-cam" title="Change photo"><i class="bi bi-camera-fill"></i><InputFile OnChange="OnPhoto" accept="image/png,image/jpeg,image/webp" aria-label="Upload a photo" /></label>
+            </div>
+            <div style="position:relative;z-index:1;min-width:0">
+                <h2>@first @last</h2>
+                <div class="pf-sub">@(string.IsNullOrWhiteSpace(prof.JobTitle) ? ov.User.Role : prof.JobTitle)@(string.IsNullOrWhiteSpace(prof.Branch) ? "" : " · " + prof.Branch)</div>
+                <div class="meta">
+                    <span><i class="bi bi-envelope"></i>@ov.User.Email</span>
+                    @if (!string.IsNullOrWhiteSpace(phone)) { <span><i class="bi bi-telephone"></i>@phone</span> }
+                    <span><i class="bi bi-person-badge"></i>@ov.User.Role</span>
+                    @if (!string.IsNullOrWhiteSpace(prof.StaffNo)) { <span><i class="bi bi-hash"></i>@prof.StaffNo</span> }
+                </div>
+                @if (!string.IsNullOrEmpty(prof.Photo)) { <button type="button" class="pf-link" @onclick="RemovePhoto">Remove photo</button> }
+            </div>
+            <div class="pf-done">
+                <div class="cc-ring" style="--v:@Complete"><b>@Complete%</b></div>
+                <div><b>Profile complete</b><small>@(Complete >= 100 ? "Everything is filled in." : "Add " + string.Join(", ", MissingBits.Take(2)) + ".")</small></div>
+            </div>
+        </section>
 
-                    <!-- Action Buttons -->
-                    <div class="d-flex justify-content-center gap-3 mb-4">
-                        <button class="btn btn-primary btn-sm rounded-pill px-3" @onclick="GoToDashboard">
-                            <i class="bi bi-speedometer2 me-1"></i> Dashboard
-                        </button>
-                        <button class="btn btn-outline-danger btn-sm rounded-pill px-3" @onclick="Logout">
-                            <i class="bi bi-box-arrow-right me-1"></i> Logout
-                        </button>
-                    </div>
+        <div class="ms-grid stats ms-mt">
+            <StatCard Label="Security score" Icon="bi-shield-check" Value="@(ov.Score + "%")" Foot="@(ov.Score >= 80 ? "Strong" : ov.Score >= 60 ? "Good, can improve" : "Needs attention")" />
+            <StatCard Label="Two-step sign-in" Icon="bi-phone" Tone="@(ov.TotpEnabled ? "blue" : "red")" Value="@(ov.TotpEnabled ? "On" : "Off")" Foot="@(ov.TotpEnabled ? $"{ov.BackupCodesLeft} backup codes left" : "Authenticator app not set up")" />
+            <StatCard Label="Passkeys" Icon="bi-fingerprint" Tone="gold" Value="@ov.Passkeys.Count.ToString()" Foot="@(ov.Passkeys.Count == 0 ? "None registered" : "Fingerprint / face / key")" />
+            <StatCard Label="Active sessions" Icon="bi-laptop" Tone="red" Value="@ov.Sessions.Count.ToString()" Foot="@($"{ov.Devices.Count} known devices")" />
+        </div>
 
-                    <!-- Quick Stats -->
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-4">
-                            <div class="stat-card bg-light p-3 rounded-3 text-center">
-                                <div class="stat-icon text-primary mb-2">
-                                    <i class="bi bi-person-badge fs-4"></i>
-                                </div>
-                                <div class="stat-label text-muted small">Member ID</div>
-                                <div class="stat-value fw-bold">JKL-12345</div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="stat-card bg-light p-3 rounded-3 text-center">
-                                <div class="stat-icon text-success mb-2">
-                                    <i class="bi bi-calendar-check fs-4"></i>
-                                </div>
-                                <div class="stat-label text-muted small">Joined</div>
-                                <div class="stat-value fw-bold">Jan 5, 2023</div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="stat-card bg-light p-3 rounded-3 text-center">
-                                <div class="stat-icon text-warning mb-2">
-                                    <i class="bi bi-coin fs-4"></i>
-                                </div>
-                                <div class="stat-label text-muted small">Shares</div>
-                                <div class="stat-value fw-bold">KES 12,500</div>
-                            </div>
-                        </div>
-                    </div>
+        @if (!string.IsNullOrEmpty(formError)) { <div class="ms-alert bad ms-mt"><i class="bi bi-exclamation-circle-fill"></i><div>@formError</div></div> }
 
-                    <!-- About Section -->
-                    <div class="profile-section mb-4">
-                        <div class="section-header d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="mb-0">
-                                <i class="bi bi-person-lines-fill text-primary me-2"></i>About Me
-                            </h5>
-                            <button class="btn btn-sm btn-outline-secondary">Edit</button>
-                        </div>
-                        <div class="section-content bg-light p-3 rounded">
-                            <p class="mb-0">
-                                Enthusiastic SACCO member, passionate about saving and investment.
-                                Actively participates in community financial literacy sessions.
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- Contact Info -->
-                    <div class="profile-section mb-4">
-                        <div class="section-header d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="mb-0">
-                                <i class="bi bi-telephone text-primary me-2"></i>Contact Info
-                            </h5>
-                            <button class="btn btn-sm btn-outline-secondary">Edit</button>
-                        </div>
-                        <div class="row g-2">
-                            <div class="col-md-6">
-                                <div class="contact-item bg-light p-3 rounded d-flex align-items-center">
-                                    <div class="contact-icon bg-primary text-white rounded-circle me-3">
-                                        <i class="bi bi-envelope-fill"></i>
-                                    </div>
-                                    <div>
-                                        <div class="contact-label small text-muted">Email</div>
-                                        <div>jane.doe@example.com</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="contact-item bg-light p-3 rounded d-flex align-items-center">
-                                    <div class="contact-icon bg-success text-white rounded-circle me-3">
-                                        <i class="bi bi-telephone-fill"></i>
-                                    </div>
-                                    <div>
-                                        <div class="contact-label small text-muted">Phone</div>
-                                        <div>+254 700 123456</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="contact-item bg-light p-3 rounded d-flex align-items-center">
-                                    <div class="contact-icon bg-info text-white rounded-circle me-3">
-                                        <i class="bi bi-geo-alt-fill"></i>
-                                    </div>
-                                    <div>
-                                        <div class="contact-label small text-muted">Location</div>
-                                        <div>Nairobi, Kenya</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="contact-item bg-light p-3 rounded d-flex align-items-center">
-                                    <div class="contact-icon bg-warning text-white rounded-circle me-3">
-                                        <i class="bi bi-shield-lock-fill"></i>
-                                    </div>
-                                    <div>
-                                        <div class="contact-label small text-muted">ID Number</div>
-                                        <div>12345678</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Social Links -->
-                    <div class="profile-section mb-4">
-                        <div class="section-header mb-3">
-                            <h5 class="mb-0">
-                                <i class="bi bi-people text-primary me-2"></i>Social Links
-                            </h5>
-                        </div>
-                        <div class="d-flex justify-content-center gap-2">
-                            <a href="#" class="social-btn btn btn-outline-primary rounded-circle">
-                                <i class="bi bi-twitter"></i>
-                            </a>
-                            <a href="#" class="social-btn btn btn-outline-primary rounded-circle">
-                                <i class="bi bi-linkedin"></i>
-                            </a>
-                            <a href="#" class="social-btn btn btn-outline-primary rounded-circle">
-                                <i class="bi bi-facebook"></i>
-                            </a>
-                            <a href="#" class="social-btn btn btn-outline-primary rounded-circle">
-                                <i class="bi bi-whatsapp"></i>
-                            </a>
-                        </div>
-                    </div>
-
-                    <!-- Recent Activity -->
-                    <div class="profile-section mb-4">
-                        <div class="section-header d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="mb-0">
-                                <i class="bi bi-clock-history text-primary me-2"></i>Recent Activity
-                            </h5>
-                            <a href="#" class="btn btn-sm btn-outline-primary">View All</a>
-                        </div>
-                        <div class="activity-timeline">
-                            <div class="timeline-item">
-                                <div class="timeline-badge bg-success"></div>
-                                <div class="timeline-content bg-light p-3 rounded">
-                                    <div class="d-flex justify-content-between">
-                                        <span class="fw-bold">Deposit</span>
-                                        <small class="text-muted">Jun 20, 2025</small>
-                                    </div>
-                                    <p class="mb-0">Saved KES 15,000 to your account</p>
-                                </div>
-                            </div>
-                            <div class="timeline-item">
-                                <div class="timeline-badge bg-info"></div>
-                                <div class="timeline-content bg-light p-3 rounded">
-                                    <div class="d-flex justify-content-between">
-                                        <span class="fw-bold">Loan Payment</span>
-                                        <small class="text-muted">Jun 15, 2025</small>
-                                    </div>
-                                    <p class="mb-0">Repaid loan installment of KES 5,200</p>
-                                </div>
-                            </div>
-                            <div class="timeline-item">
-                                <div class="timeline-badge bg-warning"></div>
-                                <div class="timeline-content bg-light p-3 rounded">
-                                    <div class="d-flex justify-content-between">
-                                        <span class="fw-bold">Document Upload</span>
-                                        <small class="text-muted">Jun 10, 2025</small>
-                                    </div>
-                                    <p class="mb-0">Submitted ID copy for verification</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Progress Stats -->
-                    <div class="profile-section">
-                        <div class="section-header mb-3">
-                            <h5 class="mb-0">
-                                <i class="bi bi-bar-chart text-primary me-2"></i>Financial Progress
-                            </h5>
-                        </div>
-                        <div class="progress-stats">
-                            <div class="progress-item mb-3">
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span>Savings Goal (KES 100,000)</span>
-                                    <span>75%</span>
-                                </div>
-                                <div class="progress" style="height: 10px;">
-                                    <div class="progress-bar bg-success progress-bar-striped" style="width: 75%"></div>
-                                </div>
-                            </div>
-                            <div class="progress-item mb-3">
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span>Loan Repayment (KES 50,000)</span>
-                                    <span>50%</span>
-                                </div>
-                                <div class="progress" style="height: 10px;">
-                                    <div class="progress-bar bg-info progress-bar-striped" style="width: 50%"></div>
-                                </div>
-                            </div>
-                            <div class="progress-item">
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span>Emergency Fund (KES 30,000)</span>
-                                    <span>30%</span>
-                                </div>
-                                <div class="progress" style="height: 10px;">
-                                    <div class="progress-bar bg-warning progress-bar-striped" style="width: 30%"></div>
-                                </div>
-                            </div>
-                        </div>
+        <div class="ms-grid two ms-mt">
+            <section class="ms-card">
+                <div class="ms-card-head"><div><h3><i class="bi bi-person"></i> Personal details</h3><p>Email is your sign-in and can't be changed here.</p></div></div>
+                <div class="ms-card-body">
+                    <div class="ms-grid-form">
+                        <Field Class="c6" Label="First name" Required="true"><input class="ms-input" @bind="first" @bind:event="oninput" autocomplete="given-name" /></Field>
+                        <Field Class="c6" Label="Last name" Required="true"><input class="ms-input" @bind="last" @bind:event="oninput" autocomplete="family-name" /></Field>
+                        <Field Class="c6" Label="Mobile" Hint="Used for SMS codes"><input class="ms-input" type="tel" @bind="phone" @bind:event="oninput" autocomplete="tel" placeholder="+254 712 345 678" /></Field>
+                        <Field Class="c6" Label="Other phone"><input class="ms-input" type="tel" @bind="prof.AltPhone" @bind:event="oninput" placeholder="Optional" /></Field>
+                        <Field Class="c6" Label="Email"><input class="ms-input" value="@ov.User.Email" disabled /></Field>
+                        <Field Class="c6" Label="Date of birth"><input class="ms-input" type="date" value="@(prof.DateOfBirth?.ToString("yyyy-MM-dd"))" @onchange="OnDob" /></Field>
+                        <Field Class="c6" Label="Gender">
+                            <select class="ms-select" @bind="prof.Gender"><option value="">Prefer not to say</option><option>Female</option><option>Male</option></select>
+                        </Field>
+                        <Field Class="c6" Label="Preferred language">
+                            <select class="ms-select" @bind="prof.Language"><option>English</option><option>Kiswahili</option></select>
+                        </Field>
+                        <Field Class="c12" Label="About me" Hint="A line colleagues will see."><textarea class="ms-input" rows="2" maxlength="600" style="height:auto;padding-top:10px" @bind="prof.Bio" @bind:event="oninput"></textarea></Field>
                     </div>
                 </div>
-            </div>
+            </section>
+
+            <section class="ms-card">
+                <div class="ms-card-head"><div><h3><i class="bi bi-briefcase"></i> Work</h3><p>Where you sit in the SACCO.</p></div></div>
+                <div class="ms-card-body">
+                    <div class="ms-grid-form">
+                        <Field Class="c6" Label="Staff number"><input class="ms-input" @bind="prof.StaffNo" @bind:event="oninput" maxlength="30" /></Field>
+                        <Field Class="c6" Label="Job title"><input class="ms-input" @bind="prof.JobTitle" @bind:event="oninput" placeholder="e.g. Credit Officer" maxlength="80" /></Field>
+                        <Field Class="c6" Label="Department">
+                            <select class="ms-select" @bind="prof.Department"><option value="">Choose</option>@foreach (var d in Departments) { <option>@d</option> }</select>
+                        </Field>
+                        <Field Class="c6" Label="Branch"><input class="ms-input" @bind="prof.Branch" @bind:event="oninput" placeholder="e.g. Head office" maxlength="80" /></Field>
+                    </div>
+                </div>
+                <div class="ms-card-head" style="border-top:1px solid var(--ms-border)"><div><h3><i class="bi bi-person-vcard"></i> Identity and address</h3><p>Kept private. Used for HR and statutory returns.</p></div></div>
+                <div class="ms-card-body">
+                    <div class="ms-grid-form">
+                        <Field Class="c6" Label="National ID number"><input class="ms-input" inputmode="numeric" maxlength="9" @bind="prof.NationalId" @bind:event="oninput" /></Field>
+                        <Field Class="c6" Label="KRA PIN"><input class="ms-input" maxlength="11" style="text-transform:uppercase" @bind="prof.KraPin" @bind:event="oninput" placeholder="A001234567Z" /></Field>
+                        <Field Class="c6" Label="County">
+                            <select class="ms-select" @bind="prof.County"><option value="">Choose county</option>@foreach (var c in ProfileStore.Counties) { <option>@c</option> }</select>
+                        </Field>
+                        <Field Class="c6" Label="Postal address"><input class="ms-input" @bind="prof.PostalAddress" @bind:event="oninput" placeholder="P.O. Box 123-00100" /></Field>
+                    </div>
+                </div>
+            </section>
         </div>
-    </div>
+
+        <div class="ms-grid two ms-mt">
+            <section class="ms-card">
+                <div class="ms-card-head"><div><h3><i class="bi bi-people"></i> Next of kin</h3><p>Who we contact in an emergency.</p></div></div>
+                <div class="ms-card-body">
+                    <div class="ms-grid-form">
+                        <Field Class="c12" Label="Full name"><input class="ms-input" @bind="prof.NextOfKinName" @bind:event="oninput" maxlength="120" /></Field>
+                        <Field Class="c6" Label="Relationship">
+                            <select class="ms-select" @bind="prof.NextOfKinRelation"><option value="">Choose</option>@foreach (var r in Relations) { <option>@r</option> }</select>
+                        </Field>
+                        <Field Class="c6" Label="Phone"><input class="ms-input" type="tel" @bind="prof.NextOfKinPhone" @bind:event="oninput" placeholder="+254 7…" /></Field>
+                    </div>
+                </div>
+            </section>
+
+            <section class="ms-card">
+                <div class="ms-card-head"><div><h3><i class="bi bi-shield-lock"></i> Sign-in security</h3></div><a class="ms-btn sm" href="settings?tab=security-center">Manage</a></div>
+                <div class="ms-card-body ms-kv">
+                    <div><small>Password last changed</small><b>@(ov.PasswordChangedUtc?.ToLocalTime().ToString("d MMM yyyy") ?? "Never")</b></div>
+                    <div><small>Authenticator app</small><b>@(ov.TotpEnabled ? "Enabled" : "Not set up")</b></div>
+                    <div><small>Passkeys</small><b>@(ov.Passkeys.Count == 0 ? "None" : string.Join(", ", ov.Passkeys.Select(p => p.Name)))</b></div>
+                    <div><small>Code by email / SMS</small><b>@(ov.OtpFallbackEnabled ? "Allowed as a fallback" : "Off")</b></div>
+                </div>
+                <div class="ms-card-body ms-quick" style="padding-top:0">
+                    <a href="settings?tab=security-center"><i class="bi bi-fingerprint"></i>Passkeys &amp; biometrics</a>
+                    <a href="settings?tab=appearance"><i class="bi bi-palette"></i>Appearance</a>
+                </div>
+            </section>
+        </div>
+
+        <section class="ms-card ms-mt">
+            <div class="ms-card-head"><div><h3>Recent sign-in activity</h3><p>If something here isn't you, change your password and sign out other sessions.</p></div></div>
+            @if (ov.History.Count == 0)
+            {
+                <EmptyState Icon="bi-clock-history" Title="No activity yet" Text="Sign-ins and security changes will show here." />
+            }
+            else
+            {
+                <div class="ms-table-wrap"><table class="ms-table">
+                    <thead><tr><th>When</th><th>Event</th><th>Device</th><th>IP</th><th>Outcome</th></tr></thead>
+                    <tbody>
+                        @foreach (var e in ov.History.Take(10))
+                        {
+                            <tr>
+                                <td class="ms-num">@e.CreatedUtc.ToLocalTime().ToString("d MMM, HH:mm")</td>
+                                <td>@Title(e.EventType)@(string.IsNullOrEmpty(e.Detail) ? "" : " · " + e.Detail)</td>
+                                <td>@e.Device</td>
+                                <td class="ms-num">@e.Ip</td>
+                                <td><StatusPill Status="@(e.Success ? "Success" : "Failed")" /></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table></div>
+            }
+        </section>
+
+        @if (Dirty)
+        {
+            <div class="ms-savebar" role="status">
+                <i class="bi bi-pencil-square"></i>
+                <span>You have unsaved changes</span>
+                <button type="button" class="ms-btn" @onclick="Reset">Discard</button>
+                <button type="button" class="ms-btn primary @(saving ? "busy" : "")" disabled="@saving" @onclick="Save">@if (saving) { <span class="ms-spin"></span> } Save changes</button>
+            </div>
+        }
+    }
 </div>
 
 @code {
-    private ClaimsPrincipal user;
+    private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
+    private static readonly string[] Departments = { "Management", "Finance & accounts", "Credit", "Member services", "Marketing", "ICT", "Operations", "Audit & compliance", "Human resources", "Board" };
+    private static readonly string[] Relations = { "Spouse", "Parent", "Child", "Sibling", "Relative", "Friend", "Guardian" };
 
-    protected override async Task OnInitializedAsync()
+    private Overview? ov;
+    private UserProfile prof = new(), origProf = new();
+    private bool loading = true, saving;
+    private string? loadError, formError;
+    private string first = "", last = "", phone = "";
+
+    private string Initials
     {
-        var auth = await AuthState.GetAuthenticationStateAsync();
-        user = auth.User;
+        get
+        {
+            var a = (first ?? "").Trim(); var b = (last ?? "").Trim();
+            return ((a.Length > 0 ? a[..1] : "") + (b.Length > 0 ? b[..1] : "")).ToUpperInvariant();
+        }
     }
 
-    private string GetAvatar(ClaimsPrincipal u)
+    private bool BasicDirty => ov != null && (first.Trim() != ov.User.FirstName || last.Trim() != ov.User.LastName || (phone ?? "").Trim() != (ov.User.Phone ?? ""));
+    private bool ExtraDirty => JsonSerializer.Serialize(prof) != JsonSerializer.Serialize(origProf);
+    private bool Dirty => BasicDirty || ExtraDirty;
+
+    private IEnumerable<string> MissingBits
     {
-        var avatar = u.FindFirst("avatar")?.Value;
-        return string.IsNullOrEmpty(avatar) ? "/images/default-avatar.png" : avatar;
+        get
+        {
+            if (string.IsNullOrEmpty(prof.Photo)) yield return "a photo";
+            if (string.IsNullOrWhiteSpace(phone)) yield return "your mobile";
+            if (string.IsNullOrWhiteSpace(prof.JobTitle)) yield return "your job title";
+            if (string.IsNullOrWhiteSpace(prof.Branch)) yield return "your branch";
+            if (string.IsNullOrWhiteSpace(prof.NationalId)) yield return "your ID number";
+            if (string.IsNullOrWhiteSpace(prof.KraPin)) yield return "your KRA PIN";
+            if (string.IsNullOrWhiteSpace(prof.County)) yield return "your county";
+            if (string.IsNullOrWhiteSpace(prof.NextOfKinName)) yield return "a next of kin";
+        }
+    }
+    private int Complete => (int)Math.Round(100.0 * (8 - MissingBits.Count()) / 8);
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task<(bool Ok, int Status, string? Message, JsonElement Body)> Call(string method, string url, object? body = null)
+    {
+        var el = await JS.InvokeAsync<JsonElement>("ms.api", method, url, body);
+        bool ok = el.TryGetProperty("ok", out var o) && o.GetBoolean();
+        int status = el.TryGetProperty("status", out var s) ? s.GetInt32() : 0;
+        string? msg = null; JsonElement b = default;
+        if (el.TryGetProperty("body", out b) && b.ValueKind == JsonValueKind.Object && b.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String) msg = m.GetString();
+        if (status == 401) Navigation.NavigateTo("/login", forceLoad: true);
+        return (ok, status, msg, b);
     }
 
-    private void GoToDashboard() => Nav.NavigateTo("/dashboard", true);
-
-    private void Logout()
+    private async Task Load()
     {
-        if (AuthState is CustomAuthStateProvider custom)
-            custom.NotifyUserLogout();
-        Nav.NavigateTo("/login", true);
+        loading = ov == null; loadError = null;
+        try
+        {
+            var r = await Http.GetAsync($"{Navigation.BaseUri}api/profile");
+            if (r.IsSuccessStatusCode) prof = await r.Content.ReadFromJsonAsync<UserProfile>(Json) ?? new();
+        }
+        catch { }
+        origProf = prof.Copy();
+        try
+        {
+            var r = await Call("GET", "/api/security/overview");
+            if (r.Ok) { ov = JsonSerializer.Deserialize<Overview>(r.Body.GetRawText(), Json); ResetBasic(); }
+            else loadError = r.Message ?? $"The server answered {r.Status}.";
+        }
+        catch (Exception ex) { loadError = ex.Message; }
+        loading = false;
     }
+
+    // JS interop isn't available while pre-rendering; load again once connected.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && ov == null && loadError != null) { await Load(); StateHasChanged(); }
+    }
+
+    private void ResetBasic()
+    {
+        if (ov == null) return;
+        first = ov.User.FirstName; last = ov.User.LastName; phone = ov.User.Phone ?? "";
+    }
+
+    private void Reset() { ResetBasic(); prof = origProf.Copy(); formError = null; }
+
+    private void OnDob(ChangeEventArgs e) => prof.DateOfBirth = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : null;
+
+    private async Task OnPhoto(InputFileChangeEventArgs e)
+    {
+        formError = null;
+        var f = e.File;
+        if (f.ContentType is not ("image/png" or "image/jpeg" or "image/webp")) { formError = "Please choose a JPG, PNG or WebP photo."; return; }
+        if (f.Size > 1_000_000) { formError = "That photo is larger than 1 MB. Try a smaller one."; return; }
+        using var ms = new MemoryStream();
+        await f.OpenReadStream(1_000_000).CopyToAsync(ms);
+        prof.Photo = "data:" + f.ContentType + ";base64," + Convert.ToBase64String(ms.ToArray());
+    }
+
+    private void RemovePhoto() => prof.Photo = "";
+
+    private async Task Save()
+    {
+        formError = null;
+        if (string.IsNullOrWhiteSpace(first) || string.IsNullOrWhiteSpace(last)) { formError = "First and last name are required."; return; }
+        var err = ProfileStore.Validate(prof);
+        if (err != null) { formError = err; return; }
+        saving = true;
+        try
+        {
+            if (BasicDirty)
+            {
+                var r = await Call("POST", "/api/security/profile", new { firstName = first.Trim(), lastName = last.Trim(), phone = phone?.Trim() });
+                if (!r.Ok) { formError = r.Message ?? "Couldn't save your details."; return; }
+            }
+            if (ExtraDirty)
+            {
+                var r = await Http.PutAsJsonAsync($"{Navigation.BaseUri}api/profile", prof);
+                if (!r.IsSuccessStatusCode)
+                {
+                    var body = await r.Content.ReadAsStringAsync();
+                    try { using var d = JsonDocument.Parse(body); formError = d.RootElement.GetProperty("message").GetString(); } catch { formError = "Couldn't save your profile (" + (int)r.StatusCode + ")."; }
+                    return;
+                }
+            }
+            await JS.InvokeVoidAsync("ms.toast", "success", "Profile updated");
+            await Load();
+        }
+        finally { saving = false; }
+    }
+
+    private static string Title(string s) { var t = (s ?? "").Replace('-', ' ').Replace('_', ' '); return t.Length == 0 ? "-" : char.ToUpper(t[0]) + t[1..]; }
+
+    private sealed class Overview
+    {
+        public UserDto User { get; set; } = new();
+        public bool TotpEnabled { get; set; }
+        public bool OtpFallbackEnabled { get; set; }
+        public int BackupCodesLeft { get; set; }
+        public DateTime? PasswordChangedUtc { get; set; }
+        public int Score { get; set; }
+        public List<PasskeyDto> Passkeys { get; set; } = new();
+        public List<DeviceDto> Devices { get; set; } = new();
+        public List<SessionDto> Sessions { get; set; } = new();
+        public List<EventDto> History { get; set; } = new();
+    }
+    private sealed class UserDto { public int Id { get; set; } public string FirstName { get; set; } = ""; public string LastName { get; set; } = ""; public string Email { get; set; } = ""; public string? Phone { get; set; } public string Role { get; set; } = ""; }
+    private sealed class PasskeyDto { public int Id { get; set; } public string Name { get; set; } = ""; }
+    private sealed class DeviceDto { public int Id { get; set; } }
+    private sealed class SessionDto { public Guid Id { get; set; } }
+    private sealed class EventDto { public long Id { get; set; } public string EventType { get; set; } = ""; public bool Success { get; set; } public string Ip { get; set; } = ""; public string Device { get; set; } = ""; public string? Detail { get; set; } public DateTime CreatedUtc { get; set; } }
 }

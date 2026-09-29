@@ -1,66 +1,58 @@
-﻿@using System.ComponentModel.DataAnnotations
 @using Sacco_Management_System.Models
 
-<div class="row g-3">
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="maxLoanAmount" class="form-label">Maximum Loan Amount (Multiple of Shares) *</label>
-            <InputNumber id="maxLoanAmount" @bind-Value="Settings.MaxLoanAmountMultiple" class="form-control"
-                         @oninput="() => OnSettingsChanged?.Invoke()" />
+<div class="ms-group" style="padding-top:22px">
+    <h4>Limits</h4>
+    <p class="sub">How much and how long members can borrow.</p>
+    <div class="ms-form-grid">
+        <div class="ms-field">
+            <label class="ms-label" for="mult">Maximum loan (multiple of shares) <span class="req">*</span></label>
+            <div class="ms-adorn"><InputNumber id="mult" @bind-Value="Settings.MaxLoanAmountMultiple" @bind-Value:after="Changed" class="ms-input suf" /><em class="end">×</em></div>
             <ValidationMessage For="@(() => Settings.MaxLoanAmountMultiple)" />
         </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="loanProcessingFee" class="form-label">Loan Processing Fee (%) *</label>
-            <InputNumber id="loanProcessingFee" @bind-Value="Settings.LoanProcessingFee" class="form-control"
-                         @oninput="() => OnSettingsChanged?.Invoke()" />
-            <ValidationMessage For="@(() => Settings.LoanProcessingFee)" />
-        </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="loanInterestRate" class="form-label">Loan Interest Rate (%) *</label>
-            <InputNumber id="loanInterestRate" @bind-Value="Settings.LoanInterestRate" class="form-control"
-                         @oninput="() => OnSettingsChanged?.Invoke()" />
-            <ValidationMessage For="@(() => Settings.LoanInterestRate)" />
-        </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="loanRepaymentPeriod" class="form-label">Maximum Repayment Period (Months) *</label>
-            <InputNumber id="loanRepaymentPeriod" @bind-Value="Settings.MaxLoanRepaymentPeriod" class="form-control"
-                         @oninput="() => OnSettingsChanged?.Invoke()" />
+        <div class="ms-field">
+            <label class="ms-label" for="term">Maximum repayment period <span class="req">*</span></label>
+            <div class="ms-adorn"><InputNumber id="term" @bind-Value="Settings.MaxLoanRepaymentPeriod" @bind-Value:after="Changed" class="ms-input suf" /><em class="end">mo</em></div>
             <ValidationMessage For="@(() => Settings.MaxLoanRepaymentPeriod)" />
         </div>
     </div>
+</div>
 
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="loanGuarantorsRequired" class="form-label">Minimum Guarantors Required *</label>
-            <InputNumber id="loanGuarantorsRequired" @bind-Value="Settings.MinGuarantorsRequired" class="form-control"
-                         @oninput="() => OnSettingsChanged?.Invoke()" />
-            <ValidationMessage For="@(() => Settings.MinGuarantorsRequired)" />
+<div class="ms-group">
+    <h4>Pricing</h4>
+    <p class="sub">Default interest and fees charged on new loans.</p>
+    <div class="ms-form-grid">
+        <div class="ms-field">
+            <label class="ms-label" for="rate">Interest rate <span class="req">*</span></label>
+            <div class="ms-adorn"><InputNumber id="rate" @bind-Value="Settings.LoanInterestRate" @bind-Value:after="Changed" class="ms-input suf" /><em class="end">%</em></div>
+            <ValidationMessage For="@(() => Settings.LoanInterestRate)" />
+        </div>
+        <div class="ms-field">
+            <label class="ms-label" for="fee">Processing fee <span class="req">*</span></label>
+            <div class="ms-adorn"><InputNumber id="fee" @bind-Value="Settings.LoanProcessingFee" @bind-Value:after="Changed" class="ms-input suf" /><em class="end">%</em></div>
+            <ValidationMessage For="@(() => Settings.LoanProcessingFee)" />
         </div>
     </div>
+</div>
 
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="loanEligibilityPeriod" class="form-label">Membership Eligibility Period (Months) *</label>
-            <InputNumber id="loanEligibilityPeriod" @bind-Value="Settings.LoanEligibilityPeriod" class="form-control"
-                         @oninput="() => OnSettingsChanged?.Invoke()" />
+<div class="ms-group">
+    <h4>Eligibility</h4>
+    <p class="sub">Who can apply and what security they need.</p>
+    <div class="ms-form-grid">
+        <div class="ms-field">
+            <label class="ms-label" for="guar">Minimum guarantors <span class="req">*</span></label>
+            <InputNumber id="guar" @bind-Value="Settings.MinGuarantorsRequired" @bind-Value:after="Changed" class="ms-input" />
+            <ValidationMessage For="@(() => Settings.MinGuarantorsRequired)" />
+        </div>
+        <div class="ms-field">
+            <label class="ms-label" for="elig">Membership period before borrowing <span class="req">*</span></label>
+            <div class="ms-adorn"><InputNumber id="elig" @bind-Value="Settings.LoanEligibilityPeriod" @bind-Value:after="Changed" class="ms-input suf" /><em class="end">mo</em></div>
             <ValidationMessage For="@(() => Settings.LoanEligibilityPeriod)" />
         </div>
     </div>
 </div>
 
 @code {
-    [Parameter]
-    public SaccoSettings Settings { get; set; } = new();
-
-    [Parameter]
-    public Action? OnSettingsChanged { get; set; }
+    [Parameter] public SaccoSettings Settings { get; set; } = new();
+    [Parameter] public Action? OnSettingsChanged { get; set; }
+    private void Changed() => OnSettingsChanged?.Invoke();
 }

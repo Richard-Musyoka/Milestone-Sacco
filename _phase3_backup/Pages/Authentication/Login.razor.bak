@@ -1,0 +1,311 @@
+@layout DefaultLayout
+@page "/login"
+@attribute [AllowAnonymous]
+@using System.Text.Json
+@using SaccoManagementSystem.Security
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject SecurityStore Store
+@inject IConfiguration Config
+
+<PageTitle>Sign in · @Brand.Name</PageTitle>
+
+<div class="ms-auth">
+    <section class="ms-auth-hero">
+        <div class="ms-brand" style="padding:0">
+            <div class="ms-brand-mark"><i class="bi bi-people-fill"></i></div>
+            <div><div class="ms-brand-name" style="font-size:18px">@Brand.Name</div><div class="ms-brand-tag">@Brand.Tagline</div></div>
+        </div>
+        <h1>Run your SACCO with clarity and confidence.</h1>
+        <p>Members, savings, loans, shares and dividends — in one secure workspace built for your team.</p>
+        <ul class="ms-auth-points">
+            <li><i class="bi bi-phone"></i> Authenticator app &amp; backup codes</li>
+            <li><i class="bi bi-fingerprint"></i> Passkeys — Face ID, Touch ID, Windows Hello</li>
+            <li><i class="bi bi-laptop"></i> Trusted devices and full sign-in history</li>
+        </ul>
+    </section>
+
+    <section class="ms-auth-side">
+        <div class="ms-auth-card">
+            @if (step == "password")
+            {
+                <h2>Welcome back</h2>
+                <p>Sign in to your @Brand.Name workspace.</p>
+
+                @if (!string.IsNullOrEmpty(error)) { <div class="ms-alert bad" role="alert"><i class="bi bi-exclamation-circle-fill"></i><div>@error</div></div> }
+                @if (!string.IsNullOrEmpty(notice)) { <div class="ms-alert ok"><i class="bi bi-check-circle-fill"></i><div>@notice</div></div> }
+
+                <form @onsubmit="SubmitPassword" @onsubmit:preventDefault="true">
+                    <div class="ms-field">
+                        <label class="ms-label" for="email">Email</label>
+                        <input id="email" class="ms-input" type="email" autocomplete="username webauthn" placeholder="you@sacco.co.ke" @bind="email" @bind:event="oninput" />
+                    </div>
+                    <div class="ms-field">
+                        <label class="ms-label" for="password">Password</label>
+                        <div class="ms-input-wrap">
+                            <input id="password" class="ms-input" type="@(showPwd ? "text" : "password")" autocomplete="current-password" placeholder="••••••••" @bind="password" @bind:event="oninput" />
+                            <button type="button" @onclick="() => showPwd = !showPwd" aria-label="@(showPwd ? "Hide password" : "Show password")"><i class="bi @(showPwd ? "bi-eye-slash" : "bi-eye")"></i></button>
+                        </div>
+                    </div>
+                    <div class="ms-auth-links">
+                        <label class="ms-check"><input type="checkbox" @bind="remember" /> Keep me signed in</label>
+                        <span class="ms-hint">Forgot it? Ask your administrator.</span>
+                    </div>
+                    <button type="submit" class="ms-btn primary block @(busy ? "busy" : "")" style="height:46px">
+                        @if (busy) { <span class="ms-spin"></span> } Sign in
+                    </button>
+                </form>
+
+                @if (passkeysSupported)
+                {
+                    <div class="ms-divider">or</div>
+                    <button type="button" class="ms-btn block @(busy ? "busy" : "")" style="height:46px" @onclick="PasskeySignIn"><i class="bi bi-fingerprint"></i> Sign in with a passkey</button>
+                }
+
+                @if (allowRegistration)
+                {
+                    <p class="ms-hint" style="text-align:center;margin-top:22px">New here? <a href="register" style="color:var(--ms-accent);font-weight:700">Create an account</a></p>
+                }
+            }
+            else if (step == "mfa")
+            {
+                <h2>Verify it's you</h2>
+                <p>Two-step verification protects your account.</p>
+
+                @if (!string.IsNullOrEmpty(error)) { <div class="ms-alert bad" role="alert"><i class="bi bi-exclamation-circle-fill"></i><div>@error</div></div> }
+
+                <div class="ms-step-tabs" role="tablist">
+                    @foreach (var m in AvailableMethods)
+                    {
+                        <button type="button" role="tab" class="@(method == m.Key ? "on" : "")" @onclick="() => PickMethod(m.Key)">@m.Value</button>
+                    }
+                </div>
+
+                @if (method == "totp")
+                {
+                    <form @onsubmit="SubmitCode" @onsubmit:preventDefault="true">
+                        <div class="ms-field">
+                            <label class="ms-label" for="code">6-digit code from your authenticator app</label>
+                            <input id="code" class="ms-input ms-code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="000000" @bind="code" @bind:event="oninput" />
+                        </div>
+                        <TrustBox @bind-Value="trust" />
+                        <button type="submit" class="ms-btn primary block @(busy ? "busy" : "")" style="height:46px">@if (busy) { <span class="ms-spin"></span> } Verify</button>
+                    </form>
+                }
+                else if (method == "backup")
+                {
+                    <form @onsubmit="SubmitCode" @onsubmit:preventDefault="true">
+                        <div class="ms-field">
+                            <label class="ms-label" for="code">Backup code</label>
+                            <input id="code" class="ms-input" autocomplete="off" placeholder="abcde-12345" @bind="code" @bind:event="oninput" />
+                            <span class="ms-hint">Each backup code works once.</span>
+                        </div>
+                        <TrustBox @bind-Value="trust" />
+                        <button type="submit" class="ms-btn primary block @(busy ? "busy" : "")" style="height:46px">@if (busy) { <span class="ms-spin"></span> } Use backup code</button>
+                    </form>
+                }
+                else if (method == "passkey")
+                {
+                    <div class="ms-card ms-card-pad" style="text-align:center">
+                        <span class="ms-method-ico" style="margin:0 auto 12px;width:56px;height:56px;font-size:26px"><i class="bi bi-fingerprint"></i></span>
+                        <b>Use your passkey</b>
+                        <p class="ms-hint" style="margin:6px 0 16px">Confirm with your fingerprint, face or device PIN.</p>
+                        <TrustBox @bind-Value="trust" />
+                        <button type="button" class="ms-btn primary block @(busy ? "busy" : "")" style="height:46px" @onclick="PasskeyVerify">@if (busy) { <span class="ms-spin"></span> } Continue with passkey</button>
+                    </div>
+                }
+                else
+                {
+                    @if (otpId == Guid.Empty)
+                    {
+                        <div class="ms-card ms-card-pad" style="text-align:center">
+                            <b>Send a one-time code</b>
+                            <p class="ms-hint" style="margin:6px 0 16px">We'll send it to @(method == "sms" ? phoneHint : emailHint).</p>
+                            <button type="button" class="ms-btn primary block @(busy ? "busy" : "")" style="height:46px" @onclick="SendOtp">@if (busy) { <span class="ms-spin"></span> } Send code</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <form @onsubmit="SubmitCode" @onsubmit:preventDefault="true">
+                            <div class="ms-alert ok"><i class="bi bi-send-check-fill"></i><div>Code sent to @sentTo. It expires in 10 minutes.</div></div>
+                            <div class="ms-field">
+                                <label class="ms-label" for="code">Enter the code</label>
+                                <input id="code" class="ms-input ms-code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="000000" @bind="code" @bind:event="oninput" />
+                            </div>
+                            <TrustBox @bind-Value="trust" />
+                            <button type="submit" class="ms-btn primary block @(busy ? "busy" : "")" style="height:46px">@if (busy) { <span class="ms-spin"></span> } Verify</button>
+                            <button type="button" class="ms-btn ghost block" style="margin-top:8px" @onclick="SendOtp">Send a new code</button>
+                        </form>
+                    }
+                }
+
+                <button type="button" class="ms-btn ghost block" style="margin-top:14px" @onclick="BackToPassword"><i class="bi bi-arrow-left"></i> Use a different account</button>
+            }
+        </div>
+    </section>
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? Auth { get; set; }
+    [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery(Name = "notice")] public string? NoticeKey { get; set; }
+
+    private string step = "password";
+    private string email = "", password = "";
+    private bool remember, showPwd, busy, trust, passkeysSupported, allowRegistration;
+    private string? error, notice;
+
+    // MFA state
+    private string mfaToken = "", method = "totp", code = "", sentTo = "", emailHint = "", phoneHint = "";
+    private List<string> methods = new();
+    private Guid otpId = Guid.Empty;
+
+    private IEnumerable<KeyValuePair<string, string>> AvailableMethods
+    {
+        get
+        {
+            var labels = new Dictionary<string, string> { ["totp"] = "Authenticator", ["passkey"] = "Passkey", ["backup"] = "Backup code", ["email"] = "Email", ["sms"] = "SMS" };
+            foreach (var k in labels.Keys) if (methods.Contains(k)) yield return new(k, labels[k]);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth != null && (await Auth).User.Identity?.IsAuthenticated == true) { Navigation.NavigateTo(SafeTarget(), forceLoad: true); return; }
+        if (NoticeKey == "registered") notice = "Account created. Sign in to continue.";
+        try { allowRegistration = await Store.CountUsersAsync() == 0 || Config.GetValue<bool>("Security:AllowSelfRegistration"); } catch { }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try { passkeysSupported = await JS.InvokeAsync<bool>("ms.supportsPasskeys"); StateHasChanged(); } catch { }
+    }
+
+    private string SafeTarget()
+    {
+        var t = ReturnUrl?.Trim() ?? "";
+        if (t.Length == 0 || t.StartsWith("//") || t.StartsWith("\\") || t.Contains(':') || t.StartsWith("login", StringComparison.OrdinalIgnoreCase)) return "/dashboard";
+        return "/" + t.TrimStart('/');
+    }
+
+    private sealed record Reply(bool Ok, int Status, string? Message, string ApiStatus, JsonElement Data);
+
+    private async Task<Reply> Call(string url, object body)
+    {
+        var el = await JS.InvokeAsync<JsonElement>("ms.api", "POST", url, body);
+        return Parse(el);
+    }
+
+    private static Reply Parse(JsonElement el)
+    {
+        bool ok = el.TryGetProperty("ok", out var o) && o.GetBoolean();
+        int status = el.TryGetProperty("status", out var s) ? s.GetInt32() : 0;
+        string? msg = null, api = "";
+        JsonElement data = default;
+        if (el.TryGetProperty("body", out var b) && b.ValueKind == JsonValueKind.Object)
+        {
+            if (b.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String) msg = m.GetString();
+            if (b.TryGetProperty("status", out var st) && st.ValueKind == JsonValueKind.String) api = st.GetString();
+            if (b.TryGetProperty("data", out var d)) data = d;
+        }
+        return new Reply(ok, status, msg, api ?? "", data);
+    }
+
+    private void Fail(Reply r) => error = r.Message ?? (r.Status == 0 ? "Network problem. Try again." : "Something went wrong. Try again.");
+
+    private async Task SubmitPassword()
+    {
+        error = null;
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrEmpty(password)) { error = "Enter your email and password."; return; }
+        busy = true;
+        try
+        {
+            var r = await Call("/api/auth/login", new { email = email.Trim(), password, rememberMe = remember });
+            if (!r.Ok) { Fail(r); password = ""; return; }
+            if (r.ApiStatus == "mfa") { EnterMfa(r.Data); return; }
+            Navigation.NavigateTo(SafeTarget(), forceLoad: true);
+        }
+        finally { busy = false; }
+    }
+
+    private void EnterMfa(JsonElement d)
+    {
+        mfaToken = d.GetProperty("token").GetString() ?? "";
+        methods = d.GetProperty("methods").EnumerateArray().Select(x => x.GetString() ?? "").ToList();
+        emailHint = d.GetProperty("emailHint").GetString() ?? "";
+        phoneHint = d.GetProperty("phoneHint").GetString() ?? "";
+        method = methods.Contains("totp") ? "totp" : methods.Contains("passkey") ? "passkey" : methods.FirstOrDefault() ?? "totp";
+        code = ""; otpId = Guid.Empty; error = null; step = "mfa";
+    }
+
+    private void PickMethod(string m) { method = m; code = ""; error = null; otpId = Guid.Empty; }
+
+    private void BackToPassword() { step = "password"; password = ""; code = ""; error = null; mfaToken = ""; }
+
+    private async Task SubmitCode()
+    {
+        error = null;
+        if (string.IsNullOrWhiteSpace(code)) { error = "Enter the code."; return; }
+        busy = true;
+        try
+        {
+            Reply r;
+            if (method == "totp") r = await Call("/api/auth/mfa/totp", new { token = mfaToken, code, trustDevice = trust });
+            else if (method == "backup") r = await Call("/api/auth/mfa/backup", new { token = mfaToken, code, trustDevice = trust });
+            else r = await Call("/api/auth/mfa/otp/verify", new { token = mfaToken, otpId, code, trustDevice = trust });
+
+            if (!r.Ok)
+            {
+                Fail(r);
+                if (r.ApiStatus == "expired" || r.Status == 423) BackToPasswordWithError();
+                code = "";
+                return;
+            }
+            Navigation.NavigateTo(SafeTarget(), forceLoad: true);
+        }
+        finally { busy = false; }
+    }
+
+    private void BackToPasswordWithError() { var e = error; BackToPassword(); error = e; }
+
+    private async Task SendOtp()
+    {
+        error = null; busy = true;
+        try
+        {
+            var r = await Call("/api/auth/mfa/otp/send", new { token = mfaToken, channel = method });
+            if (!r.Ok) { Fail(r); return; }
+            otpId = Guid.Parse(r.Data.GetProperty("otpId").GetString()!);
+            sentTo = r.Data.GetProperty("sentTo").GetString() ?? "";
+            code = "";
+        }
+        finally { busy = false; }
+    }
+
+    private async Task PasskeySignIn()
+    {
+        error = null; busy = true;
+        try
+        {
+            var el = await JS.InvokeAsync<JsonElement>("ms.passkeyLogin", null, remember, false);
+            var r = Parse(el);
+            if (!r.Ok) { if (!(el.TryGetProperty("cancelled", out var c) && c.GetBoolean())) Fail(r); else error = r.Message; return; }
+            Navigation.NavigateTo(SafeTarget(), forceLoad: true);
+        }
+        finally { busy = false; }
+    }
+
+    private async Task PasskeyVerify()
+    {
+        error = null; busy = true;
+        try
+        {
+            var el = await JS.InvokeAsync<JsonElement>("ms.passkeyLogin", mfaToken, remember, trust);
+            var r = Parse(el);
+            if (!r.Ok) { error = r.Message ?? "Passkey check failed."; return; }
+            Navigation.NavigateTo(SafeTarget(), forceLoad: true);
+        }
+        finally { busy = false; }
+    }
+}

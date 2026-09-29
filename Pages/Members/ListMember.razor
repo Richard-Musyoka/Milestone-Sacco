@@ -1,163 +1,157 @@
 @page "/members"
 @inject NavigationManager NavigationManager
 @inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS
 
-<div class="members-container p-3">
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
-        <div class="d-flex align-items-center">
-            <i class="bi bi-people-fill fs-3 text-primary me-3"></i>
-            <h2 class="mb-0">Members</h2>
+<PageTitle>Members · @Brand.Name</PageTitle>
+
+<div class="ms-page">
+    <PageHeader Title="Members" Subtitle="Everyone in your SACCO — search, filter and open a profile.">
+        <a class="ms-btn primary" href="members/add-member"><i class="bi bi-person-plus"></i> Add member</a>
+    </PageHeader>
+
+    @if (!isLoading && !errorLoading)
+    {
+        <div class="ms-mini">
+            <div><small>Total members</small><b>@members.Count.ToString("N0")</b></div>
+            <div><small>Active</small><b>@Count("Active").ToString("N0")</b></div>
+            <div><small>Pending</small><b>@Count("Pending").ToString("N0")</b></div>
+            <div><small>Joined this month</small><b>@JoinedThisMonth.ToString("N0")</b></div>
         </div>
+    }
 
-        <div class="d-flex flex-column flex-md-row gap-3 w-100 w-md-auto">
-            <div class="position-relative flex-grow-1">
-                <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
-                <input type="text" class="form-control ps-5" placeholder="Search by name, email or phone..." @bind="searchTerm" @bind:event="oninput" />
+    <div class="ms-card">
+        <div class="ms-toolbar">
+            <div class="ms-searchbox">
+                <i class="bi bi-search"></i>
+                <input class="ms-input" type="search" placeholder="Search name, email, phone or member no…" aria-label="Search members" @bind="searchTerm" @bind:event="oninput" @bind:after="ResetPage" />
             </div>
-
-            <button class="btn btn-primary d-flex align-items-center justify-content-center" @onclick="NavigateToAddMember">
-                <i class="bi bi-person-plus me-2"></i>
-                <span>Add Member</span>
-            </button>
+            <div class="ms-chips" role="group" aria-label="Filter by status">
+                @foreach (var s in Statuses)
+                {
+                    <button type="button" class="ms-chip @(status == s ? "on" : "")" @onclick="() => SetStatus(s)">@s<em>@(s == "All" ? members.Count : Count(s))</em></button>
+                }
+            </div>
         </div>
+
+        @if (isLoading)
+        {
+            <div class="ms-card-body">
+                @for (int i = 0; i < 6; i++) { <div class="ms-skel" style="height:52px;margin-bottom:10px"></div> }
+            </div>
+        }
+        else if (errorLoading)
+        {
+            <EmptyState Icon="bi-wifi-off" Title="Couldn't load members" Text="Check your connection and try again.">
+                <div style="margin-top:14px"><button class="ms-btn" @onclick="LoadMembers"><i class="bi bi-arrow-clockwise"></i> Retry</button></div>
+            </EmptyState>
+        }
+        else if (!Filtered.Any())
+        {
+            <EmptyState Icon="bi-people" Title="No members found" Text="Try a different search or filter, or add a new member.">
+                <div style="margin-top:14px"><a class="ms-btn primary" href="members/add-member"><i class="bi bi-person-plus"></i> Add member</a></div>
+            </EmptyState>
+        }
+        else
+        {
+            <div class="ms-table-wrap">
+                <table class="ms-table">
+                    <thead>
+                        <tr>
+                            <th class="ms-th-sort" @onclick='() => Sort("name")'>Member @SortIcon("name")</th>
+                            <th class="ms-th-sort" @onclick='() => Sort("no")'>Member no @SortIcon("no")</th>
+                            <th>Phone</th>
+                            <th>Occupation</th>
+                            <th class="ms-th-sort" @onclick='() => Sort("joined")'>Joined @SortIcon("joined")</th>
+                            <th>Status</th>
+                            <th class="r" style="width:150px"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var m in PageItems)
+                        {
+                            <tr class="clickable" @onclick="() => ViewMember(m.MemberId)">
+                                <td>
+                                    <div class="ms-cell-person">
+                                        <Avatar Name="@m.FullName" ImageUrl="@m.ProfileImageUrl" Size="sm" />
+                                        <div><b>@m.FullName</b><small>@m.Email</small></div>
+                                    </div>
+                                </td>
+                                <td class="ms-num">@m.MemberNo</td>
+                                <td class="ms-num">@m.PhoneNumber</td>
+                                <td>@(string.IsNullOrWhiteSpace(m.Occupation) ? "—" : m.Occupation)</td>
+                                <td class="ms-num">@(m.JoinDate?.ToString("d MMM yyyy") ?? "—")</td>
+                                <td><StatusPill Status="@m.Status" /></td>
+                                <td @onclick:stopPropagation="true">
+                                    <div class="ms-row-actions">
+                                        <button class="ms-ib" title="View" aria-label="View @m.FullName" @onclick="() => ViewMember(m.MemberId)"><i class="bi bi-eye"></i></button>
+                                        <button class="ms-ib" title="Edit" aria-label="Edit @m.FullName" @onclick="() => EditMember(m.MemberId)"><i class="bi bi-pencil"></i></button>
+                                        <button class="ms-ib danger" title="Delete" aria-label="Delete @m.FullName" @onclick="() => ConfirmDelete(m)"><i class="bi bi-trash3"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <Pager Total="Filtered.Count()" @bind-Page="page" @bind-PageSize="pageSize" />
+        }
     </div>
-
-    @if (isLoading)
-    {
-        <div class="text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <p class="mt-3">Loading members...</p>
-        </div>
-    }
-    else if (errorLoading)
-    {
-        <div class="alert alert-danger">
-            <i class="bi bi-exclamation-triangle me-2"></i>
-            Error loading members. Please try again.
-        </div>
-    }
-    else
-    {
-        <div class="members-table-container">
-            @if (filteredMembers.Any())
-            {
-                <div class="card border-0 shadow-sm">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="width: 80px;">ID</th>
-                                    <th>Member No</th>
-                                    <th>Member</th>
-                                    <th>Contact</th>
-                                    <th>Occupation</th>
-                                    <th style="width: 90px;">Status</th>
-                                    <th style="width: 300px;" class="text-end">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var member in filteredMembers)
-                                {
-                                    <tr>
-                                        <td class="fw-semibold">@member.MemberId</td>
-                                        <td>@member.MemberNo</td>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                @if (!string.IsNullOrEmpty(member.ProfileImageUrl))
-                                                {
-                                                    <img src="@member.ProfileImageUrl" class="rounded-circle me-3" style="width: 40px; height: 40px; object-fit: cover;" alt="@member.FullName" />
-                                                }
-                                                else
-                                                {
-                                                    <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
-                                                        <i class="bi bi-person text-muted"></i>
-                                                    </div>
-                                                }
-                                                <div>
-                                                    <div class="fw-semibold">@member.FullName</div>
-                                                    <small class="text-muted">@member.Email</small>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>@member.PhoneNumber</td>
-                                        <td>@member.Occupation</td>
-                                        <td>
-                                            <span class="badge @GetStatusClass(member.Status) rounded-pill py-2 px-3">@member.Status</span>
-                                        </td>
-                                        <td class="text-end">
-                                            <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ViewMember(member.MemberId)">View</button>
-                                            <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => EditMember(member.MemberId)">Edit</button>
-                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmDelete(member)">Delete</button>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            }
-            else
-            {
-                <div class="text-center py-5 bg-light rounded-3">
-                    <i class="bi bi-people text-muted" style="font-size: 3rem;"></i>
-                    <h4 class="mt-3">No members found</h4>
-                    <p class="text-muted mb-4">Try adjusting your search or add a new member</p>
-                    <button class="btn btn-primary px-4" @onclick="NavigateToAddMember">
-                        <i class="bi bi-person-plus me-2"></i>
-                        Add New Member
-                    </button>
-                </div>
-            }
-        </div>
-    }
-
-    @if (showDeleteModal)
-    {
-        <div class="modal-backdrop show"></div>
-        <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header border-0">
-                        <h5 class="modal-title">Confirm Delete</h5>
-                        <button type="button" class="btn-close" @onclick="CancelDelete"></button>
-                    </div>
-                    <div class="modal-body py-4">
-                        <p>Are you sure you want to delete member <strong>@memberToDelete?.FullName</strong>?</p>
-                        <p class="text-danger small">This action cannot be undone.</p>
-                    </div>
-                    <div class="modal-footer border-0">
-                        <button type="button" class="btn btn-outline-secondary" @onclick="CancelDelete">Cancel</button>
-                        <button type="button" class="btn btn-danger" @onclick="DeleteMember">
-                            <i class="bi bi-trash me-1"></i> Delete
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    }
 </div>
 
+<ConfirmDialog Open="showDeleteModal" Danger="true" Title="Delete member" ConfirmText="Delete member" Busy="deleting" OnConfirm="DeleteMember" OnCancel="CancelDelete">
+    <p style="margin:0 0 6px">Delete <b>@memberToDelete?.FullName</b> (@memberToDelete?.MemberNo)?</p>
+    <p class="ms-hint" style="margin:0">This can't be undone. Loans, shares or contributions linked to this member may block the deletion.</p>
+</ConfirmDialog>
+
 @code {
+    private static readonly string[] Statuses = { "All", "Active", "Pending", "Inactive", "Suspended" };
+
     private List<Member> members = new();
     private string searchTerm = string.Empty;
-    private bool showDeleteModal = false;
+    private string status = "All";
+    private string sortKey = "name";
+    private bool sortDesc;
+    private int page = 1, pageSize = 10;
+    private bool showDeleteModal, deleting;
     private Member? memberToDelete = null;
     private bool isLoading = true;
     private bool errorLoading = false;
 
-    private IEnumerable<Member> filteredMembers => members
-        .Where(m => string.IsNullOrEmpty(searchTerm) ||
-                   m.FullName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                   m.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                   m.PhoneNumber.Contains(searchTerm) ||
-                   m.MemberNo.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+    private int Count(string s) => members.Count(m => string.Equals(m.Status, s, StringComparison.OrdinalIgnoreCase));
+    private int JoinedThisMonth => members.Count(m => (m.JoinDate ?? m.CreatedDate) is DateTime d && d.Year == DateTime.Today.Year && d.Month == DateTime.Today.Month);
 
-    protected override async Task OnInitializedAsync()
+    private IEnumerable<Member> Filtered
     {
-        await LoadMembers();
+        get
+        {
+            var q = members.Where(m => status == "All" || string.Equals(m.Status, status, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var t = searchTerm.Trim();
+                q = q.Where(m => m.FullName.Contains(t, StringComparison.OrdinalIgnoreCase)
+                              || (m.Email ?? "").Contains(t, StringComparison.OrdinalIgnoreCase)
+                              || (m.PhoneNumber ?? "").Contains(t)
+                              || (m.MemberNo ?? "").Contains(t, StringComparison.OrdinalIgnoreCase));
+            }
+            q = sortKey switch
+            {
+                "no" => sortDesc ? q.OrderByDescending(m => m.MemberNo) : q.OrderBy(m => m.MemberNo),
+                "joined" => sortDesc ? q.OrderByDescending(m => m.JoinDate) : q.OrderBy(m => m.JoinDate),
+                _ => sortDesc ? q.OrderByDescending(m => m.FullName) : q.OrderBy(m => m.FullName),
+            };
+            return q;
+        }
     }
+
+    private IEnumerable<Member> PageItems => Filtered.Skip((page - 1) * pageSize).Take(pageSize);
+
+    protected override async Task OnInitializedAsync() => await LoadMembers();
+
+    private void ResetPage() => page = 1;
+    private void SetStatus(string s) { status = s; page = 1; }
+    private void Sort(string key) { if (sortKey == key) sortDesc = !sortDesc; else { sortKey = key; sortDesc = false; } }
+    private MarkupString SortIcon(string key) => sortKey != key ? new("") : new(sortDesc ? "<i class='bi bi-arrow-down-short'></i>" : "<i class='bi bi-arrow-up-short'></i>");
 
     private async Task LoadMembers()
     {
@@ -170,13 +164,9 @@
             var response = await client.GetAsync("api/members/get-all");
 
             if (response.IsSuccessStatusCode)
-            {
                 members = await response.Content.ReadFromJsonAsync<List<Member>>() ?? new List<Member>();
-            }
             else
-            {
                 errorLoading = true;
-            }
         }
         catch
         {
@@ -188,51 +178,40 @@
         }
     }
 
-    private string GetStatusClass(string status) => status switch
-    {
-        "Active" => "bg-success",
-        "Inactive" => "bg-secondary",
-        "Pending" => "bg-warning text-dark",
-        "Suspended" => "bg-danger",
-        _ => "bg-info"
-    };
-
-    private void NavigateToAddMember() => NavigationManager.NavigateTo("/members/add-member");
     private void ViewMember(int id) => NavigationManager.NavigateTo($"/members/view/{id}");
     private void EditMember(int id) => NavigationManager.NavigateTo($"/members/edit/{id}");
 
-    private void ConfirmDelete(Member member)
-    {
-        memberToDelete = member;
-        showDeleteModal = true;
-    }
-
-    private void CancelDelete()
-    {
-        showDeleteModal = false;
-        memberToDelete = null;
-    }
+    private void ConfirmDelete(Member member) { memberToDelete = member; showDeleteModal = true; }
+    private void CancelDelete() { showDeleteModal = false; memberToDelete = null; }
 
     private async Task DeleteMember()
     {
-        if (memberToDelete != null)
+        if (memberToDelete == null) return;
+        deleting = true;
+        try
         {
-            try
-            {
-                var client = HttpClientFactory.CreateClient("ApiClient");
-                var response = await client.DeleteAsync($"api/members/delete/{memberToDelete.MemberId}");
+            var client = HttpClientFactory.CreateClient("ApiClient");
+            var response = await client.DeleteAsync($"api/members/delete/{memberToDelete.MemberId}");
 
-                if (response.IsSuccessStatusCode)
-                {
-                    await LoadMembers();
-                }
-            }
-            catch { }
-            finally
+            if (response.IsSuccessStatusCode)
             {
-                showDeleteModal = false;
-                memberToDelete = null;
+                await JS.InvokeVoidAsync("ms.toast", "success", "Member deleted", memberToDelete.FullName);
+                await LoadMembers();
             }
+            else
+            {
+                await JS.InvokeVoidAsync("ms.toast", "error", "Couldn't delete member", "They may have loans, shares or contributions on record.");
+            }
+        }
+        catch
+        {
+            await JS.InvokeVoidAsync("ms.toast", "error", "Couldn't delete member", "Network problem — try again.");
+        }
+        finally
+        {
+            deleting = false;
+            showDeleteModal = false;
+            memberToDelete = null;
         }
     }
 

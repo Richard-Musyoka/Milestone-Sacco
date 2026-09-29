@@ -1,0 +1,94 @@
+@using System.Globalization
+@using Sacco_Management_System.Models
+@using SaccoManagementSystem.Services
+
+<fieldset class="cc-fs" disabled="@ReadOnly">
+    <div class="cc-card">
+        <h3><i class="bi bi-cash-coin"></i> Currency</h3>
+        <p class="sub">Used on the dashboard and settings today, and rolled out to more pages over time.</p>
+        <div class="cc-tiles">
+            @foreach (var c in Currencies)
+            {
+                <button type="button" class="cc-tile @(Settings.Currency == c.Code ? "on" : "")" @onclick="() => Pick(c)">
+                    <em>@c.Symbol</em>
+                    <span><b>@c.Code</b><small>@c.Name</small></span>
+                </button>
+            }
+        </div>
+        <div class="cc-two" style="margin-top:18px">
+            <div class="ms-field">
+                <label class="ms-label" for="ccode">Currency code</label>
+                <InputText id="ccode" @bind-Value="Settings.Currency" @bind-Value:after="Changed" class="ms-input" maxlength="3" />
+                <ValidationMessage For="@(() => Settings.Currency)" />
+            </div>
+            <div class="ms-field">
+                <label class="ms-label" for="csym">Symbol shown before amounts</label>
+                <InputText id="csym" @bind-Value="Cfg.CurrencySymbol" @bind-Value:after="Changed" class="ms-input" maxlength="8" />
+            </div>
+        </div>
+    </div>
+
+    <div class="cc-card">
+        <h3><i class="bi bi-translate"></i> Number and date format</h3>
+        <p class="sub">Controls separators and the way dates are written.</p>
+        <div class="cc-two">
+            <div class="ms-field">
+                <label class="ms-label" for="loc">Format</label>
+                <InputSelect id="loc" @bind-Value="Cfg.Locale" @bind-Value:after="Changed" class="ms-select">
+                    @foreach (var l in Locales)
+                    {
+                        <option value="@l.Key">@l.Value</option>
+                    }
+                </InputSelect>
+            </div>
+            <div class="ms-field">
+                <label class="ms-label" for="tz">Time zone <span class="req">*</span></label>
+                <InputSelect id="tz" @bind-Value="Settings.Timezone" @bind-Value:after="Changed" class="ms-select">
+                    <option value="Africa/Nairobi">East Africa Time (Nairobi)</option>
+                    <option value="Africa/Kampala">East Africa Time (Kampala)</option>
+                    <option value="Africa/Dar_es_Salaam">East Africa Time (Dar es Salaam)</option>
+                    <option value="Africa/Kigali">Central Africa Time (Kigali)</option>
+                    <option value="Africa/Accra">GMT (Accra)</option>
+                    <option value="Africa/Lagos">West Africa Time (Lagos)</option>
+                    <option value="Africa/Johannesburg">South Africa Time</option>
+                    <option value="UTC">UTC</option>
+                    <option value="Europe/London">GMT (London)</option>
+                    <option value="America/New_York">Eastern Time (New York)</option>
+                </InputSelect>
+                <ValidationMessage For="@(() => Settings.Timezone)" />
+            </div>
+        </div>
+        <div class="cc-money"><small>An amount will look like</small><b>@Cfg.CurrencySymbol @Sample(1234567.89m)</b></div>
+        <div class="cc-prev" style="margin-top:12px">
+            <div><small>Number</small><b>@Sample(1234567.89m)</b></div>
+            <div><small>Short date</small><b>@DateTime.Now.ToString("d", Culture())</b></div>
+            <div><small>Long date</small><b>@DateTime.Now.ToString("d MMMM yyyy", Culture())</b></div>
+            <div><small>Time</small><b>@DateTime.Now.ToString("t", Culture())</b></div>
+        </div>
+    </div>
+</fieldset>
+
+@code {
+    [Parameter] public OrgConfig Cfg { get; set; } = new();
+    [Parameter] public SaccoSettings Settings { get; set; } = new();
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public Action? OnChanged { get; set; }
+
+    private sealed record Cur(string Code, string Symbol, string Name);
+    private static readonly Cur[] Currencies =
+    {
+        new("KES", "KSh", "Kenyan shilling"), new("UGX", "USh", "Ugandan shilling"), new("TZS", "TSh", "Tanzanian shilling"),
+        new("RWF", "FRw", "Rwandan franc"), new("GHS", "GH₵", "Ghanaian cedi"), new("NGN", "₦", "Nigerian naira"),
+        new("ZAR", "R", "South African rand"), new("GBP", "£", "British pound"), new("USD", "$", "US dollar"),
+    };
+    private static readonly Dictionary<string, string> Locales = new()
+    {
+        ["en-KE"] = "Kenya (1,234.56)", ["en-UG"] = "Uganda (1,234.56)", ["en-TZ"] = "Tanzania (1,234.56)", ["en-GH"] = "Ghana (1,234.56)",
+        ["en-NG"] = "Nigeria (1,234.56)", ["en-ZA"] = "South Africa (1 234,56)", ["en-GB"] = "United Kingdom (1,234.56)", ["en-US"] = "United States (1,234.56)",
+    };
+
+    private CultureInfo Culture() { try { return CultureInfo.GetCultureInfo(Cfg.Locale); } catch { return CultureInfo.InvariantCulture; } }
+    private string Sample(decimal v) => v.ToString("N2", Culture());
+    private void Changed() => OnChanged?.Invoke();
+    private void Pick(Cur c) { Settings.Currency = c.Code; Cfg.CurrencySymbol = c.Symbol; Changed(); }
+}

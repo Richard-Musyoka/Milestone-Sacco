@@ -1,0 +1,21 @@
+@using System.Linq.Expressions
+<div class="ms-field @Class">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label class="ms-label" for="@For_">@Label@if (Required) {<span class="req">*</span>}</label>
+    }
+    @ChildContent
+    @if (!string.IsNullOrEmpty(Hint)) { <span class="ms-hint">@Hint</span> }
+    @if (For != null) { <ValidationMessage For="For" class="ms-err" /> }
+</div>
+
+@code {
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public string? Hint { get; set; }
+    [Parameter] public string? Class { get; set; }
+    /// <summary>Id of the input inside (for the label's for=).</summary>
+    [Parameter] public string? For_ { get; set; }
+    [Parameter] public Expression<Func<object>>? For { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

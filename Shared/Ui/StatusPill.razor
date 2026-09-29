@@ -1,0 +1,15 @@
+<span class="ms-pill dot @Tone">@(Text ?? Status)</span>
+
+@code {
+    [Parameter] public string? Status { get; set; }
+    [Parameter] public string? Text { get; set; }
+
+    private string Tone => (Status ?? "").ToLowerInvariant() switch
+    {
+        "active" or "paid" or "confirmed" or "approved" or "disbursed" or "completed" or "processed" or "success" => "ok",
+        "pending" or "processing" or "draft" or "partial" or "under review" => "warn",
+        "rejected" or "suspended" or "overdue" or "cancelled" or "canceled" or "failed" or "defaulted" or "reversed" or "expired" => "bad",
+        "inactive" or "closed" or "" => "",
+        _ => "info"
+    };
+}

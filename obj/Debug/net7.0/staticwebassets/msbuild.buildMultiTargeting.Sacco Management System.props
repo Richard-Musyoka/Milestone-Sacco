@@ -1,3 +1,0 @@
-﻿<Project>
-  <Import Project="..\build\Sacco Management System.props" />
-</Project>

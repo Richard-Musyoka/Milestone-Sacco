@@ -1,1 +1,32 @@
+# Visual Studio / Rider
 .vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build output
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+publish/
+*.pubxml
+
+# Secrets: keep appsettings.example.json in git, never the real ones
+appsettings.json
+appsettings.*.json
+!appsettings.example.json
+secrets.json
+*.pfx
+*.jks
+*.keystore
+
+# Local backups made during upgrades
+_phase*_backup/
+*.bak
+
+# OS
+.DS_Store
+Thumbs.db

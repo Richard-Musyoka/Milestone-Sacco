@@ -1,0 +1,608 @@
+﻿@page "/loans/view/{LoanId:int}"
+@using SaccoManagementSystem.Models
+@inject NavigationManager NavigationManager
+@inject IHttpClientFactory HttpClientFactory
+
+<style>
+    :root {
+        --primary-color: #4361ee;
+        --secondary-color: #3f37c9;
+        --success-color: #4cc9f0;
+        --warning-color: #f8961e;
+        --danger-color: #f94144;
+        --light-color: #f8f9fa;
+        --dark-color: #212529;
+        --border-radius: 0.5rem;
+        --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        --transition: all 0.3s ease;
+    }
+
+    .loan-details-container {
+        max-width: 1000px;
+        margin: 2rem auto;
+        padding: 0 1.5rem;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .loan-card {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+        overflow: hidden;
+    }
+
+    .loan-header {
+        background: var(--primary-color);
+        color: white;
+        padding: 1.5rem 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .header-title {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+        .header-title h2 {
+            font-weight: 600;
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+    .loan-number {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 0.25rem 1rem;
+        border-radius: 2rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: var(--border-radius);
+        font-weight: 500;
+        transition: var(--transition);
+        border: none;
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+
+    .btn-outline-light {
+        background: transparent;
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+    }
+
+        .btn-outline-light:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+    .loan-content {
+        padding: 2rem;
+    }
+
+    .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+    }
+
+    .detail-section {
+        margin-bottom: 2rem;
+    }
+
+        .detail-section:last-child {
+            margin-bottom: 0;
+        }
+
+    .section-title {
+        font-size: 1.1rem;
+        color: var(--dark-color);
+        margin-bottom: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-weight: 600;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+        .section-title i {
+            font-size: 1.2rem;
+            color: var(--primary-color);
+        }
+
+    .detail-row {
+        display: flex;
+        margin-bottom: 0.75rem;
+    }
+
+    .detail-label {
+        font-weight: 500;
+        color: #6c757d;
+        width: 160px;
+        flex-shrink: 0;
+        font-size: 0.9rem;
+    }
+
+    .detail-value {
+        color: var(--dark-color);
+        font-weight: 500;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 0.35em 0.65em;
+        font-size: 0.75em;
+        font-weight: 600;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: 0.375rem;
+    }
+
+    .bg-warning {
+        background-color: var(--warning-color);
+        color: white;
+    }
+
+    .bg-info {
+        background-color: var(--success-color);
+        color: white;
+    }
+
+    .bg-success {
+        background-color: #2ecc71;
+        color: white;
+    }
+
+    .bg-danger {
+        background-color: var(--danger-color);
+        color: white;
+    }
+
+    .bg-secondary {
+        background-color: #95a5a6;
+        color: white;
+    }
+
+    .remarks-box {
+        background: #f8fafc;
+        padding: 1rem;
+        border-radius: var(--border-radius);
+        border-left: 3px solid var(--primary-color);
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: #4a5568;
+        margin-top: 0.5rem;
+    }
+
+    .action-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .btn-success {
+        background: #2ecc71;
+        color: white;
+    }
+
+        .btn-success:hover {
+            background: #27ae60;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(46, 204, 113, 0.2);
+        }
+
+    .btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+        .btn-danger:hover {
+            background: #d63031;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(249, 65, 68, 0.2);
+        }
+
+    .btn-warning {
+        background: var(--warning-color);
+        color: white;
+    }
+
+        .btn-warning:hover {
+            background: #f3722c;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(248, 150, 30, 0.2);
+        }
+
+    .loading-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 300px;
+        gap: 1rem;
+    }
+
+    .spinner-border {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-width: 0.2em;
+    }
+
+    .not-found-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 300px;
+        gap: 1rem;
+        text-align: center;
+    }
+
+        .not-found-container i {
+            font-size: 3rem;
+            color: var(--danger-color);
+        }
+
+        .not-found-container h3 {
+            font-weight: 600;
+            color: var(--dark-color);
+            margin: 0;
+        }
+
+        .not-found-container p {
+            color: #6c757d;
+            font-size: 1rem;
+            max-width: 500px;
+            margin: 0;
+        }
+
+    @@media (max-width: 768px) {
+        .loan-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1.25rem;
+        }
+
+        .header-actions {
+            width: 100%;
+            justify-content: flex-end;
+        }
+
+        .loan-content {
+            padding: 1.5rem;
+        }
+
+        .detail-row {
+            flex-direction: column;
+            gap: 0.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .detail-label {
+            width: 100%;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+        }
+    }
+</style>
+
+<div class="loan-details-container">
+    @if (isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <h4>Loading loan details...</h4>
+        </div>
+    }
+    else if (loan is null)
+    {
+        <div class="not-found-container">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            <h3>Loan Not Found</h3>
+            <p>The requested loan could not be found. Please check the loan ID and try again.</p>
+            <button class="btn btn-primary" @onclick="ReturnToLoans">
+                <i class="bi bi-arrow-left"></i> Return to Loans
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="loan-card">
+            <div class="loan-header">
+                <div class="header-title">
+                    <h2>Loan Details</h2>
+                    <span class="loan-number">@loan.LoanNumber</span>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-outline-light" @onclick="ReturnToLoans">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </button>
+                    <button class="btn btn-outline-light" @onclick="() => ViewSchedule(loan.LoanId)">
+                        <i class="bi bi-calendar-check"></i> Schedule
+                    </button>
+                </div>
+            </div>
+
+            <div class="loan-content">
+                <div class="detail-grid">
+                    <!-- Borrower Section -->
+                    <div class="detail-section">
+                        <h4 class="section-title">
+                            <i class="bi bi-person-badge"></i> Borrower Details
+                        </h4>
+                        <div class="detail-row">
+                            <span class="detail-label">Member ID:</span>
+                            <span class="detail-value">@loan.MemberId</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Member Name:</span>
+                            <span class="detail-value">@loan.MemberName</span>
+                        </div>
+                    </div>
+
+                    <!-- Loan Info Section -->
+                    <div class="detail-section">
+                        <h4 class="section-title">
+                            <i class="bi bi-file-earmark-text"></i> Loan Information
+                        </h4>
+                        <div class="detail-row">
+                            <span class="detail-label">Loan Type:</span>
+                            <span class="detail-value">@loan.LoanType</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Status:</span>
+                            <span class="detail-value badge @GetStatusClass(loan.Status)">
+                                @loan.Status
+                            </span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Application Date:</span>
+                            <span class="detail-value">@loan.ApplicationDate.ToString("dd MMM yyyy")</span>
+                        </div>
+                    </div>
+
+                    <!-- Financial Section -->
+                    <div class="detail-section">
+                        <h4 class="section-title">
+                            <i class="bi bi-cash-stack"></i> Financial Details
+                        </h4>
+                        <div class="detail-row">
+                            <span class="detail-label">Principal Amount:</span>
+                            <span class="detail-value">@loan.PrincipalAmount.ToString("C")</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Interest Rate:</span>
+                            <span class="detail-value">@loan.InterestRate.ToString("0.00")%</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Loan Term:</span>
+                            <span class="detail-value">@loan.TermMonths months</span>
+                        </div>
+                    </div>
+
+                    <!-- Dates Section -->
+                    <div class="detail-section">
+                        <h4 class="section-title">
+                            <i class="bi bi-calendar-event"></i> Important Dates
+                        </h4>
+                        @if (loan.ApprovalDate.HasValue)
+                        {
+                            <div class="detail-row">
+                                <span class="detail-label">Approval Date:</span>
+                                <span class="detail-value">@loan.ApprovalDate.Value.ToString("dd MMM yyyy")</span>
+                            </div>
+                        }
+                        @if (loan.StartDate.HasValue)
+                        {
+                            <div class="detail-row">
+                                <span class="detail-label">Disbursement Date:</span>
+                                <span class="detail-value">@loan.StartDate.Value.ToString("dd MMM yyyy")</span>
+                            </div>
+                        }
+                        @if (loan.EndDate.HasValue)
+                        {
+                            <div class="detail-row">
+                                <span class="detail-label">Maturity Date:</span>
+                                <span class="detail-value">@loan.EndDate.Value.ToString("dd MMM yyyy")</span>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Guarantors Section -->
+                    <div class="detail-section">
+                        <h4 class="section-title">
+                            <i class="bi bi-people-fill"></i> Guarantors
+                        </h4>
+                        <div class="detail-row">
+                            <span class="detail-label">Primary Guarantor:</span>
+                            <span class="detail-value">@(loan.Guarantor1Name ?? "Not specified")</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Secondary Guarantor:</span>
+                            <span class="detail-value">@(loan.Guarantor2Name ?? "Not specified")</span>
+                        </div>
+                    </div>
+
+                    <!-- Payment Section -->
+                    <div class="detail-section">
+                        <h4 class="section-title">
+                            <i class="bi bi-credit-card"></i> Payment Information
+                        </h4>
+                        @if (loan.MonthlyInstallment.HasValue)
+                        {
+                            <div class="detail-row">
+                                <span class="detail-label">Monthly Payment:</span>
+                                <span class="detail-value">@loan.MonthlyInstallment.Value.ToString("C")</span>
+                            </div>
+                        }
+                        @if (loan.TotalPayable.HasValue)
+                        {
+                            <div class="detail-row">
+                                <span class="detail-label">Total Repayment:</span>
+                                <span class="detail-value">@loan.TotalPayable.Value.ToString("C")</span>
+                            </div>
+                        }
+                        @if (loan.OutstandingBalance.HasValue)
+                        {
+                            <div class="detail-row">
+                                <span class="detail-label">Outstanding Balance:</span>
+                                <span class="detail-value">@loan.OutstandingBalance.Value.ToString("C")</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(loan.Remarks))
+                {
+                    <div class="detail-section">
+                        <h4 class="section-title">
+                            <i class="bi bi-chat-left-text"></i> Remarks
+                        </h4>
+                        <div class="remarks-box">
+                            @loan.Remarks
+                        </div>
+                    </div>
+                }
+
+                <!-- Status Actions -->
+                @if (loan.Status == "Pending")
+                {
+                    <div class="action-buttons">
+                        <button class="btn btn-success" @onclick="() => ApproveLoan(loan.LoanId)">
+                            <i class="bi bi-check-circle"></i> Approve Loan
+                        </button>
+                        <button class="btn btn-danger" @onclick="() => RejectLoan(loan.LoanId)">
+                            <i class="bi bi-x-circle"></i> Reject Loan
+                        </button>
+                    </div>
+                }
+                else if (loan.Status == "Approved")
+                {
+                    <div class="action-buttons">
+                        <button class="btn btn-warning" @onclick="() => DisburseLoan(loan.LoanId)">
+                            <i class="bi bi-cash-coin"></i> Disburse Funds
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int LoanId { get; set; }
+
+    private LoanViewModel? loan;
+    private bool isLoading = true;
+    private string? errorMessage;
+    private HttpClient Http => HttpClientFactory.CreateClient("ApiClient");
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadLoanDetails();
+    }
+
+    private async Task LoadLoanDetails()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+            StateHasChanged();
+
+            var response = await Http.GetAsync($"api/loans/get/{LoanId}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                loan = await response.Content.ReadFromJsonAsync<LoanViewModel>();
+            }
+            else
+            {
+                errorMessage = $"Error loading loan: {response.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load loan details: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetStatusClass(string status) => status switch
+    {
+        "Pending" => "bg-warning",
+        "Approved" => "bg-info",
+        "Disbursed" => "bg-success",
+        "Rejected" => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private void ReturnToLoans()
+    {
+        NavigationManager.NavigateTo("/loans");
+    }
+
+    private void ViewSchedule(int loanId)
+    {
+        NavigationManager.NavigateTo($"/loans/schedule/{loanId}");
+    }
+
+    private async Task ApproveLoan(int loanId)
+    {
+        NavigationManager.NavigateTo($"/loans/approve/{loanId}");
+    }
+
+    private async Task RejectLoan(int loanId)
+    {
+        NavigationManager.NavigateTo($"/loans/reject/{loanId}");
+    }
+
+    private async Task DisburseLoan(int loanId)
+    {
+        try
+        {
+            var response = await Http.PutAsync($"api/loans/disburse/{loanId}", null);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadLoanDetails();
+            }
+            else
+            {
+                errorMessage = "Failed to process disbursement";
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Disbursement error: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+}

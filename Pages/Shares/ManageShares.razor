@@ -1,395 +1,200 @@
 @page "/shares"
-@using Microsoft.AspNetCore.Components
 @using SaccoManagementSystem.Models
 @using static Sacco_Management_System.Pages.Members.ListMember
 @inject NavigationManager NavigationManager
-@inject IHttpClientFactory _httpClientFactory
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS
 
-<div>
-    <!-- Header Section -->
-    <div class="shares-header mb-4">
-        <div class="header-title">
-            <i class="bi bi-pie-chart-fill header-icon"></i>
-            <h2>Shares Management</h2>
+<PageTitle>Shares · @Brand.Name</PageTitle>
+
+<div class="ms-page">
+    <PageHeader Title="Shares" Subtitle="Share capital by member — buy, transfer and review holdings.">
+        <a class="ms-btn primary" href="shares/purchase"><i class="bi bi-plus-lg"></i> Purchase shares</a>
+    </PageHeader>
+
+    @if (!loading && !failed)
+    {
+        <div class="ms-grid stats">
+            <StatCard Label="Total shares" Icon="bi-pie-chart" Value="@summary.TotalShares.ToString("N0")" Foot="active units" />
+            <StatCard Label="Share capital" Icon="bi-graph-up-arrow" Tone="blue" Prefix="KES" Value="@Money(summary.TotalValue)" />
+            <StatCard Label="Shareholders" Icon="bi-people" Tone="gold" Value="@summary.ShareholdersCount.ToString("N0")" />
+            <StatCard Label="Current price" Icon="bi-tag" Tone="red" Prefix="KES" Value="@summary.CurrentSharePrice.ToString("N2")" Foot="per unit" />
         </div>
+    }
 
-        <div class="header-actions">
-            <div class="search-box">
+    <div class="ms-card ms-mt">
+        <div class="ms-toolbar">
+            <div class="ms-searchbox">
                 <i class="bi bi-search"></i>
-                <input type="text"
-                       class="form-control"
-                       placeholder="Search members..."
-                       @bind="searchTerm"
-                       @bind:event="oninput" />
-            </div>
-
-            <button class="btn btn-primary add-shares-btn"
-                    @onclick="NavigateToPurchaseShares">
-                <i class="bi bi-plus-circle"></i>
-                <span>Purchase Shares</span>
-            </button>
-        </div>
-    </div>
-
-    <!-- Summary Cards -->
-    <div class="summary-cards mb-4">
-        <div class="row">
-            <div class="col-md-3">
-                <div class="card summary-card total">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="text-muted">Total Shares</h6>
-                                <h3>@shareSummary.TotalShares.ToString("N0")</h3>
-                            </div>
-                            <div class="icon">
-                                <i class="bi bi-pie-chart"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card summary-card value">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="text-muted">Total Value</h6>
-                                <h3>@shareSummary.TotalValue.ToString("C")</h3>
-                            </div>
-                            <div class="icon">
-                                <i class="bi bi-cash-stack"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card summary-card members">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="text-muted">Shareholders</h6>
-                                <h3>@shareholders.Count</h3>
-                            </div>
-                            <div class="icon">
-                                <i class="bi bi-people-fill"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card summary-card price">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="text-muted">Current Share Price</h6>
-                                <h3>@shareSummary.CurrentSharePrice.ToString("C")</h3>
-                            </div>
-                            <div class="icon">
-                                <i class="bi bi-tag-fill"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <input class="ms-input" type="search" placeholder="Search shareholder or member no…" aria-label="Search shareholders" @bind="search" @bind:event="oninput" @bind:after="ResetPage" />
             </div>
         </div>
-    </div>
 
-    <!-- Shares Table -->
-    <div class="shares-table-container">
-        @if (isLoading)
+        @if (loading)
         {
-            <div class="text-center py-5">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <p>Loading shareholders...</p>
-            </div>
+            <div class="ms-card-body">@for (int i = 0; i < 6; i++) { <div class="ms-skel" style="height:52px;margin-bottom:10px"></div> }</div>
         }
-        else if (filteredShareholders.Any())
+        else if (failed)
         {
-            <div class="table-responsive">
-                <table class="table table-hover align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Member ID</th>
-                            <th>Member Name</th>
-                            <th>Shares Held</th>
-                            <th>Share Value</th>
-                            <th>Last Purchase</th>
-                            <th class="text-end">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var shareholder in pagedShareholders)
-                            {
-                                <tr>
-                                    <td>@shareholder.MemberNumber</td>
-                                    <td>
-                                        <div class="member-name">@shareholder.MemberName</div>
-                                        <small class="text-muted">ID: @shareholder.MemberId</small>
-                                    </td>
-                                    <td>@shareholder.Units.ToString("N0")</td>
-                                    <td>@((shareholder.Units * shareSummary.CurrentSharePrice).ToString("C"))</td>
-                                    <td>@shareholder.PurchaseDate.ToShortDateString()</td>
-                                    <td class="text-end">
-                                        <button class="btn btn-outline-primary btn-sm"
-                                                @onclick="() => ViewShareholderDetails(shareholder.MemberId)"
-                                                title="View">
-                                            View Shares
-                                        </button>
-                                       
-                                        <button class="btn btn-outline-info btn-sm"
-                                                @onclick="() => ShowTransferModal(shareholder)"
-                                                title="Transfer Shares">
-                                            Transfer Shares
-                                        </button>
-                                    </td>
-                                </tr>
-                            }
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Pagination -->
-            @if (totalPages > 1)
-            {
-                <nav class="mt-3">
-                    <ul class="pagination justify-content-center">
-                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
-                            <button class="page-link" @onclick="() => ChangePage(currentPage - 1)">
-                                <i class="bi bi-chevron-left"></i>
-                            </button>
-                        </li>
-                        @for (int i = 1; i <= totalPages; i++)
-                        {
-                            <li class="page-item @(i == currentPage ? "active" : "")">
-                                <button class="page-link" @onclick="() => ChangePage(i)">@i</button>
-                            </li>
-                        }
-                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
-                            <button class="page-link" @onclick="() => ChangePage(currentPage + 1)">
-                                <i class="bi bi-chevron-right"></i>
-                            </button>
-                        </li>
-                    </ul>
-                </nav>
-            }
+            <EmptyState Icon="bi-wifi-off" Title="Couldn't load shares" Text="@error">
+                <div style="margin-top:14px"><button class="ms-btn" @onclick="Load"><i class="bi bi-arrow-clockwise"></i> Retry</button></div>
+            </EmptyState>
+        }
+        else if (!Filtered.Any())
+        {
+            <EmptyState Icon="bi-pie-chart" Title="No shareholders found" Text="Try a different search, or record a share purchase.">
+                <div style="margin-top:14px"><a class="ms-btn primary" href="shares/purchase">Purchase shares</a></div>
+            </EmptyState>
         }
         else
         {
-            <div class="empty-state text-center py-5">
-                <i class="bi bi-pie-chart empty-icon"></i>
-                <h4>No shareholders found</h4>
-                <p>Try adjusting your search or add new shareholders</p>
-                <button class="btn btn-primary" @onclick="NavigateToPurchaseShares">
-                    <i class="bi bi-plus-circle me-2"></i>
-                    Purchase Shares
-                </button>
+            <div class="ms-table-wrap">
+                <table class="ms-table">
+                    <thead><tr><th>Shareholder</th><th>Member no</th><th class="r">Units</th><th style="width:220px">Ownership</th><th class="r">Value</th><th>Last purchase</th><th class="r" style="width:150px"></th></tr></thead>
+                    <tbody>
+                        @foreach (var h in PageItems)
+                        {
+                            var pct = summary.TotalShares > 0 ? h.Units * 100.0 / summary.TotalShares : 0;
+                            <tr class="clickable" @onclick="() => View(h.MemberId)">
+                                <td><div class="ms-cell-person"><Avatar Name="@h.MemberName" Size="sm" /><div><b>@h.MemberName</b></div></div></td>
+                                <td class="ms-num">@h.MemberNumber</td>
+                                <td class="r ms-num"><b>@h.Units.ToString("N0")</b></td>
+                                <td><div style="display:flex;align-items:center;gap:10px"><div class="ms-bar" style="flex:1"><i style="width:@(Math.Min(100, pct).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></i></div><span class="ms-num" style="font-size:12px;width:44px;text-align:right">@pct.ToString("0.#")%</span></div></td>
+                                <td class="r ms-num">KES @h.TotalValue.ToString("N0")</td>
+                                <td class="ms-num">@h.PurchaseDate.ToString("d MMM yyyy")</td>
+                                <td @onclick:stopPropagation="true">
+                                    <div class="ms-row-actions">
+                                        <button class="ms-ib" title="Buy more" aria-label="Buy more shares for @h.MemberName" @onclick="() => Buy(h.MemberId)"><i class="bi bi-plus-circle"></i></button>
+                                        <button class="ms-ib" title="Transfer" aria-label="Transfer shares from @h.MemberName" @onclick="() => OpenTransfer(h)"><i class="bi bi-arrow-left-right"></i></button>
+                                        <button class="ms-ib" title="View" aria-label="View @h.MemberName" @onclick="() => View(h.MemberId)"><i class="bi bi-eye"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
             </div>
+            <Pager Total="Filtered.Count()" @bind-Page="page" @bind-PageSize="pageSize" />
         }
     </div>
 </div>
 
-<!-- Transfer Shares Modal -->
-@if (showTransferModal)
-{
-    <div class="modal-backdrop show"></div>
-    <div class="modal show d-block" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Transfer Shares</h5>
-                    <button type="button" class="btn-close" @onclick="CloseTransferModal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">From Member</label>
-                        <input type="text" class="form-control" value="@shareholderToTransfer?.MemberName" disabled />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Available Shares</label>
-                        <input type="text" class="form-control" value="@shareholderToTransfer?.Units.ToString("N0")" disabled />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">To Member</label>
-                        <select class="form-select" @bind="transferToMemberId">
-                            <option value="">Select Member</option>
-                            @foreach (var member in members.Where(m => m.MemberId != shareholderToTransfer?.MemberId))
-                            {
-                                <option value="@member.MemberId">@member.FullName (@member.MemberNo)</option>
-                            }
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Number of Shares</label>
-                        <input type="number" class="form-control" @bind="sharesToTransfer" min="1"
-                               max="@shareholderToTransfer?.Units" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Remarks</label>
-                        <textarea class="form-control" @bind="transferRemarks"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseTransferModal">
-                        Cancel
-                    </button>
-                    <button type="button" class="btn btn-primary" @onclick="ExecuteTransfer">
-                        <i class="bi bi-arrow-left-right me-1"></i>
-                        Transfer Shares
-                    </button>
-                </div>
-            </div>
+<Modal Open="from != null" OnClose="CloseTransfer" Title="Transfer shares" Subtitle="@(from == null ? "" : $"From {from.MemberName} · {from.Units:N0} units available")">
+    <ChildContent>
+        @if (!string.IsNullOrEmpty(tError)) { <div class="ms-alert bad"><i class="bi bi-exclamation-circle-fill"></i><div>@tError</div></div> }
+        <div class="ms-grid-form">
+            <Field Class="c12" Label="Transfer to" Required="true">
+                <SearchPicker TItem="Member" Items="Recipients" Title="@(m => m.FullName)" Sub="@(m => m.MemberNo)"
+                              Match="@((m, q) => m.FullName.Contains(q, StringComparison.OrdinalIgnoreCase) || (m.MemberNo ?? "").Contains(q, StringComparison.OrdinalIgnoreCase))"
+                              Placeholder="Search recipient…" @bind-Selected="to" />
+            </Field>
+            <Field Class="c6" Label="Units" Required="true"><input class="ms-input" type="number" min="1" max="@(from?.Units ?? 1)" @bind="units" /></Field>
+            <Field Class="c6" Label="Share type">
+                <select class="ms-select" @bind="shareType">@foreach (var t in ShareTypes.All) { <option value="@t">@t</option> }</select>
+            </Field>
+            <Field Class="c12" Label="Remarks"><textarea class="ms-input" @bind="remarks"></textarea></Field>
         </div>
-    </div>
-}
+    </ChildContent>
+    <Footer>
+        <button type="button" class="ms-btn" @onclick="CloseTransfer">Cancel</button>
+        <button type="button" class="ms-btn primary @(busy ? "busy" : "")" @onclick="Transfer">@if (busy) { <span class="ms-spin"></span> }Transfer shares</button>
+    </Footer>
+</Modal>
 
 @code {
-    private HttpClient Http => _httpClientFactory.CreateClient("ApiClient");
-    private List<ShareViewModel> shareholders = new();
+    private List<ShareViewModel> holders = new();
     private List<Member> members = new();
-    private ShareSummaryDto shareSummary = new();
-    private bool isLoading = true;
-    private string errorMessage = string.Empty;
+    private ShareSummaryDto summary = new();
+    private string search = "", error = "", tError = "", remarks = "", shareType = "Ordinary";
+    private bool loading = true, failed, busy;
+    private int page = 1, pageSize = 10, units = 1;
 
-    // Filter properties
-    private string searchTerm = string.Empty;
+    private ShareViewModel? from;
+    private Member? to;
 
-    // Transfer properties
-    private bool showTransferModal = false;
-    private ShareViewModel? shareholderToTransfer = null;
-    private int transferToMemberId;
-    private int sharesToTransfer = 1;
-    private string transferRemarks = string.Empty;
+    private IEnumerable<Member> Recipients => members.Where(m => m.MemberId != from?.MemberId);
 
-    // Pagination properties
-    private int currentPage = 1;
-    private const int pageSize = 10;
-    private int totalPages => (int)Math.Ceiling((double)filteredShareholders.Count() / pageSize);
+    private IEnumerable<ShareViewModel> Filtered => holders
+        .Where(s => string.IsNullOrWhiteSpace(search)
+            || (s.MemberName ?? "").Contains(search.Trim(), StringComparison.OrdinalIgnoreCase)
+            || (s.MemberNumber ?? "").Contains(search.Trim(), StringComparison.OrdinalIgnoreCase))
+        .OrderByDescending(s => s.Units);
 
-    // Add this property for paged shareholders
-    private IEnumerable<ShareViewModel> pagedShareholders => filteredShareholders
-        .OrderByDescending(s => s.Units)
-        .Skip((currentPage - 1) * pageSize)
-        .Take(pageSize);
+    private IEnumerable<ShareViewModel> PageItems => Filtered.Skip((page - 1) * pageSize).Take(pageSize);
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
     {
-        await LoadData();
-    }
-
-    private async Task LoadData()
-    {
+        loading = true; failed = false; error = "";
         try
         {
-            isLoading = true;
-            StateHasChanged();
-
-            // Load all data in parallel
-            var summaryTask = Http.GetFromJsonAsync<ShareSummaryDto>("api/shares/summary");
-            var membersTask = Http.GetFromJsonAsync<List<Member>>("api/members");
-            var sharesTask = Http.GetFromJsonAsync<List<ShareViewModel>>("api/shares/get-all");
-
-            await Task.WhenAll(summaryTask, membersTask, sharesTask);
-
-            shareSummary = summaryTask.Result ?? new ShareSummaryDto();
-            members = membersTask.Result ?? new List<Member>();
-            
-            // Process shares data
-            var allShares = sharesTask.Result ?? new List<ShareViewModel>();
-            shareholders = allShares
-                .GroupBy(s => s.MemberId)
+            var http = HttpClientFactory.CreateClient("ApiClient");
+            var s = http.GetFromJsonAsync<ShareSummaryDto>("api/shares/summary");
+            var m = http.GetFromJsonAsync<List<Member>>("api/members");
+            var a = http.GetFromJsonAsync<List<ShareViewModel>>("api/shares/get-all");
+            await Task.WhenAll(s, m, a);
+            summary = s.Result ?? new();
+            members = m.Result ?? new();
+            holders = (a.Result ?? new())
+                .Where(x => x.Status == "Active")
+                .GroupBy(x => x.MemberId)
                 .Select(g => new ShareViewModel
                 {
                     MemberId = g.Key,
                     MemberName = g.First().MemberName,
                     MemberNumber = g.First().MemberNumber,
-                    Units = g.Sum(s => s.Units),
-                    PurchaseDate = g.Max(s => s.PurchaseDate),
-                    Status = "Active" // Default status for grouped shares
-                })
-                .ToList();
+                    Units = g.Sum(x => x.Units),
+                    TotalValue = g.Sum(x => x.TotalValue),
+                    PurchaseDate = g.Max(x => x.PurchaseDate),
+                    Status = "Active"
+                }).ToList();
         }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to load data: {ex.Message}";
-            }
-        finally
-        {
-            isLoading = false;
-            StateHasChanged();
-        }
+        catch (Exception ex) { failed = true; error = ex.Message; }
+        finally { loading = false; }
     }
 
-    private IEnumerable<ShareViewModel> filteredShareholders => shareholders
-        .Where(s => string.IsNullOrEmpty(searchTerm) ||
-                   (s.MemberName?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) == true ||
-                   (s.MemberNumber?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) == true ||
-                   s.MemberId.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase))));
-
-    private void NavigateToPurchaseShares() => NavigationManager.NavigateTo("/shares/purchase");
-    private void ViewShareholderDetails(int memberId) => NavigationManager.NavigateTo($"/shares/member/{memberId}");
-    private void PurchaseMoreShares(int memberId) => NavigationManager.NavigateTo($"/shares/purchase/{memberId}");
-
-    private void ShowTransferModal(ShareViewModel shareholder)
+    private static string Money(decimal v)
     {
-        shareholderToTransfer = shareholder;
-        sharesToTransfer = 1;
-        transferToMemberId = 0;
-        transferRemarks = string.Empty;
-        showTransferModal = true;
+        var a = Math.Abs(v);
+        if (a >= 1_000_000m) return (v / 1_000_000m).ToString("0.##") + "M";
+        if (a >= 10_000m) return (v / 1_000m).ToString("0.#") + "K";
+        return v.ToString("N0");
     }
 
-    private void CloseTransferModal()
-    {
-        showTransferModal = false;
-        shareholderToTransfer = null;
-    }
+    private void ResetPage() => page = 1;
+    private void View(int id) => NavigationManager.NavigateTo($"/shares/member/{id}");
+    private void Buy(int id) => NavigationManager.NavigateTo($"/shares/purchase/{id}");
 
-    private async Task ExecuteTransfer()
-    {
-        if (shareholderToTransfer == null || transferToMemberId == 0)
-        {
-            errorMessage = "Please select a member to transfer to";
-            return;
-        }
+    private void OpenTransfer(ShareViewModel h) { from = h; to = null; units = 1; remarks = ""; tError = ""; shareType = "Ordinary"; }
+    private void CloseTransfer() { from = null; to = null; tError = ""; }
 
+    private async Task Transfer()
+    {
+        tError = "";
+        if (from == null) return;
+        if (to == null) { tError = "Please choose who receives the shares."; return; }
+        if (units < 1 || units > from.Units) { tError = $"Units must be between 1 and {from.Units:N0}."; return; }
+
+        busy = true;
         try
         {
-            var transferDto = new ShareTransferDto
+            var http = HttpClientFactory.CreateClient("ApiClient");
+            var dto = new ShareTransferDto { FromMemberId = from.MemberId, ToMemberId = to.MemberId, Units = units, ShareType = shareType, Remarks = remarks };
+            var r = await http.PostAsJsonAsync("api/shares/transfer", dto);
+            if (r.IsSuccessStatusCode)
             {
-                FromMemberId = shareholderToTransfer.MemberId,
-                ToMemberId = transferToMemberId,
-                Units = sharesToTransfer,
-                Remarks = transferRemarks
-            };
-
-            var response = await Http.PostAsJsonAsync("api/shares/transfer", transferDto);
-
-            if (response.IsSuccessStatusCode)
-            {
-                await LoadData();
-                showTransferModal = false;
+                await JS.InvokeVoidAsync("ms.toast", "success", "Shares transferred", $"{units:N0} units to {to.FullName}");
+                CloseTransfer();
+                await Load();
             }
             else
             {
-                errorMessage = await response.Content.ReadAsStringAsync();
+                tError = await r.Content.ReadAsStringAsync();
+                if (string.IsNullOrWhiteSpace(tError)) tError = $"The server answered {(int)r.StatusCode}.";
             }
         }
-        catch (Exception ex)
-        {
-            errorMessage = $"Transfer failed: {ex.Message}";
-        }
-    }
-
-    private void ChangePage(int page)
-    {
-        if (page >= 1 && page <= totalPages)
-        {
-            currentPage = page;
-        }
+        catch (Exception ex) { tError = ex.Message; }
+        finally { busy = false; }
     }
 }

@@ -1,0 +1,37 @@
+@using SaccoManagementSystem.Services
+@* Plain, factual "notice board" shown on the home page until a real photo of members is uploaded. *@
+<div class="ws-board">
+    <div class="ws-board-head">
+        <div><b>Loan rates</b><small>As approved by members · @DateTime.Today.ToString("MMMM yyyy")</small></div>
+        <i class="bi bi-pin-angle-fill"></i>
+    </div>
+    @if (Loans.Count == 0)
+    {
+        <p class="ws-board-empty">Ask at the office for current rates.</p>
+    }
+    else
+    {
+        <ul>
+            @foreach (var p in Loans.Take(5))
+            {
+                <li>
+                    <span class="ic"><i class="bi @p.Icon"></i></span>
+                    <div><b>@p.Name</b><small>Up to @p.MaxMonths months@(p.Multiple > 0 ? " · " + p.Multiple.ToString("0.#") + "× your deposits" : "")</small></div>
+                    <em>@p.RatePct.ToString("0.#")%<small>a year</small></em>
+                </li>
+            }
+        </ul>
+    }
+    <div class="ws-board-foot">
+        <div><small>Dividend last year</small><b>@(Dividend > 0 ? Dividend.ToString("0.#") + "%" : "Declared at AGM")</b></div>
+        @if (!string.IsNullOrWhiteSpace(Paybill)) { <div><small>M-Pesa Paybill</small><b>@Paybill</b></div> }
+        @if (!string.IsNullOrWhiteSpace(Hours)) { <div class="wide"><small>Office hours</small><b>@Hours</b></div> }
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<LoanProduct> Loans { get; set; } = new();
+    [Parameter] public decimal Dividend { get; set; }
+    [Parameter] public string? Paybill { get; set; }
+    [Parameter] public string? Hours { get; set; }
+}

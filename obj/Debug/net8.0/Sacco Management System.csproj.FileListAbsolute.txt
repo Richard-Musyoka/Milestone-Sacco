@@ -94,19 +94,6 @@ C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\rjsmrazor.
 C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\rjsmcshtml.dswa.cache.json
 C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\staticwebassets.build.json.cache
 C:\Users\Attain\source\repos\Sacco Management System\obj\Debug\net8.0\Sacco Management System.sourcelink.json
-C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.csproj.AssemblyReference.cache
-C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\rpswa.dswa.cache.json
-C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.GeneratedMSBuildEditorConfig.editorconfig
-C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.AssemblyInfoInputs.cache
-C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.AssemblyInfo.cs
-C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.csproj.CoreCompileInputs.cache
-C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.MvcApplicationPartsAssemblyInfo.cache
-C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.RazorAssemblyInfo.cache
-C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.RazorAssemblyInfo.cs
-C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.sourcelink.json
-C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.dll
-C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\refint\Sacco Management System.dll
-C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.pdb
 C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\bin\Debug\net8.0\appsettings.Development.json
 C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\bin\Debug\net8.0\appsettings.json
 C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\bin\Debug\net8.0\Sacco Management System.staticwebassets.runtime.json
@@ -176,6 +163,16 @@ C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\bin\Debug
 C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\bin\Debug\net8.0\runtimes\win\lib\net6.0\System.Security.Cryptography.ProtectedData.dll
 C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\bin\Debug\net8.0\runtimes\browser\lib\net8.0\System.Text.Encodings.Web.dll
 C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\bin\Debug\net8.0\runtimes\win\lib\net6.0\System.Windows.Extensions.dll
+C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.csproj.AssemblyReference.cache
+C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\rpswa.dswa.cache.json
+C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.AssemblyInfoInputs.cache
+C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.AssemblyInfo.cs
+C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.csproj.CoreCompileInputs.cache
+C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.MvcApplicationPartsAssemblyInfo.cache
+C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.RazorAssemblyInfo.cache
+C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.RazorAssemblyInfo.cs
+C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.sourcelink.json
 C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\rjimswa.dswa.cache.json
 C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\rjsmrazor.dswa.cache.json
 C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\rjsmcshtml.dswa.cache.json
@@ -188,7 +185,9 @@ C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug
 C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\staticwebassets.development.json
 C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\staticwebassets.build.endpoints.json
 C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\swae.build.ex.cache
-C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt
 C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Ma.95AFD796.Up2Date
+C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.dll
+C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\refint\Sacco Management System.dll
+C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.pdb
 C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\Sacco Management System.genruntimeconfig.cache
 C:\Users\Attain\source\repos\Personal Projects\Sacco Management System\obj\Debug\net8.0\ref\Sacco Management System.dll

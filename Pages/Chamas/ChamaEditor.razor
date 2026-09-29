@@ -1,0 +1,127 @@
+@page "/chamas/add"
+@page "/chamas/{ChamaId:int}/edit"
+@using System.Text.Json
+@using SaccoManagementSystem.Services
+@inject ChamaStore Store
+@inject ConfigStore Cfg
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>@(ChamaId > 0 ? "Edit chama" : "Start a chama") · @Brand.Name</PageTitle>
+
+<div class="ms-page">
+    <button type="button" class="ms-back" @onclick="Close"><i class="bi bi-arrow-left"></i> Chamas</button>
+    <PageHeader Title="@(ChamaId > 0 ? "Edit chama" : "Start a chama")" Subtitle="A group that saves together, runs a merry-go-round or does table banking." />
+
+    @if (!string.IsNullOrEmpty(error)) { <div class="ms-alert bad"><i class="bi bi-exclamation-circle-fill"></i><div>@error</div></div> }
+
+    <div class="ms-form">
+        <section class="ms-fs">
+            <div class="ms-fs-head"><i class="bi bi-diagram-3"></i><div><h3>What kind of group?</h3><small>You can change this later</small></div></div>
+            <div class="ms-fs-body">
+                <div class="ch-types">
+                    @foreach (var t in Kinds)
+                    {
+                        var tt = t;
+                        <button type="button" class="ch-typ @(c.Type == tt.Key ? "on" : "")" @onclick="() => c.Type = tt.Key">
+                            <i class="bi @Chamas.TypeIcon(tt.Key)"></i><b>@tt.Key</b><small>@tt.Text</small>
+                        </button>
+                    }
+                </div>
+            </div>
+        </section>
+
+        <section class="ms-fs">
+            <div class="ms-fs-head"><i class="bi bi-card-text"></i><div><h3>Details</h3><small>Name, money and meetings</small></div></div>
+            <div class="ms-fs-body">
+                <div class="ms-grid-form">
+                    <Field Class="c8" Label="Chama name" Required="true"><input class="ms-input" @bind="c.Name" placeholder="e.g. Tala Mama Mboga Group" maxlength="120" /></Field>
+                    <Field Class="c4" Label="Registration no." Hint="Social Development certificate, if any"><input class="ms-input" @bind="c.RegNo" maxlength="60" /></Field>
+                    <Field Class="c4" Label="@(c.Rotates ? "Each member pays per round" : "Contribution per member")" Required="true">
+                        <div class="cc-adorn"><em>@Cfg.Current.CurrencySymbol</em><input class="ms-input pre" type="number" min="1" value="@c.ContributionAmount" @onchange="OnAmount" /></div>
+                    </Field>
+                    <Field Class="c4" Label="How often">
+                        <select class="ms-select" @bind="c.Frequency">@foreach (var f in ChamaStore.Frequencies) { <option>@f</option> }</select>
+                    </Field>
+                    <Field Class="c4" Label="First round date"><input class="ms-input" type="date" value="@c.StartDate.ToString("yyyy-MM-dd")" @onchange="OnStart" /></Field>
+                    <Field Class="c4" Label="Meeting day">
+                        <select class="ms-select" @bind="c.MeetingDay">@foreach (var d in Days) { <option>@d</option> }</select>
+                    </Field>
+                    <Field Class="c8" Label="Where they meet"><input class="ms-input" @bind="c.MeetingPlace" placeholder="e.g. Tala market, AIC church hall" maxlength="120" /></Field>
+                    <Field Class="c12" Label="About the group"><textarea class="ms-input" rows="3" style="height:auto;padding-top:10px" @bind="c.Description" maxlength="600" placeholder="What they're saving towards, any rules members agreed on"></textarea></Field>
+                    @if (ChamaId > 0)
+                    {
+                        <Field Class="c4" Label="Status"><select class="ms-select" @bind="c.Status"><option>Active</option><option>Paused</option><option>Closed</option></select></Field>
+                    }
+                </div>
+            </div>
+        </section>
+
+        <section class="ms-fs">
+            <div class="ms-fs-head"><i class="bi bi-palette"></i><div><h3>Colour</h3><small>Helps tell groups apart</small></div></div>
+            <div class="ms-fs-body">
+                <div class="ch-colors">@foreach (var col in Colors) { var cc = col; <button type="button" class="@(c.Color == cc ? "on" : "")" style="background:@cc" @onclick="() => c.Color = cc" aria-label="@cc"></button> }</div>
+                @if (c.Rotates)
+                {
+                    <div class="pay-preview" style="margin-top:16px"><i class="bi bi-arrow-repeat"></i><div><b>How the merry-go-round works</b><small>Every @c.Frequency.ToLowerInvariant().Replace("ly", "") each member pays @Cfg.Current.CurrencySymbol @c.ContributionAmount.ToString("N0"). One member takes the whole pot, in the order you set or by drawing lots, until everyone has had a turn.</small></div></div>
+                }
+            </div>
+        </section>
+
+        <div class="ms-formbar">
+            <span class="sp">@(ChamaId > 0 ? "Changes to the amount update upcoming payouts." : "Add members after saving.")</span>
+            <button type="button" class="ms-btn" @onclick="Close" disabled="@busy">Cancel</button>
+            <button type="button" class="ms-btn primary @(busy ? "busy" : "")" disabled="@busy" @onclick="Save">@if (busy) { <span class="ms-spin"></span> } else { <i class="bi bi-check2"></i> } @(ChamaId > 0 ? "Save changes" : "Create chama")</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int ChamaId { get; set; }
+    [CascadingParameter] public DrawerContext? Drawer { get; set; }
+
+    private Chama c = new() { StartDate = DateTime.Today };
+    private string? error;
+    private bool busy;
+    private static readonly string[] Days = { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
+    private static readonly string[] Colors = { "#f97316", "#0B7A52", "#2559C7", "#8b5cf6", "#ec4899", "#D4A62A", "#0b7285", "#b42318", "#334155" };
+    private static readonly (string Key, string Text)[] Kinds =
+    {
+        ("Merry-go-round", "Everyone pays in, one member takes the pot each round."),
+        ("Investment", "Pool money to buy land, shares or a business together."),
+        ("Table banking", "Save and lend to each other at the meeting."),
+        ("Welfare", "Support members through funerals, illness and celebrations."),
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ChamaId > 0) c = await Store.GetAsync(ChamaId) ?? new Chama();
+    }
+
+    private void OnAmount(ChangeEventArgs e) { if (decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v)) c.ContributionAmount = v; }
+    private void OnStart(ChangeEventArgs e) { if (DateTime.TryParse(e.Value?.ToString(), out var d)) c.StartDate = d; }
+
+    private async Task Save()
+    {
+        error = ChamaStore.Validate(c);
+        if (error != null) return;
+        busy = true;
+        try
+        {
+            c.Id = ChamaId;
+            var r = await Http.PostAsJsonAsync($"{Nav.BaseUri}api/chamas", c);
+            var body = await r.Content.ReadAsStringAsync();
+            using var d = JsonDocument.Parse(string.IsNullOrWhiteSpace(body) ? "{}" : body);
+            if (!r.IsSuccessStatusCode) { error = d.RootElement.TryGetProperty("message", out var m) ? m.GetString() : "Couldn't save (" + (int)r.StatusCode + ")."; return; }
+            var id = d.RootElement.TryGetProperty("id", out var i) ? i.GetInt32() : ChamaId;
+            await JS.InvokeVoidAsync("ms.toast", "success", ChamaId > 0 ? "Chama updated" : "Chama created", c.Name);
+            if (Drawer != null && ChamaId > 0) await Drawer.Saved();
+            else { if (Drawer != null) await Drawer.Close(); Nav.NavigateTo("chamas/" + id); }
+        }
+        catch (Exception ex) { error = "Network error: " + ex.Message; }
+        finally { busy = false; }
+    }
+
+    private async Task Close() { if (Drawer != null) await Drawer.Close(); else Nav.NavigateTo(ChamaId > 0 ? "chamas/" + ChamaId : "chamas"); }
+}

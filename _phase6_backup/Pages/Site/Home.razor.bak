@@ -1,0 +1,127 @@
+@page "/"
+@inject ConfigStore Cfg
+@inject SiteStore Site
+
+<PageTitle>@Brand.Name · @Brand.Tagline</PageTitle>
+<HeadContent><meta name="description" content="@S.HeroText" /></HeadContent>
+
+<section class="ws-hero">
+    <div class="ws-wrap">
+        <div class="ws-hero-grid">
+            <div class="ws-reveal">
+                <span class="ws-kicker"><i class="bi bi-stars"></i> @S.HeroKicker</span>
+                <h1>@S.HeroTitle</h1>
+                <p class="lead">@S.HeroText</p>
+                <div class="ws-hero-actions">
+                    <a class="ws-btn primary lg" href="membership#join">Become a member <i class="bi bi-arrow-right"></i></a>
+                    <a class="ws-btn lg" href="products#calculator"><i class="bi bi-calculator"></i> Loan calculator</a>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(C.MpesaPaybill))
+                {
+                    <div class="ws-paybill">
+                        <span class="ic"><i class="bi bi-phone"></i></span>
+                        <div><small>Deposit via M-Pesa Paybill</small><b>@C.MpesaPaybill</b></div>
+                        <div style="padding-left:12px;border-left:1px solid var(--ms-border)"><small>Account</small><b style="font-size:14px;letter-spacing:0">@C.MpesaAccountRef</b></div>
+                    </div>
+                }
+            </div>
+            <div class="ws-hero-art ws-reveal" style="animation-delay:.1s">
+                @if (!string.IsNullOrEmpty(S.HeroImage)) { <img src="@("media/hero?v=" + Site.Ver)" alt="@Brand.Name" /> } else { <SaccoArt /> }
+                @if (Top != null)
+                {
+                    <div class="ws-float a"><i class="bi @Top.Icon"></i><div>@Top.Name<small>From @Top.RatePct.ToString("0.#")% a year</small></div></div>
+                }
+                <div class="ws-float b"><i class="bi bi-graph-up-arrow"></i><div>Dividends every year<small>Approved by members at the AGM</small></div></div>
+            </div>
+        </div>
+
+        @if (S.ShowStats && Stats.Count > 0)
+        {
+            <div class="ws-stats">
+                @foreach (var st in Stats) { <div class="ws-stat"><b>@st.Value</b><span>@st.Label</span></div> }
+            </div>
+        }
+    </div>
+</section>
+
+<section class="ws-sec alt">
+    <div class="ws-wrap">
+        <div class="ws-head center"><span class="ws-eyebrow">Why join us</span><h2>A SACCO that puts members first</h2><p>Owned and run by the people it serves. Every shilling saved works for the whole community.</p></div>
+        <div class="ws-grid">
+            @foreach (var w in S.Why) { <div class="ws-card"><div class="ic"><i class="bi @w.Icon"></i></div><h3>@w.Title</h3><p>@w.Text</p></div> }
+        </div>
+    </div>
+</section>
+
+@if (Loans.Count > 0)
+{
+    <section class="ws-sec">
+        <div class="ws-wrap">
+            <div class="ws-head"><span class="ws-eyebrow">Loans</span><h2>Borrow for what matters</h2><p>Fair rates set by members. Borrow against your deposits with the support of your guarantors.</p></div>
+            <div class="ws-grid three">
+                @foreach (var p in Loans.Take(6))
+                {
+                    <div class="ws-card">
+                        <div class="rate"><b>@p.RatePct.ToString("0.#")%</b><small>a year</small></div>
+                        <div class="ic"><i class="bi @p.Icon"></i></div>
+                        <h3>@p.Name</h3>
+                        <p>@p.Summary</p>
+                        <div class="facts"><span>Up to @p.MaxMonths months</span>@if (p.Multiple > 0) { <span>@p.Multiple.ToString("0.#")× deposits</span> }</div>
+                    </div>
+                }
+            </div>
+            <div style="margin-top:22px"><a class="ws-btn" href="products">See all products <i class="bi bi-arrow-right"></i></a></div>
+        </div>
+    </section>
+}
+
+<section class="ws-sec brand">
+    <div class="ws-wrap">
+        <div class="ws-head center"><span class="ws-eyebrow">Getting started</span><h2>Join in @S.Steps.Count simple steps</h2></div>
+        <div class="ws-steps">@foreach (var s in S.Steps) { <div class="ws-step"><p>@s</p></div> }</div>
+        <div style="text-align:center;margin-top:26px"><a class="ws-btn primary lg" href="membership#join">Start today</a></div>
+    </div>
+</section>
+
+@if (LatestNews.Count > 0)
+{
+    <section class="ws-sec">
+        <div class="ws-wrap">
+            <div class="ws-head"><span class="ws-eyebrow">News</span><h2>What's happening</h2></div>
+            <div class="ws-news">
+                @foreach (var n in LatestNews)
+                {
+                    <a class="ws-card" href="@("news/" + n.Id)"><time>@n.Date.ToString("d MMM yyyy")</time><h3>@n.Title</h3><p>@n.Summary</p><span class="more">Read more <i class="bi bi-arrow-right"></i></span></a>
+                }
+            </div>
+        </div>
+    </section>
+}
+
+<section class="ws-sec">
+    <div class="ws-wrap">
+        <div class="ws-cta-band">
+            <div><h2>Ready to grow with us?</h2><p>Talk to our team today or visit us at @(string.IsNullOrWhiteSpace(C.Address) ? "our office" : C.Address).</p></div>
+            <div class="actions">
+                <a class="ws-btn gold lg" href="membership#join">Become a member</a>
+                <a class="ws-btn lg" href="contact">Contact us</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    private SiteContent S => Site.Current;
+    private OrgConfig C => Cfg.Current;
+    private List<LoanProduct> Loans => C.LoanProducts.Where(p => p.OnWebsite).ToList();
+    private LoanProduct? Top => Loans.FirstOrDefault();
+    private List<SiteContent.NewsItem> LatestNews => S.News.Where(n => n.Published).OrderByDescending(n => n.Date).Take(3).ToList();
+    private List<SiteContent.Stat> Stats = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var tokens = await Site.LiveTokensAsync(C);
+        Stats = S.Stats.Select(s => new SiteContent.Stat { Label = s.Label, Value = tokens.Aggregate(s.Value ?? "", (acc, kv) => acc.Replace(kv.Key, kv.Value)) })
+                       .Where(s => !string.IsNullOrWhiteSpace(s.Value)).ToList();
+    }
+}

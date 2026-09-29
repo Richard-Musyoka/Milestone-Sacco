@@ -1,522 +1,232 @@
 @page "/loans"
-@using Microsoft.AspNetCore.Components
 @using SaccoManagementSystem.Models
 @inject NavigationManager NavigationManager
-@inject IHttpClientFactory _httpClientFactory
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS
 
-<div class="loans-container">
-    <!-- Header Section -->
-    <div class="loans-header mb-4">
-        <div class="header-title">
-            <i class="bi bi-cash-coin header-icon"></i>
-            <h2>Loan Applications</h2>
+<PageTitle>Loans · @Brand.Name</PageTitle>
+
+<div class="ms-page">
+    <PageHeader Title="Loans" Subtitle="Applications, approvals and disbursements in one place.">
+        <a class="ms-btn primary" href="loans/apply"><i class="bi bi-plus-lg"></i> New loan application</a>
+    </PageHeader>
+
+    @if (!loading && !failed)
+    {
+        <div class="ms-mini">
+            <div><small>Total lent (filtered)</small><b>KES @Money(Scoped.Sum(x => x.PrincipalAmount))</b></div>
+            <div><small>Awaiting approval</small><b>@Scoped.Count(x => x.Status == "Pending")</b></div>
+            <div><small>Ready to disburse</small><b>@Scoped.Count(x => x.Status == "Approved")</b></div>
+            <div><small>Outstanding balance</small><b>KES @Money(Scoped.Where(x => x.Status == "Disbursed").Sum(x => x.OutstandingBalance ?? x.PrincipalAmount))</b></div>
         </div>
+    }
 
-        <div class="header-actions">
-            <div class="search-box">
+    <div class="ms-card">
+        <div class="ms-toolbar">
+            <div class="ms-searchbox">
                 <i class="bi bi-search"></i>
-                <input type="text"
-                       class="form-control"
-                       placeholder="Search loans..."
-                       @bind="searchTerm"
-                       @bind:event="oninput" />
+                <input class="ms-input" type="search" placeholder="Search member, member no or loan no…" aria-label="Search loans" @bind="search" @bind:event="oninput" @bind:after="ResetPage" />
             </div>
-
-            <button class="btn btn-primary add-loan-btn"
-                    @onclick="NavigateToApplyLoan">
-                <i class="bi bi-plus-circle"></i>
-                <span>Apply for Loan</span>
-            </button>
-        </div>
-    </div>
-
-    <!-- Filter Section -->
-    <div class="filters mb-3">
-        <div class="row g-2">
-            <div class="col-md-4">
-                <select class="form-select" @bind="loanStatusFilter">
-                    <option value="">All Statuses</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Approved">Approved</option>
-                    <option value="Rejected">Rejected</option>
-                    <option value="Disbursed">Disbursed</option>
+            <div class="ms-chips" role="group" aria-label="Filter by status">
+                @foreach (var s in Statuses)
+                {
+                    <button type="button" class="ms-chip @(status == s ? "on" : "")" @onclick="() => SetStatus(s)">@s<em>@(s == "All" ? Scoped.Count() : Scoped.Count(x => x.Status == s))</em></button>
+                }
+            </div>
+            <div class="ms-toolbar-end">
+                <select class="ms-select" aria-label="Filter by loan type" @bind="type" @bind:after="ResetPage">
+                    <option value="">All types</option>
+                    @foreach (var t in items.Select(x => x.LoanType).Where(x => !string.IsNullOrEmpty(x)).Distinct().OrderBy(x => x)) { <option value="@t">@t</option> }
                 </select>
             </div>
-
-            <div class="col-md-4">
-                <select class="form-select" @bind="loanTypeFilter">
-                    <option value="">All Types</option>
-                    <option value="Emergency">Emergency</option>
-                    <option value="Education">Education</option>
-                    <option value="Business">Business</option>
-                    <option value="Personal">Personal</option>
-                </select>
-            </div>
-
-            <div class="col-md-4">
-                <button class="btn btn-outline-secondary w-100" @onclick="ResetFilters">
-                    <i class="bi bi-arrow-counterclockwise"></i> Reset
-                </button>
-            </div>
         </div>
-    </div>
 
-    <!-- Summary Cards -->
-    <div class="summary-cards mb-4">
-        <div class="row">
-            <div class="col-md-3">
-                <div class="card summary-card pending">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="text-muted">Pending Loans</h6>
-                                <h3>@pendingLoansCount</h3>
-                            </div>
-                            <div class="icon">
-                                <i class="bi bi-hourglass"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-3">
-                <div class="card summary-card approved">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="text-muted">Approved Loans</h6>
-                                <h3>@approvedLoansCount</h3>
-                            </div>
-                            <div class="icon">
-                                <i class="bi bi-check-circle"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-3">
-                <div class="card summary-card disbursed">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="text-muted">Disbursed Loans</h6>
-                                <h3>@disbursedLoansCount</h3>
-                            </div>
-                            <div class="icon">
-                                <i class="bi bi-cash-stack"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-3">
-                <div class="card summary-card total">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="text-muted">Total Amount</h6>
-                                <h3>@totalLoanAmount.ToString("C")</h3>
-                            </div>
-                            <div class="icon">
-                                <i class="bi bi-wallet2"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Loans Table -->
-    <div class="loans-table-container">
-        @if (isLoading)
+        @if (loading)
         {
-            <div class="text-center py-5">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <p>Loading loans...</p>
-            </div>
+            <div class="ms-card-body">@for (int i = 0; i < 6; i++) { <div class="ms-skel" style="height:56px;margin-bottom:10px"></div> }</div>
         }
-        else if (filteredLoans.Any())
+        else if (failed)
         {
-            <div class="table-responsive">
-                <table class="table table-hover align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Loan ID</th>
-                            <th>Member</th>
-                            <th>Type</th>
-                            <th>Amount</th>
-                            <th>Applied Date</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
+            <EmptyState Icon="bi-wifi-off" Title="Couldn't load loans" Text="@error">
+                <div style="margin-top:14px"><button class="ms-btn" @onclick="Load"><i class="bi bi-arrow-clockwise"></i> Retry</button></div>
+            </EmptyState>
+        }
+        else if (!Filtered.Any())
+        {
+            <EmptyState Icon="bi-cash-coin" Title="No loans found" Text="Try a different search or filter, or start a new application.">
+                <div style="margin-top:14px"><a class="ms-btn primary" href="loans/apply">New loan application</a></div>
+            </EmptyState>
+        }
+        else
+        {
+            <div class="ms-table-wrap">
+                <table class="ms-table">
+                    <thead>
+                        <tr><th>Loan</th><th>Member</th><th>Type</th><th class="r">Principal</th><th class="r">Monthly</th><th class="r">Balance</th><th>Applied</th><th>Status</th><th class="r" style="width:210px"></th></tr>
                     </thead>
                     <tbody>
-                        @foreach (var loan in pagedLoans)
+                        @foreach (var l in PageItems)
                         {
-                            <tr>
-                                <td>@loan.LoanNumber</td>
-                                <td>
-                                    <div class="member-name">@loan.MemberName</div>
-                                    <small class="text-muted">ID: @loan.MemberId</small>
-                                </td>
-                                <td>@loan.LoanType</td>
-                                <td>@loan.PrincipalAmount.ToString("C")</td>
-                                <td>@loan.ApplicationDate.ToShortDateString()</td>
-                                <td>
-                                    <span class="badge @GetStatusClass(loan.Status)">
-                                        @loan.Status
-                                    </span>
-                                </td>
-                                <td class="text-end">
-                                    <button class="btn btn-outline-primary btn-sm"
-                                            @onclick="() => ViewLoan(loan.LoanId)"
-                                            title="View">
-                                        View
-                                    </button>
-                                    <button class="btn btn-outline-info btn-sm"
-                                            @onclick="() => ViewSchedule(loan.LoanId)"
-                                            title="Repayment Schedule">
-                                        Schedule
-                                    </button>
-                                    @if (loan.Status == "Pending")
-                                    {
-                                        <button class="btn btn-outline-success btn-sm"
-                                                @onclick="() => ApproveLoan(loan.LoanId)"
-                                                title="Approve">
-                                            Approve
-                                        </button>
-                                        <button class="btn btn-outline-danger btn-sm"
-                                                @onclick="() => RejectLoan(loan.LoanId)"
-                                                title="Reject">
-                                            Reject
-                                        </button>
-                                    }
-                                    @if (loan.Status == "Approved")
-                                    {
-                                        <button class="btn btn-outline-warning btn-sm"
-                                                @onclick="() => DisburseLoan(loan.LoanId)"
-                                                title="Disburse">
-                                            Disburse
-                                        </button>
-                                    }
+                            <tr class="clickable" @onclick="() => View(l.LoanId)">
+                                <td class="ms-num"><b>@l.LoanNumber</b></td>
+                                <td><div class="ms-cell-person"><Avatar Name="@l.MemberName" Size="sm" /><div><b>@l.MemberName</b><small>@l.MemberNo</small></div></div></td>
+                                <td>@l.LoanType</td>
+                                <td class="r ms-num"><b>KES @l.PrincipalAmount.ToString("N0")</b><small style="display:block;color:var(--ms-text-3)">@l.TermMonths mo @@ @l.InterestRate.ToString("0.##")%</small></td>
+                                <td class="r ms-num">@(l.MonthlyInstallment.HasValue ? "KES " + l.MonthlyInstallment.Value.ToString("N0") : "—")</td>
+                                <td class="r ms-num">@(l.OutstandingBalance.HasValue ? "KES " + l.OutstandingBalance.Value.ToString("N0") : "—")</td>
+                                <td class="ms-num">@l.ApplicationDate.ToString("d MMM yyyy")</td>
+                                <td><StatusPill Status="@l.Status" /></td>
+                                <td @onclick:stopPropagation="true">
+                                    <div class="ms-row-actions">
+                                        @if (l.Status == "Pending")
+                                        {
+                                            <button class="ms-btn sm primary" @onclick="() => Ask(l, Approve)">Approve</button>
+                                            <button class="ms-btn sm" @onclick="() => Ask(l, Reject)">Reject</button>
+                                        }
+                                        else if (l.Status == "Approved")
+                                        {
+                                            <button class="ms-btn sm primary" @onclick="() => Ask(l, Disburse)">Disburse</button>
+                                        }
+                                        @if (l.Status is "Disbursed" or "Completed")
+                                        {
+                                            <button class="ms-ib" title="Repayment schedule" aria-label="Repayment schedule for @l.LoanNumber" @onclick="() => Schedule(l.LoanId)"><i class="bi bi-calendar3"></i></button>
+                                        }
+                                        <button class="ms-ib" title="View" aria-label="View @l.LoanNumber" @onclick="() => View(l.LoanId)"><i class="bi bi-eye"></i></button>
+                                    </div>
                                 </td>
                             </tr>
                         }
                     </tbody>
                 </table>
             </div>
-
-            <!-- Pagination -->
-            @if (totalPages > 1)
-            {
-                <nav class="mt-3">
-                    <ul class="pagination justify-content-center">
-                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
-                            <button class="page-link" @onclick="() => ChangePage(currentPage - 1)">
-                                <i class="bi bi-chevron-left"></i>
-                            </button>
-                        </li>
-                        @for (int i = 1; i <= totalPages; i++)
-                        {
-                            <li class="page-item @(i == currentPage ? "active" : "")">
-                                <button class="page-link" @onclick="() => ChangePage(i)">@i</button>
-                            </li>
-                        }
-                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
-                            <button class="page-link" @onclick="() => ChangePage(currentPage + 1)">
-                                <i class="bi bi-chevron-right"></i>
-                            </button>
-                        </li>
-                    </ul>
-                </nav>
-            }
-        }
-        else
-        {
-            <div class="empty-state text-center py-5">
-                <i class="bi bi-cash-coin empty-icon"></i>
-                <h4>No loan applications found</h4>
-                <p>Try adjusting your search or apply for a new loan</p>
-                <button class="btn btn-primary" @onclick="NavigateToApplyLoan">
-                    <i class="bi bi-plus-circle me-2"></i>
-                    Apply for Loan
-                </button>
-            </div>
+            <Pager Total="Filtered.Count()" @bind-Page="page" @bind-PageSize="pageSize" />
         }
     </div>
 </div>
 
-<!-- Status Change Confirmation Modal -->
-@if (showStatusModal)
-{
-    <div class="modal-backdrop show"></div>
-    <div class="modal show d-block" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Confirm @statusAction</h5>
-                    <button type="button" class="btn-close" @onclick="CancelStatusChange"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Are you sure you want to @statusAction.ToLower() loan <strong>@loanToUpdate?.LoanNumber</strong>?</p>
-                    @if (statusAction == "Approve")
-                    {
-                        <div class="mb-3">
-                            <label class="form-label">Interest Rate (%)</label>
-                            <input type="number" class="form-control" @bind="interestRate" step="0.01" min="0" max="100" />
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Repayment Period (months)</label>
-                            <input type="number" class="form-control" @bind="repaymentPeriod" min="1" max="60" />
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Remarks</label>
-                            <textarea class="form-control" @bind="remarks"></textarea>
-                        </div>
-                    }
-                    else if (statusAction == "Reject")
-                    {
-                        <div class="mb-3">
-                            <label class="form-label">Reason for Rejection</label>
-                            <textarea class="form-control" @bind="remarks"></textarea>
-                        </div>
-                    }
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CancelStatusChange">
-                        Cancel
-                    </button>
-                    <button type="button" class="btn @(statusAction == "Reject" ? "btn-danger" : "btn-primary")" @onclick="ConfirmStatusChange">
-                        @statusAction
-                    </button>
-                </div>
+<Modal Open="IsDecision" OnClose="Cancel" Title="@DecisionTitle" Subtitle="@DecisionSubtitle">
+    <ChildContent>
+        @if (action == Approve)
+        {
+            <div class="ms-grid-form">
+                <Field Class="c6" Label="Interest rate (% p.a.)"><input class="ms-input" type="number" step="0.1" min="0" @bind="rate" /></Field>
+                <Field Class="c6" Label="Repayment period (months)"><input class="ms-input" type="number" min="1" @bind="term" /></Field>
+                <Field Class="c12" Label="Remarks (optional)"><textarea class="ms-input" @bind="remarks"></textarea></Field>
             </div>
-        </div>
-    </div>
-}
+        }
+        else
+        {
+            <Field Label="Reason for rejection" Hint="Shared with the member and kept in the audit trail."><textarea class="ms-input" placeholder="Explain why this application is being declined" @bind="remarks"></textarea></Field>
+        }
+    </ChildContent>
+    <Footer>
+        <button type="button" class="ms-btn" @onclick="Cancel">Cancel</button>
+        <button type="button" class="ms-btn @(action == Approve ? "primary" : "danger") @(busy ? "busy" : "")" @onclick="Confirm">@if (busy) { <span class="ms-spin"></span> }@(action == Approve ? "Approve loan" : "Reject loan")</button>
+    </Footer>
+</Modal>
+
+<ConfirmDialog Open="action == Disburse" Title="Disburse loan" ConfirmText="Disburse funds" Busy="busy" OnConfirm="Confirm" OnCancel="Cancel">
+    <p style="margin:0 0 6px">Release <b>KES @target?.PrincipalAmount.ToString("N0")</b> to <b>@target?.MemberName</b> (@target?.LoanNumber)?</p>
+    <p class="ms-hint" style="margin:0">The repayment schedule starts once the loan is disbursed.</p>
+</ConfirmDialog>
 
 @code {
-    private HttpClient Http => _httpClientFactory.CreateClient("ApiClient");
-    private List<LoanViewModel> loans = new();
-    private bool isLoading = true;
-    private string errorMessage = string.Empty;
+    private static readonly string[] Statuses = { "All", "Pending", "Approved", "Disbursed", "Rejected" };
 
-    // Filter properties
-    private string searchTerm = string.Empty;
-    private string loanStatusFilter = string.Empty;
-    private string loanTypeFilter = string.Empty;
+    private List<LoanViewModel> items = new();
+    private string search = "", status = "All", type = "", error = "";
+    private bool loading = true, failed, busy;
+    private int page = 1, pageSize = 10;
 
-    // Status change properties
-    private bool showStatusModal = false;
-    private LoanViewModel? loanToUpdate = null;
-    private string statusAction = string.Empty;
-    private double interestRate = 10;
-    private int repaymentPeriod = 12;
-    private string remarks = string.Empty;
+    private const string Approve = "Approve", Reject = "Reject", Disburse = "Disburse";
+    private bool IsDecision => action == Approve || action == Reject;
+    private string DecisionTitle => action + " loan";
+    private string DecisionSubtitle => target == null ? "" : $"{target.LoanNumber} · {target.MemberName} · KES {target.PrincipalAmount:N0}";
 
-    // Pagination properties
-    private int currentPage = 1;
-    private const int pageSize = 10;
+    private LoanViewModel? target;
+    private string action = "";
+    private double rate = 10;
+    private int term = 12;
+    private string remarks = "";
 
-    protected override async Task OnInitializedAsync()
+    private IEnumerable<LoanViewModel> Scoped => items
+        .Where(x => string.IsNullOrEmpty(type) || x.LoanType == type)
+        .Where(x => string.IsNullOrWhiteSpace(search)
+            || (x.MemberName ?? "").Contains(search.Trim(), StringComparison.OrdinalIgnoreCase)
+            || (x.LoanNumber ?? "").Contains(search.Trim(), StringComparison.OrdinalIgnoreCase)
+            || (x.MemberNo ?? "").Contains(search.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<LoanViewModel> Filtered => Scoped.Where(x => status == "All" || x.Status == status).OrderByDescending(x => x.ApplicationDate);
+    private IEnumerable<LoanViewModel> PageItems => Filtered.Skip((page - 1) * pageSize).Take(pageSize);
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
     {
-        await LoadLoans();
-    }
-
-    private async Task LoadLoans()
-    {
+        loading = true; failed = false; error = "";
         try
         {
-            isLoading = true;
-            errorMessage = string.Empty;
-            StateHasChanged(); // Force UI update to show loading state
-
-            var response = await Http.GetAsync("api/loans/get-all");
-
-            if (response.IsSuccessStatusCode)
-            {
-                var content = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"API Response: {content}"); // Debug output
-
-                loans = await response.Content.ReadFromJsonAsync<List<LoanViewModel>>();
-            }
-            else
-            {
-                errorMessage = $"Error: {response.StatusCode}";
-                Console.WriteLine($"API Error: {errorMessage}");
-            }
+            var http = HttpClientFactory.CreateClient("ApiClient");
+            var r = await http.GetAsync("api/loans/get-all");
+            if (r.IsSuccessStatusCode) items = await r.Content.ReadFromJsonAsync<List<LoanViewModel>>() ?? new();
+            else { failed = true; error = $"The server answered {(int)r.StatusCode}."; }
         }
-        catch (Exception ex)
-        {
-            errorMessage = $"Failed to load loans: {ex.Message}";
-            Console.WriteLine($"Exception: {errorMessage}");
-        }
-        finally
-        {
-            isLoading = false;
-            StateHasChanged(); // Force UI update after loading
-        }
+        catch (Exception ex) { failed = true; error = ex.Message; }
+        finally { loading = false; }
     }
 
-    // Summary calculations
-    private int pendingLoansCount => filteredLoans.Count(l => l.Status == "Pending");
-    private int approvedLoansCount => filteredLoans.Count(l => l.Status == "Approved");
-    private int disbursedLoansCount => filteredLoans.Count(l => l.Status == "Disbursed");
-    private decimal totalLoanAmount => filteredLoans.Sum(l => l.PrincipalAmount);
-
-    // Filtered loans
-    private IEnumerable<LoanViewModel> filteredLoans => loans
-        .Where(l => string.IsNullOrEmpty(searchTerm) ||
-                   l.MemberName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                   l.LoanNumber.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                   l.MemberId.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
-        .Where(l => string.IsNullOrEmpty(loanStatusFilter) || l.Status == loanStatusFilter)
-        .Where(l => string.IsNullOrEmpty(loanTypeFilter) || l.LoanType == loanTypeFilter);
-
-    // Paginated loans
-    private IEnumerable<LoanViewModel> pagedLoans => filteredLoans
-        .OrderByDescending(l => l.ApplicationDate)
-        .Skip((currentPage - 1) * pageSize)
-        .Take(pageSize);
-
-    // Total pages
-    private int totalPages => (int)Math.Ceiling((double)filteredLoans.Count() / pageSize);
-
-    // Helper methods
-    private string GetStatusClass(string status) => status switch
+    private static string Money(decimal v)
     {
-        "Pending" => "bg-warning text-dark",
-        "Approved" => "bg-info",
-        "Disbursed" => "bg-success",
-        "Rejected" => "bg-danger",
-        _ => "bg-secondary"
-    };
-
-    // Navigation methods
-    private void NavigateToApplyLoan() => NavigationManager.NavigateTo("/loans/apply");
-    private void ViewLoan(int id) => NavigationManager.NavigateTo($"/loans/view/{id}");
-    private void ViewSchedule(int id) => NavigationManager.NavigateTo($"/loans/schedule/{id}");
-
-    // Filter methods
-    private void ResetFilters()
-    {
-        searchTerm = string.Empty;
-        loanStatusFilter = string.Empty;
-        loanTypeFilter = string.Empty;
-        currentPage = 1;
+        var a = Math.Abs(v);
+        if (a >= 1_000_000m) return (v / 1_000_000m).ToString("0.##") + "M";
+        if (a >= 10_000m) return (v / 1_000m).ToString("0.#") + "K";
+        return v.ToString("N0");
     }
 
-    // Status change methods
-    private void ApproveLoan(int id)
+    private void ResetPage() => page = 1;
+    private void SetStatus(string s) { status = s; page = 1; }
+    private void View(int id) => NavigationManager.NavigateTo($"/loans/view/{id}");
+    private void Schedule(int id) => NavigationManager.NavigateTo($"/loans/schedule/{id}");
+
+    private void Ask(LoanViewModel l, string a)
     {
-        loanToUpdate = loans.FirstOrDefault(l => l.LoanId == id);
-        statusAction = "Approve";
-        interestRate = 10; // Default value
-        repaymentPeriod = 12; // Default value
-        showStatusModal = true;
+        target = l; action = a; remarks = "";
+        rate = l.InterestRate > 0 ? (double)l.InterestRate : 10;
+        term = l.TermMonths > 0 ? l.TermMonths : 12;
     }
 
-    private void RejectLoan(int id)
-    {
-        loanToUpdate = loans.FirstOrDefault(l => l.LoanId == id);
-        statusAction = "Reject";
-        showStatusModal = true;
-    }
+    private void Cancel() { action = ""; target = null; remarks = ""; }
 
-    private async Task DisburseLoan(int id)
+    private async Task Confirm()
     {
+        if (target == null) return;
+        busy = true;
+        var http = HttpClientFactory.CreateClient("ApiClient");
         try
         {
-            var response = await Http.PutAsync($"api/loans/disburse/{id}", null);
-
-            if (response.IsSuccessStatusCode)
+            HttpResponseMessage r;
+            string done;
+            switch (action)
             {
-                await LoadLoans();
+                case Approve:
+                    r = await http.PutAsJsonAsync($"api/loans/approve/{target.LoanId}", new { InterestRate = (decimal)rate, TermMonths = term, Remarks = remarks });
+                    done = "Loan approved"; break;
+                case Reject:
+                    r = await http.PutAsJsonAsync($"api/loans/reject/{target.LoanId}", remarks);
+                    done = "Loan rejected"; break;
+                default:
+                    r = await http.PutAsync($"api/loans/disburse/{target.LoanId}", null);
+                    done = "Loan disbursed"; break;
             }
-            else
+            if (r.IsSuccessStatusCode)
             {
-                errorMessage = "Failed to disburse loan";
+                await JS.InvokeVoidAsync("ms.toast", "success", done, target.LoanNumber);
+                Cancel();
+                await Load();
             }
+            else await JS.InvokeVoidAsync("ms.toast", "error", $"Couldn't {action.ToLower()} loan", $"The server answered {(int)r.StatusCode}.");
         }
-        catch (Exception ex)
-        {
-            errorMessage = $"Error disbursing loan: {ex.Message}";
-        }
-    }
-
-    private void CancelStatusChange()
-    {
-        showStatusModal = false;
-        loanToUpdate = null;
-        statusAction = string.Empty;
-        remarks = string.Empty;
-    }
-
-    private async Task ConfirmStatusChange()
-    {
-        if (loanToUpdate == null) return;
-
-        try
-        {
-            if (statusAction == "Approve")
-            {
-                var approvalDto = new
-                {
-                    InterestRate = (decimal)interestRate,
-                    TermMonths = repaymentPeriod,
-                    Remarks = remarks
-                };
-
-                var response = await Http.PutAsJsonAsync($"api/loans/approve/{loanToUpdate.LoanId}", approvalDto);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    await LoadLoans();
-                }
-                else
-                {
-                    errorMessage = "Failed to approve loan";
-                }
-            }
-            else if (statusAction == "Reject")
-            {
-                var response = await Http.PutAsJsonAsync($"api/loans/reject/{loanToUpdate.LoanId}", remarks);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    await LoadLoans();
-                }
-                else
-                {
-                    errorMessage = "Failed to reject loan";
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Error processing {statusAction}: {ex.Message}";
-        }
-        finally
-        {
-            showStatusModal = false;
-            loanToUpdate = null;
-            statusAction = string.Empty;
-            remarks = string.Empty;
-        }
-    }
-
-    // Pagination
-    private void ChangePage(int page)
-    {
-        if (page >= 1 && page <= totalPages)
-        {
-            currentPage = page;
-        }
+        catch (Exception ex) { await JS.InvokeVoidAsync("ms.toast", "error", $"Couldn't {action.ToLower()} loan", ex.Message); }
+        finally { busy = false; }
     }
 }

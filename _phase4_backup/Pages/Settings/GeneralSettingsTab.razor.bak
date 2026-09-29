@@ -1,0 +1,78 @@
+﻿@using System.ComponentModel.DataAnnotations
+@using Sacco_Management_System.Models
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="saccoName" class="form-label">SACCO Name *</label>
+            <InputText id="saccoName" @bind-Value="Settings.SACCOName" class="form-control"
+                       @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.SACCOName)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="registrationNumber" class="form-label">Registration Number *</label>
+            <InputText id="registrationNumber" @bind-Value="Settings.RegistrationNumber" class="form-control"
+                       @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.RegistrationNumber)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="fiscalYearStart" class="form-label">Fiscal Year Start *</label>
+            <InputDate id="fiscalYearStart" @bind-Value="Settings.FiscalYearStart" class="form-control"
+                       @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.FiscalYearStart)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="fiscalYearEnd" class="form-label">Fiscal Year End *</label>
+            <InputDate id="fiscalYearEnd" @bind-Value="Settings.FiscalYearEnd" class="form-control"
+                       @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.FiscalYearEnd)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="currency" class="form-label">Currency *</label>
+            <InputSelect id="currency" @bind-Value="Settings.Currency" class="form-select"
+                         @onchange="() => OnSettingsChanged?.Invoke()">
+                <option value="">Select Currency</option>
+                <option value="KES">Kenyan Shilling (KES)</option>
+                <option value="USD">US Dollar (USD)</option>
+                <option value="EUR">Euro (EUR)</option>
+                <option value="GBP">British Pound (GBP)</option>
+            </InputSelect>
+            <ValidationMessage For="@(() => Settings.Currency)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="timezone" class="form-label">Timezone *</label>
+            <InputSelect id="timezone" @bind-Value="Settings.Timezone" class="form-select"
+                         @onchange="() => OnSettingsChanged?.Invoke()">
+                <option value="">Select Timezone</option>
+                <option value="Africa/Nairobi">East Africa Time (Nairobi)</option>
+                <option value="UTC">UTC</option>
+                <option value="America/New_York">Eastern Time (New York)</option>
+                <option value="Europe/London">GMT (London)</option>
+            </InputSelect>
+            <ValidationMessage For="@(() => Settings.Timezone)" />
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public SaccoSettings Settings { get; set; } = new();
+
+    [Parameter]
+    public Action? OnSettingsChanged { get; set; }
+}

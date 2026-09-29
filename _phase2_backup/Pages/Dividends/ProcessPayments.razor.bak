@@ -1,0 +1,591 @@
+﻿@page "/dividends/process"
+@using Microsoft.AspNetCore.Components
+@using SaccoManagementSystem.Models
+@using System.Net.Http.Json
+@inject NavigationManager NavigationManager
+@inject IHttpClientFactory HttpClientFactory
+
+<div class="process-payments-container">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <div class="header-title">
+                <i class="bi bi-currency-exchange header-icon"></i>
+                <h3>Process Dividend Payments</h3>
+            </div>
+        </div>
+
+        <div class="card-body">
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-octagon-fill me-2"></i>
+                    @errorMessage
+                </div>
+            }
+
+            @if (isLoading)
+            {
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p>Loading data...</p>
+                </div>
+            }
+            else if (currentStep == 1)
+            {
+                <!-- Step 1: Select Dividend Declaration -->
+                <div class="step-content">
+                    <div class="step-header mb-4">
+                        <span class="step-badge">1</span>
+                        <h4>Select Dividend Declaration</h4>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-8">
+                            <label class="form-label">Available Dividend Declarations</label>
+                            <InputSelect class="form-select" @bind-Value="selectedDeclarationId">
+                                <option value="">Select a dividend declaration</option>
+                                @foreach (var declaration in availableDeclarations.OrderByDescending(d => d.DeclarationDate))
+                                {
+                                    <option value="@declaration.DeclarationId">
+                                        @declaration.DeclarationNumber - @declaration.FinancialYear
+                                        (@declaration.Rate.ToString("P2")) -
+                                        @declaration.Status
+                                    </option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button class="btn btn-primary" @onclick="LoadDeclarationPayments"
+                                    disabled="@(selectedDeclarationId == 0)">
+                                <i class="bi bi-arrow-right-circle me-2"></i>Continue
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (selectedDeclaration != null)
+                    {
+                        <div class="declaration-summary p-3 bg-light rounded">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <h5>Declaration Details</h5>
+                                    <p><strong>Number:</strong> @selectedDeclaration.DeclarationNumber</p>
+                                    <p><strong>Financial Year:</strong> @selectedDeclaration.FinancialYear</p>
+                                    <p><strong>Rate:</strong> @selectedDeclaration.Rate.ToString("P2")</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <h5>Dates</h5>
+                                    <p><strong>Declared:</strong> @selectedDeclaration.DeclarationDate.ToShortDateString()</p>
+                                    <p><strong>Record Date:</strong> @selectedDeclaration.RecordDate.ToShortDateString()</p>
+                                    <p><strong>Payment Date:</strong> @(selectedDeclaration.PaymentDate?.ToShortDateString() ?? "Not set")</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <h5>Financials</h5>
+                                    <p><strong>Total Amount:</strong> @selectedDeclaration.TotalAmount.ToString("C")</p>
+                                    <p><strong>Pending Payments:</strong> @pendingPayments.Count</p>
+                                    <p><strong>Total Pending:</strong> @pendingPayments.Sum(p => p.Amount).ToString("C")</p>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else if (currentStep == 2)
+            {
+                <!-- Step 2: Review and Select Payments -->
+                <div class="step-content">
+                    <div class="step-header mb-4">
+                        <span class="step-badge">2</span>
+                        <h4>Review and Select Payments</h4>
+                    </div>
+
+                    <div class="alert alert-info mb-4">
+                        <i class="bi bi-info-circle me-2"></i>
+                        @pendingPayments.Count pending payments found. Select payments to process.
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th width="50px">
+                                        <input type="checkbox"
+                                               @onchange="ToggleSelectAll"
+                                               checked="@(paymentsToProcess.Count == pendingPayments.Count)" />
+                                    </th>
+                                    <th>Member</th>
+                                    <th>Shares</th>
+                                    <th>Amount</th>
+                                    <th>Payment Method</th>
+                                    <th>Account Details</th>
+                                    <th>Valid</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var payment in pendingPayments)
+                                {
+                                    var isValid = IsPaymentValid(payment);
+                                    var paymentMethodClass = GetPaymentMethodClass(isValid);
+
+                                    <tr class="@(!isValid ? "table-warning" : "")">
+                                        <td>
+                                            <input type="checkbox"
+                                                   checked="@paymentsToProcess.Contains(payment.DividendId)"
+                                                   @onchange="@((e) => TogglePaymentSelection(payment.DividendId, e.Value))"
+                                                   disabled="@(!isValid)" />
+                                        </td>
+                                        <td>
+                                            <div class="fw-bold">@payment.MemberName</div>
+                                            <small class="text-muted">ID: @payment.MemberId</small>
+                                        </td>
+                                        <td>@payment.Shares.ToString("N0")</td>
+                                        <td>@payment.Amount.ToString("C")</td>
+                                        <td>
+                                            <InputSelect class="@paymentMethodClass"
+                                                         @bind-Value="payment.PaymentMethod">
+                                                <option value="">Select method</option>
+                                                <option value="Bank Transfer">Bank Transfer</option>
+                                                <option value="M-Pesa">M-Pesa</option>
+                                                <option value="Cheque">Cheque</option>
+                                                <option value="Cash">Cash</option>
+                                            </InputSelect>
+                                        </td>
+                                        <td>
+                                            <small>
+                                                @if (payment.PaymentMethod == "Bank Transfer")
+                                                {
+                                                    <span class="@(string.IsNullOrEmpty(payment.BankAccountNumber) ? "text-danger" : "")">
+                                                        @(string.IsNullOrEmpty(payment.BankAccountNumber) ? "No bank account" : payment.BankAccountNumber)
+                                                    </span>
+                                                }
+                                                else if (payment.PaymentMethod == "M-Pesa")
+                                                {
+                                                    <span class="@(string.IsNullOrEmpty(payment.PhoneNumber) ? "text-danger" : "")">
+                                                        @(string.IsNullOrEmpty(payment.PhoneNumber) ? "No phone number" : payment.PhoneNumber)
+                                                    </span>
+                                                }
+                                                else if (!string.IsNullOrEmpty(payment.PaymentMethod))
+                                                {
+                                                    <span>Not required</span>
+                                                }
+                                            </small>
+                                        </td>
+                                        <td>
+                                            @if (isValid)
+                                            {
+                                                <i class="bi bi-check-circle-fill text-success"></i>
+                                            }
+                                            else
+                                            {
+                                                <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <button class="btn btn-secondary" @onclick="() => currentStep = 1">
+                            <i class="bi bi-arrow-left me-2"></i>Back
+                        </button>
+                        <button class="btn btn-primary" @onclick="ProceedToProcessing"
+                                disabled="@(paymentsToProcess.Count == 0 || !AllSelectedPaymentsValid())">
+                            <i class="bi bi-arrow-right me-2"></i>Proceed to Payment
+                        </button>
+                    </div>
+                </div>
+            }
+            else if (currentStep == 3)
+            {
+                <!-- Step 3: Process Payments -->
+                <div class="step-content">
+                    <div class="step-header mb-4">
+                        <span class="step-badge">3</span>
+                        <h4>Confirm and Process Payments</h4>
+                    </div>
+
+                    <div class="alert alert-warning mb-4">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Confirm the payment details below. This action cannot be undone.
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label">Payment Date</label>
+                            <InputDate class="form-control" @bind-Value="processingDate" />
+                            <small class="text-muted">Date when payments will be processed</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Batch Reference</label>
+                            <InputText class="form-control" @bind-Value="batchReference"
+                                       placeholder="Optional reference number" />
+                            <small class="text-muted">Leave blank to auto-generate</small>
+                        </div>
+                    </div>
+
+                    <div class="payment-summary-card p-3 mb-4">
+                        <h5 class="mb-3">Payment Summary</h5>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="mb-2">
+                                    <small class="text-muted">Total Payments</small>
+                                    <h4>@paymentsToProcess.Count</h4>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-2">
+                                    <small class="text-muted">Total Amount</small>
+                                    <h4>@GetSelectedPayments().Sum(p => p.Amount).ToString("C")</h4>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-2">
+                                    <small class="text-muted">Payment Methods</small>
+                                    <div class="d-flex flex-wrap gap-2 mt-1">
+                                        @foreach (var method in paymentMethodsSummary)
+                                        {
+                                            <span class="badge bg-info">
+                                                @method.Method: @method.Count (@method.TotalAmount.ToString("C"))
+                                            </span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive mb-4">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Member</th>
+                                    <th>Amount</th>
+                                    <th>Method</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var payment in GetSelectedPayments().Take(5))
+                                {
+                                    <tr>
+                                        <td>@payment.MemberName</td>
+                                        <td>@payment.Amount.ToString("C")</td>
+                                        <td>@payment.PaymentMethod</td>
+                                        <td>
+                                            @if (payment.PaymentMethod == "Bank Transfer")
+                                            {
+                                                @payment.BankAccountNumber
+                                            }
+                                            else if (payment.PaymentMethod == "M-Pesa")
+                                            {
+                                                @payment.PhoneNumber
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                                @if (GetSelectedPayments().Count > 5)
+                                {
+                                    <tr>
+                                        <td colspan="4" class="text-center">
+                                            + @(GetSelectedPayments().Count - 5) more payments
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <button class="btn btn-secondary" @onclick="() => currentStep = 2">
+                            <i class="bi bi-arrow-left me-2"></i>Back
+                        </button>
+                        <button class="btn btn-success" @onclick="ProcessSelectedPayments">
+                            <i class="bi bi-check-circle me-2"></i>Confirm and Process
+                        </button>
+                    </div>
+                </div>
+            }
+            else if (currentStep == 4)
+            {
+                <!-- Step 4: Confirmation -->
+                <div class="step-content text-center py-4">
+                    <div class="success-icon mb-3">
+                        <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
+                    </div>
+                    <h3 class="mb-2">Payments Processed Successfully!</h3>
+                    <p class="lead mb-4">
+                        @processedPaymentsCount payments totaling @processedPaymentsAmount.ToString("C")
+                        were processed on @processingDate.ToShortDateString().
+                    </p>
+
+                    @if (!string.IsNullOrEmpty(batchReference))
+                    {
+                        <p class="mb-4">
+                            <strong>Batch Reference:</strong> @batchReference
+                        </p>
+                    }
+
+                    <div class="d-flex justify-content-center gap-3">
+                        <button class="btn btn-primary" @onclick="ViewProcessedPayments">
+                            <i class="bi bi-eye me-2"></i>View Processed Payments
+                        </button>
+                        <button class="btn btn-outline-primary" @onclick="ProcessMorePayments">
+                            <i class="bi bi-currency-exchange me-2"></i>Process More Payments
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private int currentStep = 1;
+    private bool isLoading = false;
+    private int selectedDeclarationId = 0;
+    private List<DividendDeclarationDto> availableDeclarations = new();
+    private DividendDeclarationDto selectedDeclaration = null;
+    private List<DividendPaymentDto> pendingPayments = new();
+    private HashSet<int> paymentsToProcess = new();
+    private DateTime processingDate = DateTime.Today;
+    private string batchReference = string.Empty;
+    private int processedPaymentsCount = 0;
+    private decimal processedPaymentsAmount = 0;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAvailableDeclarations();
+    }
+
+    private async Task LoadAvailableDeclarations()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("ApiClient");
+            var response = await client.GetAsync("api/dividends/declarations");
+
+            if (response.IsSuccessStatusCode)
+            {
+                availableDeclarations = await response.Content.ReadFromJsonAsync<List<DividendDeclarationDto>>();
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Failed to load declarations. Status: {response.StatusCode}. Error: {errorContent}";
+                Console.WriteLine(errorMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load declarations: {ex.Message}";
+            Console.WriteLine(errorMessage);
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadDeclarationPayments()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            selectedDeclaration = availableDeclarations.FirstOrDefault(d => d.DeclarationId == selectedDeclarationId);
+            if (selectedDeclaration == null)
+            {
+                errorMessage = "Selected declaration not found";
+                return;
+            }
+
+            var client = HttpClientFactory.CreateClient("ApiClient");
+
+            // Use the declaration ID directly instead of financial year
+            var response = await client.GetAsync($"api/dividends/payments/declaration/{selectedDeclarationId}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                pendingPayments = await response.Content.ReadFromJsonAsync<List<DividendPaymentDto>>();
+                currentStep = 2;
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Failed to load payments: {errorContent}";
+                Console.WriteLine(errorMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load payments: {ex.Message}";
+            Console.WriteLine($"Error details: {ex}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void TogglePaymentSelection(int dividendId, object isChecked)
+    {
+        if ((bool)isChecked)
+        {
+            paymentsToProcess.Add(dividendId);
+        }
+        else
+        {
+            paymentsToProcess.Remove(dividendId);
+        }
+    }
+
+    private void ToggleSelectAll(ChangeEventArgs e)
+    {
+        if ((bool)e.Value)
+        {
+            paymentsToProcess = new HashSet<int>(
+                pendingPayments
+                    .Where(p => IsPaymentValid(p))
+                    .Select(p => p.DividendId)
+            );
+        }
+        else
+        {
+            paymentsToProcess.Clear();
+        }
+    }
+
+    private bool IsPaymentValid(DividendPaymentDto payment)
+    {
+        return !string.IsNullOrEmpty(payment.PaymentMethod) &&
+            ((payment.PaymentMethod == "Bank Transfer" && !string.IsNullOrEmpty(payment.BankAccountNumber)) ||
+             (payment.PaymentMethod == "M-Pesa" && !string.IsNullOrEmpty(payment.PhoneNumber)) ||
+             (payment.PaymentMethod != "Bank Transfer" && payment.PaymentMethod != "M-Pesa"));
+    }
+
+    private string GetPaymentMethodClass(bool isValid)
+    {
+        return isValid ? "form-select form-select-sm" : "form-select form-select-sm is-invalid";
+    }
+
+    private bool AllSelectedPaymentsValid()
+    {
+        return GetSelectedPayments().All(p => IsPaymentValid(p));
+    }
+
+    private void ProceedToProcessing()
+    {
+        if (!AllSelectedPaymentsValid())
+        {
+            errorMessage = "Some selected payments have invalid payment methods or missing details";
+            return;
+        }
+
+        currentStep = 3;
+    }
+
+    private List<DividendPaymentDto> GetSelectedPayments() =>
+        pendingPayments.Where(p => paymentsToProcess.Contains(p.DividendId)).ToList();
+
+    private async Task ProcessSelectedPayments()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var payments = GetSelectedPayments();
+            var request = new ProcessDividendPaymentsRequest
+            {
+                DividendIds = payments.Select(p => p.DividendId).ToList(),
+                PaymentDate = processingDate,
+                BatchReference = string.IsNullOrWhiteSpace(batchReference)
+                    ? $"BATCH-{DateTime.Now:yyyyMMdd-HHmmss}"
+                    : batchReference,
+                PaymentMethods = payments.ToDictionary(
+                    p => p.DividendId,
+                    p => p.PaymentMethod ?? "Bank Transfer")
+            };
+
+            var client = HttpClientFactory.CreateClient("ApiClient");
+            var response = await client.PostAsJsonAsync("api/dividends/payments/process", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                processedPaymentsCount = payments.Count;
+                processedPaymentsAmount = payments.Sum(p => p.Amount);
+                currentStep = 4;
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Failed to process payments. Status: {response.StatusCode}. Error: {errorContent}";
+                Console.WriteLine(errorMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Processing failed: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ViewProcessedPayments()
+    {
+        NavigationManager.NavigateTo($"/dividends/payments?year={selectedDeclaration.FinancialYear}");
+    }
+
+    private void ProcessMorePayments()
+    {
+        currentStep = 1;
+        selectedDeclarationId = 0;
+        selectedDeclaration = null;
+        pendingPayments.Clear();
+        paymentsToProcess.Clear();
+        batchReference = string.Empty;
+        errorMessage = string.Empty;
+    }
+
+    private List<PaymentMethodSummary> paymentMethodsSummary =>
+        GetSelectedPayments()
+            .GroupBy(p => p.PaymentMethod ?? "Not Specified")
+            .Select(g => new PaymentMethodSummary
+            {
+                Method = g.Key,
+                Count = g.Count(),
+                TotalAmount = g.Sum(p => p.Amount)
+            })
+            .ToList();
+
+    private class PaymentMethodSummary
+    {
+        public string Method { get; set; }
+        public int Count { get; set; }
+        public decimal TotalAmount { get; set; }
+    }
+
+    public class ProcessDividendPaymentsRequest
+    {
+        public List<int> DividendIds { get; set; } = new List<int>();
+        public DateTime PaymentDate { get; set; }
+        public string BatchReference { get; set; }
+        public Dictionary<int, string> PaymentMethods { get; set; } = new Dictionary<int, string>();
+    }
+}

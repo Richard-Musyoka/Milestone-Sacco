@@ -1,0 +1,281 @@
+@page "/payments/record"
+@using System.Globalization
+@using System.Text.Json
+@using System.Text.RegularExpressions
+@using SaccoManagementSystem.Services
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject ConfigStore Cfg
+@inject MemberExtrasStore Directory
+@inject ChamaStore Chamas
+
+<PageTitle>Receive a payment · @Brand.Name</PageTitle>
+
+<div class="ms-page">
+    <button type="button" class="ms-back" @onclick="Close"><i class="bi bi-arrow-left"></i> Payments</button>
+    <PageHeader Title="Receive a payment" Subtitle="M-Pesa, bank, cash or check-off. We'll post it where it belongs." />
+
+    @if (saved != null)
+    {
+        <div class="pay-done">
+            <div class="pay-tick"><i class="bi bi-check-lg"></i></div>
+            <h2>Payment received</h2>
+            <p>@Sym @saved.Amount.ToString("N2") from <b>@saved.MemberName</b></p>
+            <div class="pay-receipt">
+                <div><small>Receipt</small><b>@saved.ReceiptNo</b></div>
+                <div><small>Channel</small><b>@saved.Channel @saved.Reference</b></div>
+                <div class="full"><small>Posted to</small><b>@saved.PostedTo</b></div>
+            </div>
+            <div class="pay-actions">
+                <button type="button" class="ms-btn" @onclick="Another"><i class="bi bi-plus-lg"></i> Record another</button>
+                <a class="ms-btn" href="@("payments?receipt=" + saved.Id)" data-no-drawer><i class="bi bi-printer"></i> View receipt</a>
+                <button type="button" class="ms-btn primary" @onclick="Finish">Done</button>
+            </div>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(error)) { <div class="ms-alert bad"><i class="bi bi-exclamation-circle-fill"></i><div>@error</div></div> }
+
+        <div class="ms-form">
+            <section class="ms-fs">
+                <div class="ms-fs-head"><i class="bi bi-person"></i><div><h3>Who paid</h3><small>Search by name, member number or phone</small></div></div>
+                <div class="ms-fs-body">
+                    @if (members == null) { <div class="ms-skel" style="height:46px"></div> }
+                    else
+                    {
+                        <SearchPicker TItem="MemberExtrasStore.Lite" Items="members" Selected="member" SelectedChanged="PickMember" Placeholder="Start typing a name, M-number or 07…"
+                                      Title="@(m => m.Name)" Sub="@(m => m.MemberNo + " · " + m.Phone)" Match="@((m, q) => m.Name.Contains(q, StringComparison.OrdinalIgnoreCase) || m.MemberNo.Contains(q, StringComparison.OrdinalIgnoreCase) || Digits(m.Phone).Contains(Digits(q)) && Digits(q).Length > 2)" />
+                    }
+                </div>
+            </section>
+
+            <section class="ms-fs">
+                <div class="ms-fs-head"><i class="bi bi-arrow-left-right"></i><div><h3>How it came in</h3><small>Channel and reference</small></div></div>
+                <div class="ms-fs-body">
+                    <div class="pay-tiles">
+                        @foreach (var ch in PaymentStore.Channels)
+                        {
+                            var cc = ch;
+                            <button type="button" class="pay-tile @(input.Channel == cc ? "on" : "") @Slug(cc)" @onclick="() => input.Channel = cc"><i class="bi @ChannelIcon(cc)"></i><span>@cc</span></button>
+                        }
+                    </div>
+                    @if (input.Channel == "M-Pesa")
+                    {
+                        <div class="pay-sms">
+                            <label class="ms-label" for="sms"><i class="bi bi-chat-square-text"></i> Paste the M-Pesa message (optional)</label>
+                            <textarea id="sms" class="ms-input" rows="3" placeholder="SJK4H7Q2LM Confirmed. Ksh2,500.00 received from JANE WANJIRU 0712345678 on 29/9/26 at 10:14 AM…" @bind="sms" @bind:event="oninput" @bind:after="ParseSms"></textarea>
+                            @if (!string.IsNullOrEmpty(smsNote)) { <span class="ms-hint" style="color:var(--ms-accent);font-weight:700"><i class="bi bi-magic"></i> @smsNote</span> }
+                        </div>
+                    }
+                    <div class="ms-grid-form" style="margin-top:14px">
+                        <Field Class="c6" Label="@(input.Channel == "M-Pesa" ? "M-Pesa code" : input.Channel == "Cash" ? "Reference (optional)" : "Reference")"><input class="ms-input" style="text-transform:uppercase;font-family:ui-monospace,Consolas,monospace;font-weight:700" maxlength="40" @bind="input.Reference" placeholder="@(input.Channel == "M-Pesa" ? "e.g. SJK4H7Q2LM" : "")" /></Field>
+                        <Field Class="c6" Label="Date and time received"><input class="ms-input" type="datetime-local" value="@input.PaidOn.ToString("yyyy-MM-ddTHH:mm")" @onchange="OnDate" /></Field>
+                        @if (input.Channel == "M-Pesa") { <Field Class="c6" Label="Paid from phone"><input class="ms-input" type="tel" @bind="input.Phone" placeholder="07…" /></Field> }
+                    </div>
+                </div>
+            </section>
+
+            <section class="ms-fs">
+                <div class="ms-fs-head"><i class="bi bi-signpost-split"></i><div><h3>What it's for</h3><small>Where the money should go</small></div></div>
+                <div class="ms-fs-body">
+                    <div class="pay-tiles purpose">
+                        @foreach (var pu in PaymentStore.Purposes)
+                        {
+                            var pp = pu;
+                            <button type="button" class="pay-tile @(input.Purpose == pp ? "on" : "")" @onclick="() => SetPurpose(pp)"><i class="bi @PurposeIcon(pp)"></i><span>@pp</span></button>
+                        }
+                    </div>
+                    @if (input.Purpose == "Loan repayment")
+                    {
+                        <div style="margin-top:14px">
+                            @if (member == null) { <span class="ms-hint">Pick the member first to see their loans.</span> }
+                            else if (loans.Count == 0) { <div class="ms-alert warn"><i class="bi bi-info-circle-fill"></i><div>@member.Name has no active loans.</div></div> }
+                            else
+                            {
+                                <div class="pay-opts">
+                                    @foreach (var l in loans)
+                                    {
+                                        var ll = l;
+                                        <button type="button" class="pay-opt @(input.TargetId == ll.LoanId ? "on" : "")" @onclick="() => PickLoan(ll)">
+                                            <b>LN-@ll.LoanId.ToString("D3") · @ll.LoanType</b><small>Balance @Sym @ll.Balance.ToString("N0") · installment @Sym @ll.Installment.ToString("N0")</small>
+                                        </button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    else if (input.Purpose == "Chama")
+                    {
+                        <div style="margin-top:14px">
+                            @if (member == null) { <span class="ms-hint">Pick the member first to see their chamas.</span> }
+                            else if (myChamas.Count == 0) { <div class="ms-alert warn"><i class="bi bi-info-circle-fill"></i><div>@member.Name isn't in any chama yet. <a href="chamas">Add them to one</a>.</div></div> }
+                            else
+                            {
+                                <div class="pay-opts">
+                                    @foreach (var c in myChamas)
+                                    {
+                                        var cc = c;
+                                        <button type="button" class="pay-opt @(input.TargetId == cc.ChamaId ? "on" : "")" @onclick="() => PickChama(cc.ChamaId)"><b>@cc.Name</b><small>@cc.Type · @cc.Role</small></button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <section class="ms-fs">
+                <div class="ms-fs-head"><i class="bi bi-cash"></i><div><h3>Amount</h3><small>Exactly what was received</small></div></div>
+                <div class="ms-fs-body">
+                    <div class="pay-amount"><em>@Sym</em><input type="number" min="1" step="0.01" inputmode="decimal" value="@(input.Amount == 0 ? "" : input.Amount.ToString(CultureInfo.InvariantCulture))" @oninput="OnAmount" placeholder="0" aria-label="Amount" /></div>
+                    <div class="pay-quick">
+                        @foreach (var q in Quick) { var qq = q; <button type="button" class="ms-chip" @onclick="() => input.Amount = qq.Value">@qq.Label · @qq.Value.ToString("N0")</button> }
+                    </div>
+                    <Field Class="" Label="Notes (optional)"><input class="ms-input" maxlength="500" @bind="input.Notes" placeholder="Anything the next person should know" /></Field>
+                </div>
+            </section>
+
+            @if (member != null && input.Amount > 0)
+            {
+                <div class="pay-preview">
+                    <i class="bi bi-receipt"></i>
+                    <div><b>@Sym @input.Amount.ToString("N2") from @member.Name</b><small>@input.Channel@(string.IsNullOrWhiteSpace(input.Reference) ? "" : " " + input.Reference.ToUpperInvariant()) · will be posted to @Preview</small></div>
+                </div>
+            }
+
+            <div class="ms-formbar">
+                <span class="sp">The receipt number is created when you save.</span>
+                <button type="button" class="ms-btn" @onclick="Close" disabled="@busy">Cancel</button>
+                <button type="button" class="ms-btn primary @(busy ? "busy" : "")" disabled="@busy" @onclick="Save">@if (busy) { <span class="ms-spin"></span> } else { <i class="bi bi-check2"></i> } Receive payment</button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [CascadingParameter] public DrawerContext? Drawer { get; set; }
+    [SupplyParameterFromQuery(Name = "member")] public int? MemberParam { get; set; }
+
+    private List<MemberExtrasStore.Lite>? members;
+    private MemberExtrasStore.Lite? member;
+    private List<MemberExtrasStore.LoanLite> loans = new();
+    private List<(int ChamaId, string Name, string Role, string Type)> myChamas = new();
+    private List<Chama> allChamas = new();
+    private PaymentInput input = new();
+    private Payment? saved;
+    private string? error, smsNote;
+    private string sms = "";
+    private bool busy;
+    private string Sym => Cfg.Current.CurrencySymbol;
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { members = await Directory.DirectoryAsync(); } catch (Exception ex) { members = new(); error = "Couldn't load members: " + ex.Message; }
+        try { allChamas = await Chamas.ListAsync(); } catch { }
+        if (MemberParam is int id && members.FirstOrDefault(m => m.MemberId == id) is { } m) await PickMember(m);
+    }
+
+    private static string Digits(string? s) => new string((s ?? "").Where(char.IsDigit).ToArray());
+    private static string Slug(string s) => s.ToLowerInvariant().Replace("-", "").Replace(" ", "");
+    private static string ChannelIcon(string c) => c switch { "M-Pesa" => "bi-phone-fill", "Bank" => "bi-bank", "Cash" => "bi-cash-stack", "Check-off" => "bi-building-check", _ => "bi-journal-text" };
+    private static string PurposeIcon(string p) => p switch { "Deposits" => "bi-piggy-bank", "Loan repayment" => "bi-cash-coin", "Share capital" => "bi-pie-chart", "Entrance fee" => "bi-door-open", "Chama" => "bi-people", _ => "bi-three-dots" };
+
+    private string Preview => input.Purpose switch
+    {
+        "Deposits" => "member deposits",
+        "Loan repayment" => input.TargetId is int l ? "loan LN-" + l.ToString("D3") + " (oldest installments first)" : "a loan (pick one)",
+        "Share capital" => "share capital",
+        "Chama" => myChamas.FirstOrDefault(c => c.ChamaId == input.TargetId).Name ?? "a chama (pick one)",
+        "Entrance fee" => "entrance fee income",
+        _ => "other income (not posted to an account)",
+    };
+
+    private IEnumerable<(string Label, decimal Value)> Quick
+    {
+        get
+        {
+            var c = Cfg.Current;
+            if (input.Purpose == "Deposits") yield return ("Monthly minimum", c.MinMonthlyDeposit);
+            if (input.Purpose == "Entrance fee") yield return ("Entrance fee", c.EntranceFee);
+            if (input.Purpose == "Share capital" && c.ShareCapitalMonths > 0) yield return ("Monthly share capital", Math.Ceiling(c.MinShareCapital / c.ShareCapitalMonths));
+            if (input.Purpose == "Loan repayment" && loans.FirstOrDefault(l => l.LoanId == input.TargetId) is { } ln && ln.LoanId > 0) { yield return ("Installment", ln.Installment); yield return ("Clear loan", ln.Balance); }
+            if (input.Purpose == "Chama" && allChamas.FirstOrDefault(x => x.Id == input.TargetId) is { } ch) yield return ("Round contribution", ch.ContributionAmount);
+        }
+    }
+
+    private async Task PickMember(MemberExtrasStore.Lite? m)
+    {
+        member = m; input.MemberId = m?.MemberId; input.MemberName = m?.Name ?? ""; input.TargetId = null;
+        loans = new(); myChamas = new();
+        if (m == null) return;
+        if (string.IsNullOrWhiteSpace(input.Phone)) input.Phone = m.Phone;
+        try { loans = await Directory.OpenLoansAsync(m.MemberId); } catch { }
+        try { myChamas = await Chamas.ForMemberAsync(m.MemberId); } catch { }
+        if (input.Purpose == "Loan repayment" && loans.Count == 1) PickLoan(loans[0]);
+        if (input.Purpose == "Chama" && myChamas.Count == 1) PickChama(myChamas[0].ChamaId);
+    }
+
+    private void SetPurpose(string p)
+    {
+        input.Purpose = p; input.TargetId = null;
+        if (p == "Loan repayment" && loans.Count == 1) PickLoan(loans[0]);
+        if (p == "Chama" && myChamas.Count == 1) PickChama(myChamas[0].ChamaId);
+        if (input.Amount == 0 && Quick.FirstOrDefault() is { Value: > 0 } q) input.Amount = q.Value;
+    }
+    private void PickLoan(MemberExtrasStore.LoanLite l) { input.TargetId = l.LoanId; if (input.Amount == 0) input.Amount = l.Installment; }
+    private void PickChama(int id) { input.TargetId = id; if (input.Amount == 0 && allChamas.FirstOrDefault(x => x.Id == id) is { } ch) input.Amount = ch.ContributionAmount; }
+
+    private void OnAmount(ChangeEventArgs e) => input.Amount = decimal.TryParse(e.Value?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : 0;
+    private void OnDate(ChangeEventArgs e) { if (DateTime.TryParse(e.Value?.ToString(), out var d)) input.PaidOn = d; }
+
+    // "SJK4H7Q2LM Confirmed. Ksh2,500.00 received from JANE WANJIRU 254712345678 on 29/9/26 at 10:14 AM"
+    private void ParseSms()
+    {
+        smsNote = null;
+        var t = sms ?? "";
+        var found = new List<string>();
+        var code = Regex.Match(t, @"\b([A-Z0-9]{10})\b\s+Confirmed", RegexOptions.IgnoreCase);
+        if (code.Success) { input.Reference = code.Groups[1].Value.ToUpperInvariant(); found.Add("code"); }
+        var amt = Regex.Match(t, @"Ksh\s?([0-9,]+(?:\.[0-9]{1,2})?)", RegexOptions.IgnoreCase);
+        if (amt.Success && decimal.TryParse(amt.Groups[1].Value.Replace(",", ""), NumberStyles.Any, CultureInfo.InvariantCulture, out var a)) { input.Amount = a; found.Add("amount"); }
+        var ph = Regex.Match(t, @"\b(2547[0-9]{8}|2541[0-9]{8}|07[0-9]{8}|01[0-9]{8})\b");
+        if (ph.Success) { input.Phone = ph.Groups[1].Value; found.Add("phone"); }
+        var dt = Regex.Match(t, @"on\s+([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})\s+at\s+([0-9]{1,2}:[0-9]{2}\s?[AP]M)", RegexOptions.IgnoreCase);
+        if (dt.Success && DateTime.TryParseExact(dt.Groups[1].Value + " " + dt.Groups[2].Value.ToUpperInvariant().Replace(" ", ""), new[] { "d/M/yy h:mmtt", "d/M/yyyy h:mmtt" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out var when)) { input.PaidOn = when; found.Add("date"); }
+        if (member == null && ph.Success && members != null)
+        {
+            var last9 = Digits(ph.Groups[1].Value)[^9..];
+            var hit = members.FirstOrDefault(m => Digits(m.Phone).EndsWith(last9));
+            if (hit != null) { _ = PickMember(hit); found.Add("member"); }
+        }
+        if (found.Count > 0) smsNote = "Filled in " + string.Join(", ", found) + " from the message.";
+    }
+
+    private async Task Save()
+    {
+        error = PaymentStore.Validate(input);
+        if (error != null) return;
+        busy = true;
+        try
+        {
+            var r = await Http.PostAsJsonAsync($"{Nav.BaseUri}api/payments", input, Json);
+            var body = await r.Content.ReadAsStringAsync();
+            if (!r.IsSuccessStatusCode)
+            {
+                try { using var d = JsonDocument.Parse(body); error = d.RootElement.GetProperty("message").GetString(); } catch { error = "Couldn't save (" + (int)r.StatusCode + ")."; }
+                return;
+            }
+            saved = JsonSerializer.Deserialize<Payment>(body, Json);
+            await JS.InvokeVoidAsync("ms.toast", "success", "Payment received", saved?.ReceiptNo);
+        }
+        catch (Exception ex) { error = "Network error: " + ex.Message; }
+        finally { busy = false; }
+    }
+
+    private void Another() { var keepChannel = input.Channel; input = new PaymentInput { Channel = keepChannel }; member = null; saved = null; sms = ""; smsNote = null; loans = new(); myChamas = new(); }
+    private async Task Finish() { if (Drawer != null) await Drawer.Saved(); else Nav.NavigateTo("payments"); }
+    private async Task Close() { if (Drawer != null) await Drawer.Close(); else Nav.NavigateTo("payments"); }
+}

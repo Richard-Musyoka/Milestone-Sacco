@@ -25,40 +25,34 @@ public sealed record AuthResult(bool Ok, string Status, string? Message = null, 
     public static AuthResult Fail(string message, string status = "error") => new(false, status, message);
 }
 
-public interface IOtpSender
-{
-    Task SendAsync(string channel, string destination, string code);
-}
-
-/// <summary>Development sender: writes the code to the log. Replace with your SMTP / SMS gateway in production.</summary>
-public sealed class LoggingOtpSender : IOtpSender
-{
-    private readonly ILogger<LoggingOtpSender> _log;
-    public LoggingOtpSender(ILogger<LoggingOtpSender> log) => _log = log;
-    public Task SendAsync(string channel, string destination, string code)
-    {
-        _log.LogWarning("OTP via {Channel} to {Destination}: {Code}  (LoggingOtpSender – plug in a real gateway)", channel, destination, code);
-        return Task.CompletedTask;
-    }
-}
-
 public sealed class AuthService
 {
     private readonly SecurityStore _store;
     private readonly IDataProtector _totpProtector;
+    private readonly IDataProtector _otpBackupProtector;
     private readonly ITimeLimitedDataProtector _mfaProtector;
     private readonly IMemoryCache _cache;
     private readonly IOtpSender _otp;
     private readonly IConfiguration _cfg;
+    private readonly IHostEnvironment _env;
+    private readonly ILogger<AuthService> _log;
+    private readonly SaccoManagementSystem.Services.ConfigStore _conf;
+    private readonly SaccoManagementSystem.Services.MemberPortalStore _members;
 
-    public AuthService(SecurityStore store, IDataProtectionProvider dp, IMemoryCache cache, IOtpSender otp, IConfiguration cfg)
+    public AuthService(SecurityStore store, IDataProtectionProvider dp, IMemoryCache cache, IOtpSender otp, IConfiguration cfg, IHostEnvironment env, ILogger<AuthService> log,
+                       SaccoManagementSystem.Services.ConfigStore conf, SaccoManagementSystem.Services.MemberPortalStore members)
     {
+        _members = members;
         _store = store;
         _totpProtector = dp.CreateProtector("Tajiri.Totp.v1");
+        _otpBackupProtector = dp.CreateProtector("Tajiri.OtpBackup.v1");
         _mfaProtector = dp.CreateProtector("Tajiri.MfaChallenge.v1").ToTimeLimitedDataProtector();
         _cache = cache;
         _otp = otp;
         _cfg = cfg;
+        _env = env;
+        _log = log;
+        _conf = conf;
     }
 
     public string IssuerName => _cfg["Brand:Name"] ?? "Tajiri Sacco";
@@ -103,7 +97,9 @@ public sealed class AuthService
         if (!user.IsActive)
         {
             await _store.LogAsync(user.Id, user.Email, "password", false, ci, "Account disabled");
-            return AuthResult.Fail("This account is disabled. Contact your administrator.", "disabled");
+            return AuthResult.Fail(user.LastLoginUtc == null
+                ? "Your account is waiting for administrator approval. You'll be able to sign in once it's approved."
+                : "This account is disabled. Contact your administrator.", "disabled");
         }
         if (user.IsLocked)
         {
@@ -119,7 +115,7 @@ public sealed class AuthService
 
         if (!ok)
         {
-            await _store.RegisterFailureAsync(user.Id, policy.FailedAttemptsBeforeLockout, AuthDefaults.LockMinutes);
+            await _store.RegisterFailureAsync(user.Id, policy.FailedAttemptsBeforeLockout, _conf.Current.LockMinutes);
             await _store.LogAsync(user.Id, user.Email, "password", false, ci, "Wrong password");
             return AuthResult.Fail("Incorrect email or password.", "invalid");
         }
@@ -128,7 +124,8 @@ public sealed class AuthService
 
         // second factor?
         var passkeys = await _store.GetPasskeysAsync(user.Id);
-        bool hasFactor = user.TotpEnabled || passkeys.Count > 0 || user.OtpFallbackEnabled;
+        bool emailOnLogin = (_conf.Current.EmailOtpOnLogin ?? _cfg.GetValue<bool>("Security:EmailOtpOnLogin")) && policy.EmailEnabled && !string.IsNullOrEmpty(user.Email);
+        bool hasFactor = user.TotpEnabled || passkeys.Count > 0 || user.OtpFallbackEnabled || emailOnLogin;
 
         if (hasFactor)
         {
@@ -138,7 +135,7 @@ public sealed class AuthService
                 var methods = new List<string>();
                 if (user.TotpEnabled) { methods.Add("totp"); methods.Add("backup"); }
                 if (passkeys.Count > 0) methods.Add("passkey");
-                if (user.OtpFallbackEnabled || user.TotpEnabled || passkeys.Count > 0)
+                if (user.OtpFallbackEnabled || user.TotpEnabled || passkeys.Count > 0 || emailOnLogin)
                 {
                     if (policy.EmailEnabled && !string.IsNullOrEmpty(user.Email)) methods.Add("email");
                     if (policy.SmsEnabled && !string.IsNullOrEmpty(user.Phone)) methods.Add("sms");
@@ -155,6 +152,52 @@ public sealed class AuthService
         }
 
         return await FinishSignInAsync(ctx, user, "pwd", remember, false, policy);
+    }
+
+    // ========================================================= member portal
+    /// <summary>
+    /// Members sign in with their member number, ID number or phone and a one-time code - no password to forget.
+    /// Returns the same "mfa" shape as a staff password step, so the normal code screens finish the sign-in.
+    /// </summary>
+    public async Task<AuthResult> MemberStartAsync(HttpContext ctx, string identifier, bool remember)
+    {
+        var ci = Client(ctx);
+        identifier = (identifier ?? "").Trim();
+        if (identifier.Length < 3 || identifier.Length > 40) return AuthResult.Fail("Enter your member number, ID number or phone number.", "invalid");
+        if (Throttled("mstart:" + ci.Ip, 12, TimeSpan.FromMinutes(15))) return AuthResult.Fail("Too many attempts from this device. Wait a few minutes and try again.", "throttled");
+
+        var m = await _members.FindForLoginAsync(identifier);
+        if (m == null)
+        {
+            await _store.LogAsync(null, identifier, "member-start", false, ci, "No matching member");
+            return AuthResult.Fail("We couldn't find a member with those details. Check the number, or visit the office to update your records.", "invalid");
+        }
+        if (!m.Status.Equals("Active", StringComparison.OrdinalIgnoreCase))
+            return AuthResult.Fail("Your membership isn't active right now, so the portal is closed. Please talk to member services.", "disabled");
+        if (string.IsNullOrWhiteSpace(m.Phone) && !m.Email.Contains('@'))
+            return AuthResult.Fail("We don't have a phone number or email for you, so we can't send a code. Visit the office to add one.", "invalid");
+
+        var userId = await _members.EnsureUserAsync(m);
+        var user = await _store.GetUserAsync(userId);
+        if (user == null) return AuthResult.Fail("Could not start sign-in. Try again.", "error");
+        if (!user.IsActive) return AuthResult.Fail("Portal access for this membership has been switched off. Please talk to member services.", "disabled");
+        if (user.IsLocked) return AuthResult.Fail("Too many attempts. Try again in a few minutes.", "locked");
+
+        var policy = await _store.GetPolicyAsync();
+        var methods = new List<string>();
+        if (policy.SmsEnabled && !string.IsNullOrWhiteSpace(m.Phone)) methods.Add("sms");
+        if (policy.EmailEnabled && m.Email.Contains('@')) methods.Add("email");
+        if (methods.Count == 0) methods.Add(m.Email.Contains('@') ? "email" : "sms");
+        await _store.LogAsync(user.Id, user.Email, "member-start", true, ci, m.MemberNo);
+        return new AuthResult(true, "mfa", null, new
+        {
+            token = ProtectChallenge(new MfaChallenge(user.Id, remember, false)),
+            methods,
+            emailHint = Mask.Email(m.Email),
+            phoneHint = Mask.Phone(m.Phone),
+            member = true,
+            name = m.First,
+        });
     }
 
     // ============================================================ MFA: TOTP
@@ -174,7 +217,7 @@ public sealed class AuthService
         var step = Totp.Validate(secret, code, user.TotpLastStep);
         if (step == null || !await _store.AdvanceTotpStepAsync(user.Id, step.Value))
         {
-            await _store.RegisterFailureAsync(user.Id, policy.FailedAttemptsBeforeLockout, AuthDefaults.LockMinutes);
+            await _store.RegisterFailureAsync(user.Id, policy.FailedAttemptsBeforeLockout, _conf.Current.LockMinutes);
             await _store.LogAsync(user.Id, user.Email, "totp", false, ci, "Bad code");
             return AuthResult.Fail("That code isn't right. Check your authenticator app and try again.", "invalid");
         }
@@ -190,7 +233,7 @@ public sealed class AuthService
         var policy = await _store.GetPolicyAsync();
         if (!await _store.ConsumeBackupCodeAsync(user.Id, code ?? ""))
         {
-            await _store.RegisterFailureAsync(user.Id, policy.FailedAttemptsBeforeLockout, AuthDefaults.LockMinutes);
+            await _store.RegisterFailureAsync(user.Id, policy.FailedAttemptsBeforeLockout, _conf.Current.LockMinutes);
             await _store.LogAsync(user.Id, user.Email, "backup-code", false, Client(ctx), "Bad code");
             return AuthResult.Fail("That backup code isn't valid or was already used.", "invalid");
         }
@@ -209,11 +252,22 @@ public sealed class AuthService
         var dest = channel == "sms" ? user.Phone : user.Email;
         if (string.IsNullOrEmpty(dest)) return AuthResult.Fail($"No {(channel == "sms" ? "phone number" : "email")} on file.", "invalid");
 
+        if (Throttled("otp:" + user.Id, 6, TimeSpan.FromMinutes(10))) return AuthResult.Fail("Too many codes requested. Wait a few minutes and try again.", "throttled");
+
         var code = System.Security.Cryptography.RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
-        var id = await _store.CreateOtpAsync(user.Id, channel, code);
-        await _otp.SendAsync(channel, dest, code);
-        await _store.LogAsync(user.Id, user.Email, "otp-sent", true, Client(ctx), channel);
-        return AuthResult.Success(new { otpId = id, sentTo = channel == "sms" ? Mask.Phone(dest) : Mask.Email(dest) });
+        var id = await _store.CreateOtpAsync(user.Id, channel, code, 10, _otpBackupProtector.Protect(code), dest);
+        var sent = await _otp.SendAsync(channel, dest, code, "signin", user.FullName);
+        await _store.SetOtpDeliveryAsync(id, sent.Ok, sent.Error);
+        if (!sent.Ok) await BackupOnFailureAsync(id, user.Email, code, sent.Error);
+        await _store.LogAsync(user.Id, user.Email, sent.Ok ? "otp-sent" : "otp-failed", sent.Ok, Client(ctx), sent.Ok ? channel : channel + ": " + sent.Error);
+        return AuthResult.Success(new
+        {
+            otpId = id,
+            sentTo = channel == "sms" ? Mask.Phone(dest) : Mask.Email(dest),
+            delivered = sent.Ok,
+            devCode = !sent.Ok && _env.IsDevelopment() ? code : null,      // development only: lets you test without SMTP/SMS
+            warning = sent.Ok ? null : "We couldn't " + (channel == "sms" ? "text" : "email") + " the code" + (string.IsNullOrEmpty(sent.Error) ? "." : " (" + sent.Error + ").") + " Ask an administrator for it (Users & roles > Sign-in codes), or if you run this server, check the server log or the vw_OtpBackup view."
+        });
     }
 
     public async Task<AuthResult> VerifyOtpAsync(HttpContext ctx, string token, Guid otpId, string code, bool trustDevice)
@@ -413,18 +467,102 @@ public sealed class AuthService
     public async Task<AuthResult> RegisterAsync(HttpContext ctx, string first, string? middle, string last, string? userName, string email, string? phone, string password)
     {
         var count = await _store.CountUsersAsync();
-        bool allowed = count == 0 || _cfg.GetValue<bool>("Security:AllowSelfRegistration");
-        if (!allowed) return AuthResult.Fail("Registration is closed. Ask an administrator to create your account.", "closed");
+        // Only the very first person can create an account themselves (they become the administrator).
+        // After that, staff accounts are created by an administrator in Users & roles; members sign in with their member number.
+        if (count > 0) return AuthResult.Fail("Accounts are created by an administrator. Ask your administrator to add you in Users & roles.", "closed");
         if (string.IsNullOrWhiteSpace(first) || string.IsNullOrWhiteSpace(last) || string.IsNullOrWhiteSpace(email))
             return AuthResult.Fail("Please fill all required fields.");
+        if (!email.Contains('@')) return AuthResult.Fail("Enter a valid email address.");
+        if (count > 0 && Throttled("reg:" + Client(ctx).Ip, 5, TimeSpan.FromHours(1))) return AuthResult.Fail("Too many requests from this device. Try again later.", "throttled");
         var policy = await _store.GetPolicyAsync();
         var err = PasswordHasher.Validate(password, policy.PasswordComplexity);
         if (err != null) return AuthResult.Fail(err, "weak");
         if (await _store.EmailExistsAsync(email)) return AuthResult.Fail("An account with this email already exists.", "exists");
-        var role = count == 0 ? "Admin" : "Staff";
-        await _store.CreateUserAsync(first.Trim(), middle, last.Trim(), string.IsNullOrWhiteSpace(userName) ? email : userName!, email, phone, PasswordHasher.Hash(password), role);
-        await _store.LogAsync(null, email, "registered", true, Client(ctx), role);
-        return AuthResult.Success(new { role });
+
+        bool first_ = count == 0;
+        var role = first_ ? "Admin" : "Viewer";
+        var id = await _store.CreateUserAsync(first.Trim(), middle, last.Trim(), string.IsNullOrWhiteSpace(userName) ? email : userName!, email, phone, PasswordHasher.Hash(password), role);
+        if (!first_) await _store.SetActiveAsync(id, false);     // waits for an administrator to approve
+        await _store.LogAsync(id, email, first_ ? "registered" : "access-requested", true, Client(ctx), role);
+        return AuthResult.Success(new { role, pending = !first_ });
+    }
+
+    /// <summary>
+    /// When email delivery fails: log the code and (if enabled) keep a readable copy in the database view vw_OtpBackup so the operator can still sign in.
+    /// Default: on in Development, off elsewhere. Override with Security:OtpPlainBackupOnFailure.
+    /// </summary>
+    private async Task BackupOnFailureAsync(Guid id, string email, string code, string? error)
+    {
+        var on = _cfg.GetValue<bool?>("Security:OtpPlainBackupOnFailure") ?? _env.IsDevelopment();
+        if (!on) return;
+        try { await _store.SetOtpPlainAsync(id, code); } catch (Exception ex) { _log.LogWarning(ex, "Could not store readable OTP backup"); }
+        _log.LogWarning("EMAIL FAILED ({Error}). One-time code for {Email}: {Code}  (also in SQL: SELECT * FROM vw_OtpBackup)", error, email, code);
+    }
+
+    // =============================================== forgot / reset password
+    private bool Throttled(string key, int max, TimeSpan window)
+    {
+        var k = "thr:" + key;
+        var n = _cache.TryGetValue(k, out int cur) ? cur : 0;
+        if (n >= max) return true;
+        _cache.Set(k, n + 1, window);
+        return false;
+    }
+
+    /// <summary>Always answers the same way so the form can't be used to discover which emails are registered.</summary>
+    public async Task<AuthResult> ForgotPasswordAsync(HttpContext ctx, string email)
+    {
+        var generic = AuthResult.Success(new { sent = true });
+        email = (email ?? "").Trim();
+        if (email.Length == 0 || !email.Contains('@')) return AuthResult.Fail("Enter your email address.");
+        if (Throttled("forgot:" + Client(ctx).Ip, 8, TimeSpan.FromMinutes(15)) || Throttled("forgot:" + email.ToLowerInvariant(), 3, TimeSpan.FromMinutes(15)))
+            return AuthResult.Fail("Too many attempts. Wait a few minutes and try again.", "throttled");
+
+        var user = await _store.GetUserByEmailAsync(email);
+        if (user == null || !user.IsActive) return generic;
+
+        var code = System.Security.Cryptography.RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
+        var id = await _store.CreateOtpAsync(user.Id, "reset", code, 15, _otpBackupProtector.Protect(code), user.Email);
+        var sent = await _otp.SendAsync("email", user.Email, code, "reset", user.FullName);
+        await _store.SetOtpDeliveryAsync(id, sent.Ok, sent.Error);
+        if (!sent.Ok) await BackupOnFailureAsync(id, user.Email, code, sent.Error);
+        await _store.LogAsync(user.Id, user.Email, sent.Ok ? "reset-sent" : "reset-failed", sent.Ok, Client(ctx), sent.Error);
+        return generic;
+    }
+
+    public async Task<AuthResult> ResetPasswordAsync(HttpContext ctx, string email, string code, string newPassword)
+    {
+        email = (email ?? "").Trim();
+        if (Throttled("reset:" + Client(ctx).Ip, 10, TimeSpan.FromMinutes(15))) return AuthResult.Fail("Too many attempts. Wait a few minutes and try again.", "throttled");
+        var user = await _store.GetUserByEmailAsync(email);
+        if (user == null || !user.IsActive || !await _store.VerifyLatestOtpAsync(user.Id, "reset", code ?? ""))
+            return AuthResult.Fail("That code isn't right or has expired.", "invalid");
+        var policy = await _store.GetPolicyAsync();
+        var err = PasswordHasher.Validate(newPassword, policy.PasswordComplexity);
+        if (err != null) return AuthResult.Fail(err, "weak");
+        foreach (var old in await _store.RecentPasswordHashesAsync(user.Id, policy.PasswordHistoryCount))
+            if (PasswordHasher.Verify(newPassword, old)) return AuthResult.Fail($"Choose a password you haven't used in your last {policy.PasswordHistoryCount}.", "reused");
+        await _store.SetPasswordAsync(user.Id, PasswordHasher.Hash(newPassword), Math.Max(policy.PasswordHistoryCount, 1));
+        await _store.RegisterSuccessAsync(user.Id);          // clears lockout counters
+        await _store.RevokeAllSessionsAsync(user.Id);
+        await _store.LogAsync(user.Id, user.Email, "password-reset", true, Client(ctx));
+        return AuthResult.Success();
+    }
+
+    // ============================================== administrator support tools
+    public sealed record OtpBackupItem(Guid Id, int UserId, string UserName, string Email, string Purpose, string? Destination, string Delivery, string? DeliveryError, DateTime CreatedUtc, DateTime ExpiresUtc, string? Code);
+
+    /// <summary>Still-valid codes with their decrypted value, so an administrator can hand one over when email delivery fails.</summary>
+    public async Task<List<OtpBackupItem>> OtpBackupAsync()
+    {
+        var rows = await _store.ListOpenOtpsAsync();
+        return rows.Select(r =>
+        {
+            string? plain = null;
+            try { if (r.CodeProtected != null) plain = _otpBackupProtector.Unprotect(r.CodeProtected); } catch { }
+            return new OtpBackupItem(r.Id, r.UserId, r.UserName, r.Email, r.Channel == "reset" ? "Password reset" : "Sign-in", r.Destination,
+                r.DeliveryStatus ?? "unknown", r.DeliveryError, r.CreatedUtc, r.ExpiresUtc, plain);
+        }).ToList();
     }
 
     // ==================================================== sign-in finish
@@ -443,7 +581,7 @@ public sealed class AuthService
                 Expires = DateTimeOffset.UtcNow.AddYears(1), IsEssential = true, Path = "/"
             });
         }
-        var deviceId = await _store.UpsertDeviceAsync(user.Id, SecurityStore.Sha256Hex(token), ci, trustDevice, AuthDefaults.TrustDays);
+        var deviceId = await _store.UpsertDeviceAsync(user.Id, SecurityStore.Sha256Hex(token), ci, trustDevice, _conf.Current.TrustDays);
         var sid = await _store.CreateSessionAsync(user.Id, deviceId, ci, policy.SessionTimeoutMinutes);
 
         bool hasFactor = user.TotpEnabled || (await _store.GetPasskeysAsync(user.Id)).Count > 0;
@@ -456,10 +594,15 @@ public sealed class AuthService
             new(AuthDefaults.SessionClaim, sid.ToString()),
             new(AuthDefaults.AmrClaim, amr),
         };
+        if (Roles.Normalise(user.Role) == Roles.Member && await _members.MemberIdForUserAsync(user.Id) is int memberId)
+        {
+            claims.Add(new Claim(SaccoManagementSystem.Services.MemberPortalStore.MemberClaim, memberId.ToString()));
+            claims.Add(new Claim("member_no", user.UserName));
+        }
         bool expired = policy.PasswordExpiryDays > 0 && user.PasswordChangedUtc.HasValue
                        && user.PasswordChangedUtc.Value.AddDays(policy.PasswordExpiryDays) < DateTime.UtcNow;
         if (expired) claims.Add(new Claim(AuthDefaults.PasswordExpiredClaim, "1"));
-        bool mustEnroll = policy.TwoFactorRequired && !hasFactor;
+        bool mustEnroll = policy.TwoFactorRequired && !hasFactor && amr != "otp"; // emailed sign-in code already counts as the second step
         if (mustEnroll) claims.Add(new Claim(AuthDefaults.EnrollClaim, "1"));
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, AuthDefaults.Scheme));

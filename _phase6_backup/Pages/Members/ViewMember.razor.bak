@@ -1,0 +1,348 @@
+@page "/members/view/{MemberId:int}"
+@inject NavigationManager NavigationManager
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS
+
+<PageTitle>@(member?.FullName ?? "Member") · @Brand.Name</PageTitle>
+
+<div class="ms-page">
+    <button type="button" class="ms-back" @onclick="NavigateBack"><i class="bi bi-arrow-left"></i> Members</button>
+
+    @if (isLoading)
+    {
+        <div class="ms-skel" style="height:150px;border-radius:20px"></div>
+        <div class="ms-grid stats ms-mt">@for (int i = 0; i < 4; i++) { <div class="ms-skel" style="height:110px"></div> }</div>
+    }
+    else if (errorLoading)
+    {
+        <div class="ms-card"><EmptyState Icon="bi-wifi-off" Title="Couldn't load this member" Text="Check your connection and try again.">
+            <div style="margin-top:14px"><button class="ms-btn" @onclick="LoadMember"><i class="bi bi-arrow-clockwise"></i> Retry</button></div></EmptyState></div>
+    }
+    else if (member == null)
+    {
+        <div class="ms-card"><EmptyState Icon="bi-person-x" Title="Member not found" Text="They may have been removed.">
+            <div style="margin-top:14px"><button class="ms-btn" @onclick="NavigateBack">Back to members</button></div></EmptyState></div>
+    }
+    else
+    {
+        <section class="ms-hero">
+            <Avatar Name="@member.FullName" ImageUrl="@member.ProfileImageUrl" Size="xl" />
+            <div style="position:relative;z-index:1">
+                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><h2>@member.FullName</h2><StatusPill Status="@member.Status" /></div>
+                <div class="meta">
+                    <span><i class="bi bi-person-vcard"></i>@member.MemberNo</span>
+                    @if (!string.IsNullOrWhiteSpace(member.Email)) { <span><i class="bi bi-envelope"></i>@member.Email</span> }
+                    @if (!string.IsNullOrWhiteSpace(member.PhoneNumber)) { <span><i class="bi bi-telephone"></i>@member.PhoneNumber</span> }
+                    @if (member.JoinDate.HasValue) { <span><i class="bi bi-calendar-event"></i>Member for @GetMembershipDuration(member.JoinDate)</span> }
+                </div>
+            </div>
+            <div class="ms-hero-actions">
+                <a class="ms-btn primary" href="members/edit/@member.MemberId"><i class="bi bi-pencil"></i> Edit</a>
+                <button class="ms-btn" @onclick="ConfirmDelete"><i class="bi bi-trash3"></i> Delete</button>
+            </div>
+        </section>
+
+        <div class="ms-grid stats ms-mt">
+            <StatCard Label="Share capital" Icon="bi-graph-up-arrow" Prefix="KES" Value="@Money(shares.Where(s => s.Status != "Cancelled").Sum(s => s.TotalValue))" Foot="@($"{shares.Where(s => s.Status != "Cancelled").Sum(s => s.Units):N0} units")" />
+            <StatCard Label="Contributions" Icon="bi-piggy-bank-fill" Tone="blue" Prefix="KES" Value="@Money(contributions.Where(c => c.Status is not ("Cancelled" or "Rejected")).Sum(c => c.Amount))" Foot="@($"{contributions.Count} payments")" />
+            <StatCard Label="Loan balance" Icon="bi-cash-coin" Tone="gold" Prefix="KES" Value="@Money(loans.Where(l => l.Status is "Approved" or "Disbursed" or "Active").Sum(l => l.OutstandingBalance ?? l.PrincipalAmount))" Foot="@($"{loans.Count(l => l.Status is "Approved" or "Disbursed" or "Active")} active loans")" />
+            <StatCard Label="Pending items" Icon="bi-hourglass-split" Tone="red" Value="@PendingCount.ToString()" Foot="loans + contributions" />
+        </div>
+
+        <div class="ms-tabs" role="tablist">
+            <button role="tab" class="@(tab == "overview" ? "on" : "")" @onclick='() => tab = "overview"'><i class="bi bi-person-lines-fill"></i> Overview</button>
+            <button role="tab" class="@(tab == "contributions" ? "on" : "")" @onclick='() => tab = "contributions"'><i class="bi bi-piggy-bank"></i> Contributions <em>@contributions.Count</em></button>
+            <button role="tab" class="@(tab == "loans" ? "on" : "")" @onclick='() => tab = "loans"'><i class="bi bi-cash-coin"></i> Loans <em>@loans.Count</em></button>
+            <button role="tab" class="@(tab == "shares" ? "on" : "")" @onclick='() => tab = "shares"'><i class="bi bi-graph-up-arrow"></i> Shares <em>@shares.Count</em></button>
+        </div>
+
+        @if (tab == "overview")
+        {
+            <div class="ms-grid two">
+                <section class="ms-card">
+                    <div class="ms-card-head"><div><h3>Personal</h3></div></div>
+                    <div class="ms-card-body ms-kv">
+                        @KV("National ID", member.NationalID)
+                        @KV("Date of birth", member.DateOfBirth?.ToString("d MMMM yyyy"))
+                        @KV("Gender", member.Gender)
+                        @KV("Marital status", member.MaritalStatus)
+                    </div>
+                </section>
+                <section class="ms-card">
+                    <div class="ms-card-head"><div><h3>Contact</h3></div></div>
+                    <div class="ms-card-body ms-kv">
+                        @KV("Email", member.Email)
+                        @KV("Phone", member.PhoneNumber)
+                        @KV("Address", member.Address)
+                    </div>
+                </section>
+                <section class="ms-card">
+                    <div class="ms-card-head"><div><h3>Work</h3></div></div>
+                    <div class="ms-card-body ms-kv">
+                        @KV("Occupation", member.Occupation)
+                        @KV("Employer", member.Employer)
+                    </div>
+                </section>
+                <section class="ms-card">
+                    <div class="ms-card-head"><div><h3>Membership</h3></div></div>
+                    <div class="ms-card-body ms-kv">
+                        @KV("Member number", member.MemberNo)
+                        @KV("Joined", member.JoinDate?.ToString("d MMMM yyyy"))
+                        @KV("Record created", member.CreatedDate?.ToString("d MMM yyyy, HH:mm"))
+                    </div>
+                </section>
+            </div>
+            <div class="ms-quick ms-mt" style="max-width:640px">
+                <a href="contributions/add"><i class="bi bi-plus-circle"></i>Add contribution</a>
+                <a href="loans/apply"><i class="bi bi-cash-coin"></i>Apply for loan</a>
+                <a href="shares/purchase/@member.MemberId"><i class="bi bi-graph-up-arrow"></i>Buy shares</a>
+                <a href="shares/member/@member.MemberId"><i class="bi bi-pie-chart"></i>Share portfolio</a>
+            </div>
+        }
+        else if (tab == "contributions")
+        {
+            <div class="ms-card">
+                @if (contributions.Count == 0) { <EmptyState Icon="bi-piggy-bank" Title="No contributions yet" Text="Payments made by this member will appear here." /> }
+                else
+                {
+                    <div class="ms-table-wrap"><table class="ms-table">
+                        <thead><tr><th>Date</th><th>Type</th><th>Method</th><th>Reference</th><th class="r">Amount</th><th>Status</th></tr></thead>
+                        <tbody>
+                            @foreach (var c in contributions.Take(50))
+                            {
+                                <tr class="clickable" @onclick="() => GoContribution(c.ContributionId)">
+                                    <td class="ms-num">@c.Date.ToString("d MMM yyyy")</td><td>@c.Type</td><td>@(c.PaymentMethod ?? "—")</td><td class="ms-num">@(c.TransactionRef ?? "—")</td>
+                                    <td class="r ms-num"><b>KES @c.Amount.ToString("N0")</b></td><td><StatusPill Status="@c.Status" /></td>
+                                </tr>
+                            }
+                        </tbody></table></div>
+                }
+            </div>
+        }
+        else if (tab == "loans")
+        {
+            <div class="ms-card">
+                @if (loans.Count == 0) { <EmptyState Icon="bi-cash-coin" Title="No loans" Text="Loan applications by this member will appear here."><div style="margin-top:14px"><a class="ms-btn primary" href="loans/apply">Apply for a loan</a></div></EmptyState> }
+                else
+                {
+                    <div class="ms-table-wrap"><table class="ms-table">
+                        <thead><tr><th>Loan</th><th>Type</th><th>Applied</th><th class="r">Principal</th><th class="r">Balance</th><th>Status</th></tr></thead>
+                        <tbody>
+                            @foreach (var l in loans)
+                            {
+                                <tr class="clickable" @onclick="() => GoLoan(l.LoanId)">
+                                    <td class="ms-num"><b>@l.LoanNumber</b></td><td>@l.LoanType</td><td class="ms-num">@l.ApplicationDate.ToString("d MMM yyyy")</td>
+                                    <td class="r ms-num">KES @l.PrincipalAmount.ToString("N0")</td><td class="r ms-num"><b>@(l.OutstandingBalance.HasValue ? "KES " + l.OutstandingBalance.Value.ToString("N0") : "—")</b></td><td><StatusPill Status="@l.Status" /></td>
+                                </tr>
+                            }
+                        </tbody></table></div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="ms-card">
+                @if (shares.Count == 0) { <EmptyState Icon="bi-graph-up-arrow" Title="No shares" Text="Share purchases by this member will appear here."><div style="margin-top:14px"><a class="ms-btn primary" href="shares/purchase/@member.MemberId">Buy shares</a></div></EmptyState> }
+                else
+                {
+                    <div class="ms-table-wrap"><table class="ms-table">
+                        <thead><tr><th>Purchased</th><th>Type</th><th class="r">Units</th><th class="r">Unit price</th><th class="r">Value</th><th>Status</th></tr></thead>
+                        <tbody>
+                            @foreach (var s in shares)
+                            {
+                                <tr><td class="ms-num">@s.PurchaseDate.ToString("d MMM yyyy")</td><td>@s.ShareType</td><td class="r ms-num">@s.Units.ToString("N0")</td>
+                                    <td class="r ms-num">KES @s.UnitPrice.ToString("N2")</td><td class="r ms-num"><b>KES @s.TotalValue.ToString("N0")</b></td><td><StatusPill Status="@s.Status" /></td></tr>
+                            }
+                        </tbody></table></div>
+                }
+            </div>
+        }
+    }
+</div>
+
+<ConfirmDialog Open="showDeleteModal" Danger="true" Title="Delete member" ConfirmText="Delete permanently" Busy="deleting" OnConfirm="DeleteMember" OnCancel="CancelDelete">
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:10px">
+        <Avatar Name="@member?.FullName" ImageUrl="@member?.ProfileImageUrl" />
+        <div><b>@member?.FullName</b><div class="ms-hint">@member?.MemberNo</div></div>
+    </div>
+    <p class="ms-hint" style="margin:0">This permanently removes the member and can't be undone. Members with loans, shares or contributions on record may not be deletable.</p>
+</ConfirmDialog>
+
+@code {
+    [Parameter] public int MemberId { get; set; }
+
+    private MemberModel? member;
+    private List<MemberContribution> contributions = new();
+    private List<MemberLoan> loans = new();
+    private List<MemberShare> shares = new();
+    private string tab = "overview";
+    private bool showDeleteModal, deleting;
+    private bool isLoading = true;
+    private bool errorLoading = false;
+
+    protected override async Task OnInitializedAsync() => await LoadMember();
+
+    private async Task LoadMember()
+    {
+        try
+        {
+            isLoading = true;
+            errorLoading = false;
+
+            var client = HttpClientFactory.CreateClient("ApiClient");
+            var response = await client.GetAsync($"api/members/get/{MemberId}");
+            if (response.IsSuccessStatusCode) member = await response.Content.ReadFromJsonAsync<MemberModel>();
+            else if (response.StatusCode != System.Net.HttpStatusCode.NotFound) errorLoading = true;
+
+            if (member != null)
+            {
+                var c = Try<List<MemberContribution>>(client, "api/contributions/get-all");
+                var l = Try<List<MemberLoan>>(client, "api/loans/get-all");
+                var s = Try<List<MemberShare>>(client, $"api/shares/member/{MemberId}");
+                await Task.WhenAll(c, l, s);
+                contributions = (c.Result ?? new()).Where(x => x.MemberId == MemberId).OrderByDescending(x => x.Date).ToList();
+                loans = (l.Result ?? new()).Where(x => x.MemberId == MemberId).OrderByDescending(x => x.ApplicationDate).ToList();
+                shares = s.Result ?? new();
+            }
+        }
+        catch
+        {
+            errorLoading = true;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    // Related data is a bonus: a failure here shouldn't hide the profile.
+    private static async Task<T?> Try<T>(HttpClient client, string url) where T : class
+    {
+        try
+        {
+            var r = await client.GetAsync(url);
+            return r.IsSuccessStatusCode ? await r.Content.ReadFromJsonAsync<T>() : null;
+        }
+        catch { return null; }
+    }
+
+    private static string Money(decimal v)
+    {
+        var a = Math.Abs(v);
+        if (a >= 1_000_000m) return (v / 1_000_000m).ToString("0.##") + "M";
+        if (a >= 10_000m) return (v / 1_000m).ToString("0.#") + "K";
+        return v.ToString("N0");
+    }
+
+    private static RenderFragment KV(string label, string? value) => b =>
+    {
+        b.OpenElement(0, "div");
+        b.OpenElement(1, "small"); b.AddContent(2, label); b.CloseElement();
+        b.OpenElement(3, "b");
+        if (string.IsNullOrWhiteSpace(value)) { b.AddAttribute(4, "class", "empty"); b.AddContent(5, "Not provided"); }
+        else b.AddContent(6, value);
+        b.CloseElement();
+        b.CloseElement();
+    };
+
+    private string GetMembershipDuration(DateTime? joinDate)
+    {
+        if (!joinDate.HasValue) return "—";
+        var d = DateTime.Now - joinDate.Value;
+        if (d.TotalDays < 30) return $"{Math.Max(0, (int)d.TotalDays)} days";
+        if (d.TotalDays < 365) return $"{(int)(d.TotalDays / 30)} months";
+        return $"{(int)(d.TotalDays / 365)} years";
+    }
+
+    private int PendingCount => loans.Count(l => l.Status == "Pending") + contributions.Count(c => c.Status == "Pending");
+    private void GoContribution(int id) => NavigationManager.NavigateTo($"/contributions/view/{id}");
+    private void GoLoan(int id) => NavigationManager.NavigateTo($"/loans/view/{id}");
+    private void NavigateBack() => NavigationManager.NavigateTo("/members");
+    private void ConfirmDelete() => showDeleteModal = true;
+    private void CancelDelete() => showDeleteModal = false;
+
+    private async Task DeleteMember()
+    {
+        if (member == null) return;
+        deleting = true;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("ApiClient");
+            var response = await client.DeleteAsync($"api/members/delete/{member.MemberId}");
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("ms.toast", "success", "Member deleted", member.FullName);
+                NavigationManager.NavigateTo("/members");
+                return;
+            }
+            await JS.InvokeVoidAsync("ms.toast", "error", "Couldn't delete member", "They may have loans, shares or contributions on record.");
+        }
+        catch
+        {
+            await JS.InvokeVoidAsync("ms.toast", "error", "Couldn't delete member", "Network problem — try again.");
+        }
+        finally
+        {
+            deleting = false;
+            showDeleteModal = false;
+        }
+    }
+
+    public class MemberModel
+    {
+        public int MemberId { get; set; }
+        public string MemberNo { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public string NationalID { get; set; } = string.Empty;
+        public DateTime? DateOfBirth { get; set; }
+        public string Gender { get; set; } = string.Empty;
+        public string MaritalStatus { get; set; } = string.Empty;
+        public string Occupation { get; set; } = string.Empty;
+        public string Employer { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string ProfileImageUrl { get; set; } = string.Empty;
+        public DateTime? JoinDate { get; set; }
+        public string Status { get; set; } = "Active";
+        public DateTime? CreatedDate { get; set; }
+        public int? CreatedBy { get; set; }
+        public string FullName => $"{FirstName} {LastName}";
+    }
+
+    private sealed class MemberContribution
+    {
+        public int ContributionId { get; set; }
+        public int MemberId { get; set; }
+        public string Type { get; set; } = "";
+        public decimal Amount { get; set; }
+        public DateTime Date { get; set; }
+        public string Status { get; set; } = "";
+        public string? PaymentMethod { get; set; }
+        public string? TransactionRef { get; set; }
+    }
+
+    private sealed class MemberLoan
+    {
+        public int LoanId { get; set; }
+        public int MemberId { get; set; }
+        public string LoanNumber { get; set; } = "";
+        public string LoanType { get; set; } = "";
+        public decimal PrincipalAmount { get; set; }
+        public decimal? OutstandingBalance { get; set; }
+        public DateTime ApplicationDate { get; set; }
+        public string Status { get; set; } = "";
+    }
+
+    private sealed class MemberShare
+    {
+        public int ShareId { get; set; }
+        public int Units { get; set; }
+        public decimal UnitPrice { get; set; }
+        public decimal TotalValue { get; set; }
+        public DateTime PurchaseDate { get; set; }
+        public string Status { get; set; } = "";
+        public string ShareType { get; set; } = "";
+    }
+}

@@ -1,67 +1,99 @@
 @using System.Text.Json
+@using SaccoManagementSystem.Services
 @inject IJSRuntime JS
 
-<div class="ms-section" style="padding-top:22px">
-    <h4>Theme</h4>
-    <p class="sub">Saved on this device. Pages that haven't been redesigned yet show on a light sheet in dark mode.</p>
-    <div class="ms-choice-grid">
+<fieldset class="cc-fs" disabled="@ReadOnly">
+    <div class="cc-card">
+        <h3><i class="bi bi-circle-half"></i> Default theme</h3>
+        <p class="sub">What everyone sees until they pick their own.</p>
+        <div class="cc-themes">
+            @foreach (var t in Themes)
+            {
+                <button type="button" class="cc-theme @t.Key @(Cfg.DefaultTheme == t.Key ? "on" : "")" @onclick="() => Org(nameof(Cfg.DefaultTheme), t.Key)">
+                    <div class="pv"><i></i><i></i></div>
+                    <b>@t.Label @if (Cfg.DefaultTheme == t.Key) { <i class="bi bi-check-circle-fill"></i> }</b>
+                    <small>@t.Hint</small>
+                </button>
+            }
+        </div>
+    </div>
+
+    <div class="cc-card">
+        <h3><i class="bi bi-layout-sidebar"></i> Layout</h3>
+        <p class="sub">Spacing, shape and sidebar for the whole organisation.</p>
+        <div class="cc-row">
+            <div class="m"><b>Density</b><small>Compact fits more rows on screen.</small></div>
+            <div class="e"><InputSelect Value="Cfg.Density" ValueChanged="@((string v) => Org(nameof(Cfg.Density), v))" ValueExpression="@(() => Cfg.Density)" class="ms-select"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></InputSelect></div>
+        </div>
+        <div class="cc-row">
+            <div class="m"><b>Corners</b><small>Sharp, rounded or soft.</small></div>
+            <div class="e"><InputSelect Value="Cfg.Corners" ValueChanged="@((string v) => Org(nameof(Cfg.Corners), v))" ValueExpression="@(() => Cfg.Corners)" class="ms-select"><option value="sharp">Sharp</option><option value="rounded">Rounded</option><option value="soft">Soft</option></InputSelect></div>
+        </div>
+        <div class="cc-row">
+            <div class="m"><b>Sidebar</b><small>Soft tint is the lightest and easiest on the eyes.</small></div>
+            <div class="e"><InputSelect Value="Cfg.SidebarStyle" ValueChanged="@((string v) => Org(nameof(Cfg.SidebarStyle), v))" ValueExpression="@(() => Cfg.SidebarStyle)" class="ms-select"><option value="tint">Soft tint (light)</option><option value="light">White</option><option value="dark">Dark</option><option value="brand">Brand colour</option></InputSelect></div>
+        </div>
+        <div class="cc-row">
+            <div class="m"><b>Page headers</b><small>Greeting and profile banners in light mode.</small></div>
+            <div class="e"><InputSelect Value="Cfg.HeaderStyle" ValueChanged="@((string v) => Org(nameof(Cfg.HeaderStyle), v))" ValueExpression="@(() => Cfg.HeaderStyle)" class="ms-select"><option value="soft">Soft (light)</option><option value="dark">Dark navy</option></InputSelect></div>
+        </div>
+        <div class="cc-row">
+            <div class="m"><b>Page descriptions</b><small>The short line under each page title.</small></div>
+            <div class="e"><ToggleSwitch Value="Cfg.PageBanners" ValueChanged="SetBanners" AriaLabel="Page descriptions" /></div>
+        </div>
+    </div>
+</fieldset>
+
+<div class="cc-card">
+    <h3><i class="bi bi-person-gear"></i> Just for me</h3>
+    <p class="sub">Saved on this device only. Overrides the organisation default for you.</p>
+    <div class="cc-themes">
         @foreach (var t in Themes)
         {
-            <button type="button" class="ms-choice @(theme == t.Key ? "sel" : "")" @onclick="() => Set(nameof(theme), t.Key)">
-                <span class="sw" style="background:@t.Bg"><i style="background:@t.Panel;margin:6px 4px 6px 6px;border-radius:6px"></i><i style="background:@t.Panel2;margin:6px 6px 6px 0;border-radius:6px;flex:2"></i></span>
-                <b>@t.Label</b>
+            <button type="button" class="cc-theme @t.Key @(myTheme == t.Key ? "on" : "")" @onclick="() => Mine(t.Key)">
+                <div class="pv"><i></i><i></i></div>
+                <b>@t.Label @if (myTheme == t.Key) { <i class="bi bi-check-circle-fill"></i> }</b>
+                <small>@t.Hint</small>
             </button>
         }
     </div>
-</div>
-
-<div class="ms-section">
-    <h4>Accent colour</h4>
-    <p class="sub">Buttons, highlights and charts.</p>
-    <div class="ms-choice-grid">
-        @foreach (var a in Accents)
-        {
-            <button type="button" class="ms-choice @(accent == a.Key ? "sel" : "")" @onclick="() => Set(nameof(accent), a.Key)">
-                <span class="sw"><i style="background:@a.Color"></i><i style="background:@a.Soft"></i></span>
-                <b>@a.Label</b>
-            </button>
-        }
+    <div class="cc-row" style="margin-top:8px">
+        <div class="m"><b>Collapse the sidebar</b><small>Icons only. On phones the menu always slides in.</small></div>
+        <div class="e"><ToggleSwitch Value="collapsed" ValueChanged="SetCollapsed" AriaLabel="Collapse the sidebar" /></div>
     </div>
-</div>
-
-<div class="ms-section">
-    <h4>Layout</h4>
-    <div class="ms-row">
-        <div class="ms-row-main"><b>Compact spacing</b><small>Tighter padding so more fits on screen.</small></div>
-        <div class="ms-row-end"><ToggleSwitch Value='@(density == "compact")' ValueChanged='@((bool v) => Set(nameof(density), v ? "compact" : "comfortable"))' AriaLabel="Compact spacing" /></div>
-    </div>
-    <div class="ms-row">
-        <div class="ms-row-main"><b>Collapse the sidebar</b><small>Icons only. On phones the menu always slides in.</small></div>
-        <div class="ms-row-end"><ToggleSwitch Value="collapsed" ValueChanged='@((bool v) => Set(nameof(collapsed), v ? "1" : "0"))' AriaLabel="Collapse the sidebar" /></div>
+    <div class="cc-row">
+        <div class="m"><b>Use the organisation default</b><small>Forget my personal theme and density on this device.</small></div>
+        <div class="e"><button type="button" class="ms-btn sm" @onclick="ResetMine" disabled="@(myTheme == "")"><i class="bi bi-arrow-counterclockwise"></i> Reset</button></div>
     </div>
 </div>
 
 @code {
-    private string theme = "light", accent = "emerald", density = "comfortable";
+    [Parameter] public OrgConfig Cfg { get; set; } = new();
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public Action? OnChanged { get; set; }
+
+    private string myTheme = "";
     private bool collapsed;
 
-    private record ThemeOpt(string Key, string Label, string Bg, string Panel, string Panel2);
-    private record AccentOpt(string Key, string Label, string Color, string Soft);
-
-    private static readonly ThemeOpt[] Themes =
+    private sealed record Th(string Key, string Label, string Hint);
+    private static readonly Th[] Themes =
     {
-        new("light", "Light", "#F4F6F9", "#0B1F3A", "#ffffff"),
-        new("dark", "Dark", "#0A1424", "#070f1d", "#101d33"),
-        new("system", "Match my device", "linear-gradient(90deg,#F4F6F9 50%,#0A1424 50%)", "#0B1F3A", "#101d33"),
+        new("light", "Light", "Bright and airy"), new("dark", "Dark", "Easy on the eyes"), new("system", "Match device", "Follows your OS"),
     };
 
-    private static readonly AccentOpt[] Accents =
+    private void Org(string prop, string value)
     {
-        new("emerald", "Emerald", "#0B7A52", "#E3F4EC"),
-        new("blue", "Blue", "#2559C7", "#E6EDFB"),
-        new("navy", "Navy", "#12305a", "#E4EAF3"),
-        new("gold", "Gold", "#B7861A", "#FBF3DC"),
-    };
+        switch (prop)
+        {
+            case nameof(Cfg.DefaultTheme): Cfg.DefaultTheme = value; break;
+            case nameof(Cfg.Density): Cfg.Density = value; break;
+            case nameof(Cfg.Corners): Cfg.Corners = value; break;
+            case nameof(Cfg.SidebarStyle): Cfg.SidebarStyle = value; break;
+            case nameof(Cfg.HeaderStyle): Cfg.HeaderStyle = value; break;
+        }
+        OnChanged?.Invoke();
+    }
+    private void SetBanners(bool v) { Cfg.PageBanners = v; OnChanged?.Invoke(); }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -71,9 +103,7 @@
             var p = await JS.InvokeAsync<JsonElement>("ms.getPrefs");
             if (p.ValueKind == JsonValueKind.Object)
             {
-                if (p.TryGetProperty("theme", out var t) && t.ValueKind == JsonValueKind.String) theme = t.GetString()!;
-                if (p.TryGetProperty("accent", out var a) && a.ValueKind == JsonValueKind.String) accent = a.GetString()!;
-                if (p.TryGetProperty("density", out var d) && d.ValueKind == JsonValueKind.String) density = d.GetString()!;
+                if (p.TryGetProperty("theme", out var t) && t.ValueKind == JsonValueKind.String) myTheme = t.GetString() ?? "";
                 if (p.TryGetProperty("collapsed", out var c)) collapsed = c.ValueKind == JsonValueKind.True;
             }
             StateHasChanged();
@@ -81,15 +111,12 @@
         catch { }
     }
 
-    private async Task Set(string what, string value)
+    private async Task Mine(string key) { myTheme = key; await JS.InvokeVoidAsync("ms.setPrefs", new { theme = key }); }
+    private async Task SetCollapsed(bool v) { collapsed = v; await JS.InvokeVoidAsync("ms.setPrefs", new { collapsed = v }); }
+    private async Task ResetMine()
     {
-        switch (what)
-        {
-            case nameof(theme): theme = value; break;
-            case nameof(accent): accent = value; break;
-            case nameof(density): density = value; break;
-            case nameof(collapsed): collapsed = value == "1"; break;
-        }
-        await JS.InvokeVoidAsync("ms.setPrefs", new { theme, accent, density, collapsed });
+        myTheme = "";
+        await JS.InvokeVoidAsync("ms.clearPref", "theme");
+        await JS.InvokeVoidAsync("ms.clearPref", "density");
     }
 }

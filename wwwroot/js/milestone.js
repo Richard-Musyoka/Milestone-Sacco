@@ -9,15 +9,28 @@
   ms.getPrefs = function () { return readPrefs(); };
   ms.applyPrefs = function (p) {
     p = p || readPrefs();
+    var o = window.__msOrg || {};
     var root = document.documentElement;
-    var theme = p.theme || 'light';
+    var theme = p.theme || o.theme || 'light';
     if (theme === 'system') theme = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     root.setAttribute('data-theme', theme);
-    root.setAttribute('data-accent', p.accent || 'emerald');
-    root.setAttribute('data-density', p.density || 'comfortable');
+    root.removeAttribute('data-accent');           // the brand colour is organisation-wide now
+    root.setAttribute('data-density', p.density || o.density || 'comfortable');
+    if (o.corners) root.setAttribute('data-corners', o.corners);
+    if (o.sidebar) root.setAttribute('data-sidebar', o.sidebar);
+    if (o.header) root.setAttribute('data-header', o.header);
+    if (o.banners !== undefined) root.setAttribute('data-banners', o.banners ? 'on' : 'off');
     var app = document.querySelector('.ms-app');
     if (app) app.classList.toggle('collapsed', !!p.collapsed && window.innerWidth > 992);
   };
+  // Called after an administrator saves: restyle the running app straight away.
+  ms.applyOrg = function (org, css) {
+    window.__msOrg = org || window.__msOrg || {};
+    var st = document.getElementById('ms-brand');
+    if (st && css) st.textContent = css;
+    ms.applyPrefs();
+  };
+  ms.clearPref = function (key) { var p = readPrefs(); delete p[key]; try { localStorage.setItem(LS, JSON.stringify(p)); } catch (e) { } ms.applyPrefs(p); };
   ms.setPrefs = function (patch) {
     var p = Object.assign(readPrefs(), patch || {});
     try { localStorage.setItem(LS, JSON.stringify(p)); } catch (e) { }
@@ -112,7 +125,7 @@
       var ic = a.querySelector('i'), sp = a.querySelector('span');
       list.push({ label: (sp ? sp.textContent : a.textContent).trim(), href: a.getAttribute('href'), icon: ic ? ic.className : 'bi bi-arrow-right' });
     });
-    [['Add member', 'members/add-member', 'bi bi-person-plus'], ['Apply for a loan', 'loans/apply', 'bi bi-cash-coin'], ['Record contribution', 'contributions/add', 'bi bi-plus-circle'],
+    [['Receive a payment (M-Pesa, bank, cash)', 'payments/record', 'bi bi-wallet2'], ['Start a chama', 'chamas/add', 'bi bi-people-fill'], ['Add member', 'members/add-member', 'bi bi-person-plus'], ['Apply for a loan', 'loans/apply', 'bi bi-cash-coin'], ['Record contribution', 'contributions/add', 'bi bi-plus-circle'],
      ['Purchase shares', 'shares/purchase', 'bi bi-graph-up-arrow'], ['Declare dividend', 'dividends/declare', 'bi bi-percent'], ['Security Center', 'settings?tab=security-center', 'bi bi-shield-lock'],
      ['My profile', 'profile', 'bi bi-person-circle']].forEach(function (x) { list.push({ label: x[0], href: x[1], icon: x[2] }); });
     return list;
@@ -126,8 +139,9 @@
       return '<li class="' + (n === cmd.idx ? 'sel' : '') + '"><a href="' + i.href + '"><i class="' + i.icon + '"></i>' + i.label.replace(/</g, '&lt;') + '</a></li>';
     }).join('');
   }
+  function drawer_try(h) { var p = '/' + String(h).replace(/^\//, '').split('?')[0]; if (!ms.drawer || !ms.drawer.ref || !ADD.test(p)) return false; ms.openDrawer(p); return true; }
   function mark() { document.querySelectorAll('#ms-cmd-list li').forEach(function (li, n) { li.classList.toggle('sel', n === cmd.idx); }); }
-  function go(href) { cmd.close(); if (window.Blazor && Blazor.navigateTo) Blazor.navigateTo(href); else location.href = href; }
+  function go(href) { cmd.close(); if (ms.openDrawer && drawer_try(href)) return; if (window.Blazor && Blazor.navigateTo) Blazor.navigateTo(href); else location.href = href; }
   cmd.open = function () { var bg = ensureCmd(); bg.classList.add('open'); var i = document.getElementById('ms-cmd-in'); i.value = ''; cmd.idx = 0; render(''); setTimeout(function () { i.focus(); }, 10); };
   cmd.close = function () { var bg = document.getElementById('ms-cmd'); if (bg) bg.classList.remove('open'); };
   document.addEventListener('keydown', function (e) {
@@ -205,8 +219,66 @@
     });
   };
 
+  // One-click light/dark switch (topbar button). Saved with the other appearance preferences.
+  ms.toggleTheme = function () {
+    var cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    ms.setPrefs({ theme: cur === 'dark' ? 'light' : 'dark' });
+  };
+  document.addEventListener('click', function (e) {
+    var t = e.target && e.target.closest ? e.target.closest('[data-ms-theme]') : null;
+    if (t) ms.toggleTheme();
+  });
+
   document.addEventListener('DOMContentLoaded', function () { ms.applyPrefs(); });
   if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { if ((readPrefs().theme || '') === 'system') ms.applyPrefs(); });
   // Blazor re-renders the shell after navigation; re-assert the collapsed state on the first paint of the layout.
   ms.afterShell = function () { ms.applyPrefs(); };
+
+  // ------------------------------------------------- v2: count-up numbers + ripple
+  function countUp(el) {
+    if (el.getAttribute('data-done')) return;
+    el.setAttribute('data-done', '1');
+    var to = parseFloat(el.getAttribute('data-to')); if (isNaN(to)) return;
+    var dec = parseInt(el.getAttribute('data-dec') || '0', 10), suf = el.getAttribute('data-suf') || '';
+    var finalText = el.textContent;
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var t0 = null, dur = 1100;
+    function step(ts) {
+      if (t0 === null) t0 = ts;
+      var p = Math.min(1, (ts - t0) / dur), e = p === 1 ? 1 : 1 - Math.pow(2, -10 * p);
+      var v = to * e;
+      el.textContent = v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: dec }) + suf;
+      if (p < 1) requestAnimationFrame(step); else el.textContent = finalText;
+    }
+    requestAnimationFrame(step);
+  }
+  function scan(root) { (root || document).querySelectorAll('.ms-count:not([data-done])').forEach(countUp); }
+  if (window.MutationObserver) {
+    new MutationObserver(function (muts) {
+      for (var i = 0; i < muts.length; i++) if (muts[i].addedNodes.length) { scan(); break; }
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  }
+  document.addEventListener('DOMContentLoaded', function () { scan(); });
+
+  // ------------------------------------------- v2: right-hand drawer for "add" links
+  var drawer = (ms.drawer = { ref: null, isOpen: false });
+  drawer.init = function (r) { drawer.ref = r; };
+  drawer.opened = function (v) { drawer.isOpen = !!v; document.documentElement.classList.toggle('ms-noscroll', !!v); };
+  var ADD = /^\/?(members\/add-member|members\/edit\/\d+|contributions\/add|contributions\/edit\/\d+|loans\/apply|guarantors\/add|guarantors\/edit\/\d+|dividends\/declare|shares\/purchase(\/[^\/?#]+)?|payments\/record|chamas\/add|chamas\/\d+\/edit)\/?$/i;
+  ms.openDrawer = function (path) {
+    if (!drawer.ref || !ADD.test(path)) return Promise.resolve(false);
+    return drawer.ref.invokeMethodAsync('TryOpen', path).catch(function () { return false; });
+  };
+  document.addEventListener('click', function (e) {
+    if (e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+    var a = e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a || a.target === '_blank' || a.hasAttribute('download') || a.hasAttribute('data-no-drawer')) return;
+    var u; try { u = new URL(a.href, location.href); } catch (x) { return; }
+    if (u.origin !== location.origin || !drawer.ref || !ADD.test(u.pathname)) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    ms.openDrawer(u.pathname).then(function (ok) { if (!ok) location.href = a.href; });
+  }, true);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && drawer.isOpen && drawer.ref) drawer.ref.invokeMethodAsync('CloseFromJs');
+  });
 })();

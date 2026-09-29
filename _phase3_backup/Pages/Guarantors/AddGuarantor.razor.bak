@@ -1,0 +1,43 @@
+@page "/guarantors/add"
+@inject NavigationManager NavigationManager
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS
+
+<PageTitle>Add guarantor · @Brand.Name</PageTitle>
+
+<div class="ms-page">
+    <button type="button" class="ms-back" @onclick="Back"><i class="bi bi-arrow-left"></i> Guarantors</button>
+    <PageHeader Title="Add a guarantor" Subtitle="Record someone who can stand behind a member's loan." />
+    <GuarantorForm Model="model" Busy="saving" ErrorMessage="@error" OnValidSubmit="Save" OnCancel="Back" />
+</div>
+
+@code {
+    private GuarantorForm.GuarantorInput model = new() { IsActive = true, CreatedBy = 1 /* TODO Phase 2b: signed-in user id */ };
+    private bool saving;
+    private string error = "";
+
+    private sealed class Created { public int GuarantorId { get; set; } }
+
+    private async Task Save()
+    {
+        saving = true; error = "";
+        try
+        {
+            var http = HttpClientFactory.CreateClient("ApiClient");
+            var r = await http.PostAsJsonAsync("api/guarantors", model);
+            if (r.IsSuccessStatusCode)
+            {
+                var res = await r.Content.ReadFromJsonAsync<Created>();
+                await JS.InvokeVoidAsync("ms.toast", "success", "Guarantor added", $"{model.FirstName} {model.LastName}");
+                NavigationManager.NavigateTo(res?.GuarantorId > 0 ? $"/guarantors/view/{res.GuarantorId}" : "/guarantors");
+                return;
+            }
+            error = await r.Content.ReadAsStringAsync();
+            if (string.IsNullOrWhiteSpace(error)) error = "The server couldn't save this guarantor.";
+        }
+        catch (Exception ex) { error = $"Something went wrong: {ex.Message}"; }
+        finally { saving = false; }
+    }
+
+    private void Back() => NavigationManager.NavigateTo("/guarantors");
+}

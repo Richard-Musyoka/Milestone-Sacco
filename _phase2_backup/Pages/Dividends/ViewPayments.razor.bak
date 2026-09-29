@@ -1,0 +1,412 @@
+﻿@page "/dividends/payments/{id:int}"
+@using Microsoft.AspNetCore.Components
+@using SaccoManagementSystem.Models
+@inject NavigationManager NavigationManager
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
+
+<div>
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-wallet2 me-2 fs-4"></i>
+                <h3 class="mb-0">Dividend Payment Details</h3>
+            </div>
+            <button class="btn btn-outline-light btn-sm" @onclick="NavigateBack">
+                <i class="bi bi-arrow-left me-1"></i> Back
+            </button>
+        </div>
+
+        <div class="card-body p-4">
+            @if (isLoading)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-3 fs-5 text-muted">Loading payment details...</p>
+                </div>
+            }
+            else if (payment == null)
+            {
+                <div class="alert alert-danger text-center py-4">
+                    <i class="bi bi-exclamation-triangle-fill fs-1 mb-3 text-danger"></i>
+                    <h4 class="alert-heading">Payment Not Found</h4>
+                    <p>The payment with ID @Id could not be found in the system.</p>
+                    <hr>
+                    <button class="btn btn-primary px-4" @onclick="NavigateBack">
+                        <i class="bi bi-arrow-left me-2"></i> Return to Payments List
+                    </button>
+                </div>
+            }
+            else
+            {
+                <div class="row g-4">
+                    <!-- Payment Information Card -->
+                    <div class="col-lg-6">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0 d-flex align-items-center">
+                                    <i class="bi bi-info-circle text-primary me-2"></i>
+                                    Payment Information
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="d-flex flex-column">
+                                            <span class="text-muted small">Payment ID</span>
+                                            <span class="fw-bold">@payment.DividendId</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="d-flex flex-column">
+                                            <span class="text-muted small">Status</span>
+                                            <span class="badge @GetStatusClass(payment.Status) rounded-pill">
+                                                @payment.Status
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="d-flex flex-column">
+                                            <span class="text-muted small">Amount</span>
+                                            <span class="fw-bold">@payment.Amount.ToString("C")</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="d-flex flex-column">
+                                            <span class="text-muted small">Shares</span>
+                                            <span class="fw-bold">@payment.Shares.ToString("N2")</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="d-flex flex-column">
+                                            <span class="text-muted small">Payment Date</span>
+                                            <span class="fw-bold">
+                                                @(payment.PaymentDate?.ToString("dd MMM yyyy") ?? "Pending")
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="d-flex flex-column">
+                                            <span class="text-muted small">Payment Method</span>
+                                            <span class="fw-bold">@payment.PaymentMethod</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="d-flex flex-column">
+                                            <span class="text-muted small">Transaction Reference</span>
+                                            <span class="fw-bold text-truncate">@payment.TransactionReference</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Member Information Card -->
+                    <div class="col-lg-6">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0 d-flex align-items-center">
+                                    <i class="bi bi-person text-primary me-2"></i>
+                                    Member Information
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="d-flex flex-column">
+                                            <span class="text-muted small">Member ID</span>
+                                            <span class="fw-bold">@payment.MemberId</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="d-flex flex-column">
+                                            <span class="text-muted small">Member Number</span>
+                                            <span class="fw-bold">@payment.MemberNumber</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="d-flex flex-column">
+                                            <span class="text-muted small">Name</span>
+                                            <span class="fw-bold">@payment.MemberName</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="d-flex flex-column">
+                                            <span class="text-muted small">Bank Account</span>
+                                            <span class="fw-bold">@payment.BankAccountNumber</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="d-flex flex-column">
+                                            <span class="text-muted small">Phone Number</span>
+                                            <span class="fw-bold">@payment.PhoneNumber</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Declaration Information Card -->
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0 d-flex align-items-center">
+                                    <i class="bi bi-file-earmark-text text-primary me-2"></i>
+                                    Declaration Information
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="d-flex flex-column">
+                                            <span class="text-muted small">Declaration ID</span>
+                                            <span class="fw-bold">@payment.DeclarationId</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="d-flex flex-column">
+                                            <span class="text-muted small">Financial Year</span>
+                                            <span class="fw-bold">@payment.FinancialYear</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Remarks Card -->
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0 d-flex align-items-center">
+                                    <i class="bi bi-chat-left-text text-primary me-2"></i>
+                                    Remarks
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                @if (string.IsNullOrEmpty(payment.Remarks))
+                                {
+                                    <p class="text-muted mb-0">No remarks available</p>
+                                }
+                                else
+                                {
+                                    <p class="mb-0">@payment.Remarks</p>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    @if (payment.Status == "Pending")
+                    {
+                        <button class="btn btn-primary px-4" @onclick="ProcessPayment">
+                            <i class="bi bi-check-circle me-2"></i> Process Payment
+                        </button>
+                    }
+                    <button class="btn btn-outline-secondary px-4" @onclick="PrintPayment">
+                        <i class="bi bi-printer me-2"></i> Print Receipt
+                    </button>
+                    <button class="btn btn-outline-danger px-4" @onclick="ShowDeleteConfirmation">
+                        <i class="bi bi-trash me-2"></i> Delete
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+@if (showDeleteModal)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title text-danger">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        Confirm Delete
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <p>Are you sure you want to delete this payment record?</p>
+                    <p class="text-danger fw-bold">This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="CancelDelete">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">
+                        <i class="bi bi-trash me-1"></i> Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private DividendPaymentDto payment;
+    private bool isLoading = true;
+    private bool showDeleteModal = false;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPayment();
+    }
+
+    private async Task LoadPayment()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("ApiClient");
+            var response = await client.GetAsync($"api/dividends/payments/{Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                payment = await response.Content.ReadFromJsonAsync<DividendPaymentDto>();
+                if (payment == null)
+                {
+                    errorMessage = "Payment data was empty";
+                }
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                errorMessage = "Payment not found in the system";
+            }
+            else
+            {
+                errorMessage = $"Error loading payment: {response.StatusCode}";
+                var errorContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"API Error: {errorContent}");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load payment: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetStatusClass(string status)
+    {
+        return status switch
+        {
+            "Paid" => "bg-success",
+            "Pending" => "bg-warning text-dark",
+            "Failed" => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+
+    private void NavigateBack()
+    {
+        NavigationManager.NavigateTo("/dividends");
+    }
+
+    private void ProcessPayment()
+    {
+        NavigationManager.NavigateTo($"/dividends/payments/{Id}/process");
+    }
+
+    private async Task PrintPayment()
+    {
+        await JSRuntime.InvokeVoidAsync("window.print");
+    }
+
+    private void ShowDeleteConfirmation()
+    {
+        showDeleteModal = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteModal = false;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("ApiClient");
+            var response = await client.DeleteAsync($"api/dividends/payments/{Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                NavigationManager.NavigateTo("/dividends/payments");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting payment: {ex.Message}");
+        }
+        finally
+        {
+            showDeleteModal = false;
+        }
+    }
+}
+
+<style>
+    .payment-details-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+
+    .card {
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+
+    .card-header {
+        padding: 1rem 1.5rem;
+    }
+
+    .card-body {
+        padding: 1.5rem;
+    }
+
+    .badge {
+        font-size: 0.8em;
+        padding: 0.35em 0.65em;
+        width: fit-content;
+    }
+
+    .modal-content {
+        border: none;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+
+    @@media (max-width: 768px) {
+        .payment-details-container {
+            padding: 1rem 0.5rem;
+        }
+
+        .card-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+    }
+</style>

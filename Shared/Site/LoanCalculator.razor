@@ -1,0 +1,67 @@
+@using SaccoManagementSystem.Services
+@inject ConfigStore Cfg
+
+@if (Products.Count > 0)
+{
+    <div class="ws-calc" id="calculator">
+        <div class="in">
+            <div>
+                <label style="display:block;font-weight:800;margin-bottom:8px">Loan product</label>
+                <select class="ms-select" style="width:100%;height:48px;border-radius:13px" value="@sel" @onchange="Pick">
+                    @for (var i = 0; i < Products.Count; i++) { var ii = i; <option value="@ii">@Products[ii].Name (@Products[ii].RatePct.ToString("0.#")% a year)</option> }
+                </select>
+            </div>
+            <div>
+                <label style="display:block;font-weight:800;margin-bottom:8px">How much do you need?</label>
+                <div class="rng"><input type="range" min="5000" max="3000000" step="5000" value="@amount" @oninput="OnAmount" aria-label="Amount" /><b>@Sym @amount.ToString("N0")</b></div>
+            </div>
+            <div>
+                <label style="display:block;font-weight:800;margin-bottom:8px">Repay over</label>
+                <div class="rng"><input type="range" min="1" max="@P.MaxMonths" value="@Months" @oninput="OnMonths" aria-label="Months" /><b>@Months months</b></div>
+            </div>
+            @if (P.Multiple > 0)
+            {
+                <div class="ws-msg ok" style="font-weight:600"><i class="bi bi-info-circle-fill"></i><div>You can borrow up to @P.Multiple.ToString("0.#")× your deposits. For @Sym @amount.ToString("N0") you'd need about <b>@Sym @((amount / P.Multiple).ToString("N0"))</b> saved.</div></div>
+            }
+        </div>
+        <div class="out">
+            <small>Estimated monthly repayment</small>
+            <b class="big">@Sym @Monthly.ToString("N0")</b>
+            <div class="row"><span>Total interest</span><b>@Sym @Interest.ToString("N0")</b></div>
+            <div class="row"><span>Total repayable</span><b>@Sym @(Total.ToString("N0"))</b></div>
+            <div class="row"><span>Method</span><b>@P.Method</b></div>
+            @if (Cfg.Current.LoanInsurancePct > 0)
+            {
+                <div class="row"><span>Loan insurance (once)</span><b>@Sym @((amount * Cfg.Current.LoanInsurancePct / 100).ToString("N0"))</b></div>
+            }
+            <p class="note">An estimate only. Your final figures depend on your deposits, guarantors and the SACCO's approval.</p>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public List<LoanProduct> Products { get; set; } = new();
+    private int sel;
+    private decimal amount = 200000;
+    private int months = 12;
+    private LoanProduct P => Products[Math.Clamp(sel, 0, Products.Count - 1)];
+    private int Months => Math.Clamp(months, 1, P.MaxMonths);
+    private string Sym => Cfg.Current.CurrencySymbol;
+
+    private decimal Monthly
+    {
+        get
+        {
+            var n = Months; var r = P.RatePct / 100m / 12m;
+            if (P.Method == "Flat rate" || r == 0) return (amount + amount * P.RatePct / 100m * n / 12m) / n;
+            var f = (decimal)Math.Pow((double)(1 + r), n);
+            return amount * r * f / (f - 1);
+        }
+    }
+    private decimal Total => Math.Round(Monthly, 2) * Months;
+    private decimal Interest => Total - amount;
+
+    private void Pick(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out var i)) sel = i; }
+    private void OnAmount(ChangeEventArgs e) { if (decimal.TryParse(e.Value?.ToString(), out var v)) amount = v; }
+    private void OnMonths(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out var v)) months = v; }
+}

@@ -1,0 +1,21 @@
+@using SaccoManagementSystem.Services
+@using System.Runtime.InteropServices
+@inject IWebHostEnvironment Env
+
+<div class="cc-card">
+    <h3><i class="bi bi-info-circle"></i> About this system</h3>
+    <p class="sub">Handy when you contact support.</p>
+    <div class="cc-prev" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+        <div><small>Product</small><b>@Sacco_Management_System.Shared.Brand.Name</b></div>
+        <div><small>Environment</small><b>@Env.EnvironmentName</b></div>
+        <div><small>Runtime</small><b>@RuntimeInformation.FrameworkDescription</b></div>
+        <div><small>Server time</small><b>@DateTime.Now.ToString("d MMM yyyy, HH:mm")</b></div>
+        <div><small>Settings last changed</small><b>@(Cfg.UpdatedUtc.HasValue ? Cfg.UpdatedUtc.Value.ToLocalTime().ToString("d MMM yyyy, HH:mm") : "Never")</b></div>
+        <div><small>Changed by</small><b>@(string.IsNullOrEmpty(Cfg.UpdatedBy) ? "-" : Cfg.UpdatedBy)</b></div>
+    </div>
+    <p class="sub" style="margin:16px 0 0">Every change to users, roles and settings is recorded in the <a href="audit-trail" style="color:var(--ms-accent);font-weight:700">audit trail</a>.</p>
+</div>
+
+@code {
+    [Parameter] public OrgConfig Cfg { get; set; } = new();
+}

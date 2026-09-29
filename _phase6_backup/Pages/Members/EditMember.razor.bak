@@ -1,0 +1,100 @@
+@page "/members/edit/{MemberId:int}"
+@using SaccoManagementSystem.Models
+@inject NavigationManager NavigationManager
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Edit member · @Brand.Name</PageTitle>
+
+<div class="ms-page">
+    <button type="button" class="ms-back" @onclick="Back"><i class="bi bi-arrow-left"></i> Members</button>
+
+    @if (isLoading)
+    {
+        <div class="ms-form">
+            <div class="ms-skel" style="height:70px;width:50%"></div>
+            @for (int i = 0; i < 3; i++) { <div class="ms-skel" style="height:190px"></div> }
+        </div>
+    }
+    else if (member == null)
+    {
+        <div class="ms-card">
+            <EmptyState Icon="bi-person-x" Title="@(string.IsNullOrEmpty(errorMessage) ? "Member not found" : errorMessage)" Text="It may have been removed.">
+                <div style="margin-top:14px"><button class="ms-btn" @onclick="Back">Back to members</button></div>
+            </EmptyState>
+        </div>
+    }
+    else
+    {
+        <PageHeader Title="@($"Edit {member.FirstName} {member.LastName}")" Subtitle="@($"Member {member.MemberNo}")" />
+        <MemberForm Model="member" IsEdit="true" Busy="isSaving" ErrorMessage="@errorMessage" OnValidSubmit="HandleValidSubmit" OnCancel="Back" />
+    }
+</div>
+
+@code {
+    [Parameter] public int MemberId { get; set; }
+
+    private MemberModel? member;
+    private bool isLoading = true;
+    private bool isSaving;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await LoadMember();
+
+    private async Task LoadMember()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("ApiClient");
+            var response = await client.GetAsync($"api/members/get/{MemberId}");
+
+            if (response.IsSuccessStatusCode) member = await response.Content.ReadFromJsonAsync<MemberModel>();
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound) errorMessage = "Member not found";
+            else errorMessage = "Couldn't load this member";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Couldn't load this member: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (member == null) return;
+        isSaving = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("ApiClient");
+            var response = await client.PutAsJsonAsync($"api/members/update/{MemberId}", member);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JSRuntime.InvokeVoidAsync("ms.toast", "success", "Member updated", $"{member.FirstName} {member.LastName}");
+                NavigationManager.NavigateTo($"/members/view/{MemberId}");
+            }
+            else
+            {
+                errorMessage = await response.Content.ReadAsStringAsync();
+                if (string.IsNullOrWhiteSpace(errorMessage)) errorMessage = "The server couldn't save your changes.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Something went wrong: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void Back() => NavigationManager.NavigateTo($"/members/view/{MemberId}");
+}

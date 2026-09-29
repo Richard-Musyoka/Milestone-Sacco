@@ -1,0 +1,57 @@
+@using SaccoManagementSystem.Services
+@* Home hero: real photographs of working Kenyans in a layered collage, with small live-looking cards.
+   Default photos are free-to-use Unsplash images; an uploaded hero photo (Website manager) replaces the main one. *@
+<div class="hc">
+    <div class="hc-dots" aria-hidden="true"></div>
+
+    <figure class="hc-main">
+        <img src="@Main" alt="A @BrandName member at work" loading="eager" />
+    </figure>
+
+    <figure class="hc-side">
+        <img src="@Market" alt="Traders arranging produce at a market" loading="lazy" />
+    </figure>
+
+    <figure class="hc-mini">
+        <img src="@Farmer" alt="A farmer in Chuka smiling" loading="lazy" />
+    </figure>
+
+    <div class="hc-card hc-mpesa">
+        <span class="ic"><i class="bi bi-phone-vibrate"></i></span>
+        <div>
+            <small>M-Pesa · just now</small>
+            <b>KSh 2,500 saved</b>
+            <em>Monthly deposit received@(string.IsNullOrWhiteSpace(Paybill) ? "" : " via " + Paybill)</em>
+        </div>
+    </div>
+
+    @if (Top != null)
+    {
+        <div class="hc-card hc-loan">
+            <span class="ic gold"><i class="bi @Top.Icon"></i></span>
+            <div>
+                <small>@Top.Name</small>
+                <b>@Top.RatePct.ToString("0.#")% a year</b>
+                <em>Up to @Top.MaxMonths months</em>
+            </div>
+        </div>
+    }
+
+    <div class="hc-card hc-div">
+        <i class="bi bi-gift-fill"></i>
+        <span>@(Dividend > 0 ? Dividend.ToString("0.#") + "% dividend paid last year" : "Dividends paid every year")</span>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? UploadedImage { get; set; }
+    [Parameter] public LoanProduct? Top { get; set; }
+    [Parameter] public decimal Dividend { get; set; }
+    [Parameter] public string? Paybill { get; set; }
+    [Parameter] public string BrandName { get; set; } = "Sacco";
+
+    private const string Cdn = "https://images.unsplash.com/";
+    private string Main => !string.IsNullOrEmpty(UploadedImage) ? UploadedImage! : Cdn + "photo-1761168026167-2309a979e1c8?auto=format&fit=crop&w=900&h=1100&q=80";
+    private string Market => Cdn + "photo-1734255026082-82fdc81991f0?auto=format&fit=crop&w=800&h=560&q=75";
+    private string Farmer => Cdn + "photo-1753890995734-eed67d381c27?auto=format&fit=crop&w=400&h=400&q=75";
+}

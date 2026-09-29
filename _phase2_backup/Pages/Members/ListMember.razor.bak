@@ -1,0 +1,262 @@
+@page "/members"
+@inject NavigationManager NavigationManager
+@inject IHttpClientFactory HttpClientFactory
+
+<div class="members-container p-3">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-people-fill fs-3 text-primary me-3"></i>
+            <h2 class="mb-0">Members</h2>
+        </div>
+
+        <div class="d-flex flex-column flex-md-row gap-3 w-100 w-md-auto">
+            <div class="position-relative flex-grow-1">
+                <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+                <input type="text" class="form-control ps-5" placeholder="Search by name, email or phone..." @bind="searchTerm" @bind:event="oninput" />
+            </div>
+
+            <button class="btn btn-primary d-flex align-items-center justify-content-center" @onclick="NavigateToAddMember">
+                <i class="bi bi-person-plus me-2"></i>
+                <span>Add Member</span>
+            </button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Loading members...</p>
+        </div>
+    }
+    else if (errorLoading)
+    {
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            Error loading members. Please try again.
+        </div>
+    }
+    else
+    {
+        <div class="members-table-container">
+            @if (filteredMembers.Any())
+            {
+                <div class="card border-0 shadow-sm">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 80px;">ID</th>
+                                    <th>Member No</th>
+                                    <th>Member</th>
+                                    <th>Contact</th>
+                                    <th>Occupation</th>
+                                    <th style="width: 90px;">Status</th>
+                                    <th style="width: 300px;" class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var member in filteredMembers)
+                                {
+                                    <tr>
+                                        <td class="fw-semibold">@member.MemberId</td>
+                                        <td>@member.MemberNo</td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                @if (!string.IsNullOrEmpty(member.ProfileImageUrl))
+                                                {
+                                                    <img src="@member.ProfileImageUrl" class="rounded-circle me-3" style="width: 40px; height: 40px; object-fit: cover;" alt="@member.FullName" />
+                                                }
+                                                else
+                                                {
+                                                    <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                                        <i class="bi bi-person text-muted"></i>
+                                                    </div>
+                                                }
+                                                <div>
+                                                    <div class="fw-semibold">@member.FullName</div>
+                                                    <small class="text-muted">@member.Email</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>@member.PhoneNumber</td>
+                                        <td>@member.Occupation</td>
+                                        <td>
+                                            <span class="badge @GetStatusClass(member.Status) rounded-pill py-2 px-3">@member.Status</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ViewMember(member.MemberId)">View</button>
+                                            <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => EditMember(member.MemberId)">Edit</button>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmDelete(member)">Delete</button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5 bg-light rounded-3">
+                    <i class="bi bi-people text-muted" style="font-size: 3rem;"></i>
+                    <h4 class="mt-3">No members found</h4>
+                    <p class="text-muted mb-4">Try adjusting your search or add a new member</p>
+                    <button class="btn btn-primary px-4" @onclick="NavigateToAddMember">
+                        <i class="bi bi-person-plus me-2"></i>
+                        Add New Member
+                    </button>
+                </div>
+            }
+        </div>
+    }
+
+    @if (showDeleteModal)
+    {
+        <div class="modal-backdrop show"></div>
+        <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header border-0">
+                        <h5 class="modal-title">Confirm Delete</h5>
+                        <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+                    </div>
+                    <div class="modal-body py-4">
+                        <p>Are you sure you want to delete member <strong>@memberToDelete?.FullName</strong>?</p>
+                        <p class="text-danger small">This action cannot be undone.</p>
+                    </div>
+                    <div class="modal-footer border-0">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CancelDelete">Cancel</button>
+                        <button type="button" class="btn btn-danger" @onclick="DeleteMember">
+                            <i class="bi bi-trash me-1"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Member> members = new();
+    private string searchTerm = string.Empty;
+    private bool showDeleteModal = false;
+    private Member? memberToDelete = null;
+    private bool isLoading = true;
+    private bool errorLoading = false;
+
+    private IEnumerable<Member> filteredMembers => members
+        .Where(m => string.IsNullOrEmpty(searchTerm) ||
+                   m.FullName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                   m.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                   m.PhoneNumber.Contains(searchTerm) ||
+                   m.MemberNo.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMembers();
+    }
+
+    private async Task LoadMembers()
+    {
+        try
+        {
+            isLoading = true;
+            errorLoading = false;
+
+            var client = HttpClientFactory.CreateClient("ApiClient");
+            var response = await client.GetAsync("api/members/get-all");
+
+            if (response.IsSuccessStatusCode)
+            {
+                members = await response.Content.ReadFromJsonAsync<List<Member>>() ?? new List<Member>();
+            }
+            else
+            {
+                errorLoading = true;
+            }
+        }
+        catch
+        {
+            errorLoading = true;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private string GetStatusClass(string status) => status switch
+    {
+        "Active" => "bg-success",
+        "Inactive" => "bg-secondary",
+        "Pending" => "bg-warning text-dark",
+        "Suspended" => "bg-danger",
+        _ => "bg-info"
+    };
+
+    private void NavigateToAddMember() => NavigationManager.NavigateTo("/members/add-member");
+    private void ViewMember(int id) => NavigationManager.NavigateTo($"/members/view/{id}");
+    private void EditMember(int id) => NavigationManager.NavigateTo($"/members/edit/{id}");
+
+    private void ConfirmDelete(Member member)
+    {
+        memberToDelete = member;
+        showDeleteModal = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteModal = false;
+        memberToDelete = null;
+    }
+
+    private async Task DeleteMember()
+    {
+        if (memberToDelete != null)
+        {
+            try
+            {
+                var client = HttpClientFactory.CreateClient("ApiClient");
+                var response = await client.DeleteAsync($"api/members/delete/{memberToDelete.MemberId}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    await LoadMembers();
+                }
+            }
+            catch { }
+            finally
+            {
+                showDeleteModal = false;
+                memberToDelete = null;
+            }
+        }
+    }
+
+    public class Member
+    {
+        public int MemberId { get; set; }
+        public string MemberNo { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public string NationalID { get; set; } = string.Empty;
+        public DateTime? DateOfBirth { get; set; }
+        public string Gender { get; set; } = string.Empty;
+        public string MaritalStatus { get; set; } = string.Empty;
+        public string Occupation { get; set; } = string.Empty;
+        public string Employer { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string ProfileImageUrl { get; set; } = string.Empty;
+        public DateTime? JoinDate { get; set; }
+        public string Status { get; set; } = "Active";
+        public DateTime? CreatedDate { get; set; }
+        public int? CreatedBy { get; set; }
+
+        public string FullName => $"{FirstName} {LastName}";
+    }
+}

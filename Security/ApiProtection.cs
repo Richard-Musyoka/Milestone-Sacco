@@ -21,22 +21,33 @@ public sealed class InternalApiKey
 public sealed class InternalKeyHandler : DelegatingHandler
 {
     private readonly InternalApiKey _key;
+    private readonly CircuitServicesAccessor _circuit;
     private readonly HashSet<string> _hosts;
 
-    public InternalKeyHandler(InternalApiKey key, IConfiguration cfg)
+    public InternalKeyHandler(InternalApiKey key, IConfiguration cfg, CircuitServicesAccessor circuit)
     {
         _key = key;
+        _circuit = circuit;
         _hosts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         // Extra hostnames that point back at this same app (e.g. behind a reverse proxy): "Security": { "InternalHosts": ["sacco.example.com"] }
         foreach (var h in cfg.GetSection("Security:InternalHosts").Get<string[]>() ?? Array.Empty<string>()) _hosts.Add(h);
         if (Uri.TryCreate(cfg["ApiBaseUrl"], UriKind.Absolute, out var api)) _hosts.Add(api.Host);
     }
 
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
         if (request.RequestUri is { IsAbsoluteUri: true } u && (u.IsLoopback || _hosts.Contains(u.Host)))
+        {
             request.Headers.TryAddWithoutValidation(InternalApiKey.Header, _key.Value);
-        return base.SendAsync(request, ct);
+            // Tell the API who is acting so audit entries (and later, CreatedBy) know the signed-in user.
+            var (id, name) = await ActingUser.FromCircuitAsync(_circuit);
+            if (id != null)
+            {
+                request.Headers.TryAddWithoutValidation(ActingUser.IdHeader, id.Value.ToString());
+                if (!string.IsNullOrEmpty(name)) request.Headers.TryAddWithoutValidation(ActingUser.NameHeader, ActingUser.Encode(name));
+            }
+        }
+        return await base.SendAsync(request, ct);
     }
 }
 
@@ -48,7 +59,7 @@ public sealed class ApiGuardMiddleware
     private readonly RequestDelegate _next;
     public ApiGuardMiddleware(RequestDelegate next) => _next = next;
 
-    public async Task InvokeAsync(HttpContext ctx, InternalApiKey key)
+    public async Task InvokeAsync(HttpContext ctx, InternalApiKey key, RoleLookup roles)
     {
         var path = ctx.Request.Path;
         if (!path.StartsWithSegments("/api")) { await _next(ctx); return; }
@@ -60,6 +71,17 @@ public sealed class ApiGuardMiddleware
         if (ctx.Request.Headers.TryGetValue(InternalApiKey.Header, out var provided)
             && PasswordHasher.ConstantTimeEquals(provided.ToString(), key.Value))
         {
+            // Trusted internal call: adopt the acting user the page told us about (only honoured because the key matched).
+            if (int.TryParse(ctx.Request.Headers[ActingUser.IdHeader].ToString(), out var actingId))
+            {
+                var actingName = ActingUser.Decode(ctx.Request.Headers[ActingUser.NameHeader].ToString()) ?? "User " + actingId;
+                ctx.User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(new[]
+                {
+                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, actingId.ToString()),
+                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, actingName),
+                }, "Internal"));
+                if (!await Allowed(ctx, roles)) return;
+            }
             await _next(ctx);
             return;
         }
@@ -80,7 +102,24 @@ public sealed class ApiGuardMiddleware
         }
         ctx.User = auth.Principal!;
         if (unsafeMethod && !ajax) { ctx.Response.StatusCode = StatusCodes.Status400BadRequest; return; }
+        if (!await Allowed(ctx, roles)) return;
         await _next(ctx);
+    }
+
+    /// <summary>Role check against the user's CURRENT role in the database (so demotions/deactivations apply within seconds).</summary>
+    private static async Task<bool> Allowed(HttpContext ctx, RoleLookup roles)
+    {
+        var uid = AuthService.UserId(ctx.User);
+        if (uid == null) return true;
+        var info = await roles.GetAsync(uid.Value);
+        string? reason = info == null || !info.Active
+            ? "This account is no longer active."
+            : Access.DenyApi(info.Role, ctx.Request.Method, ctx.Request.Path.Value ?? "");
+        if (reason == null) return true;
+        ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+        ctx.Response.ContentType = "application/json";
+        await ctx.Response.WriteAsJsonAsync(new { success = false, message = reason });
+        return false;
     }
 }
 

@@ -1,21 +1,38 @@
 @page "/dashboard"
 @layout MainLayout
 @using System.Globalization
+@using System.Security.Claims
 @using SaccoManagementSystem.Services
 @inject DashboardService Service
+@inject ConfigStore Cfg
 
 <PageTitle>Dashboard · @Brand.Name</PageTitle>
 
 <div class="ms-page">
-    <PageHeader Title="Dashboard" Subtitle="A live view of your SACCO — members, savings, lending and dividends.">
-        <button type="button" class="ms-btn" @onclick="Refresh" disabled="@loading"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
-        <a class="ms-btn primary" href="members/add-member"><i class="bi bi-person-plus"></i> Add member</a>
-    </PageHeader>
+    <section class="ms-hello">
+        <div style="min-width:0;flex:1 1 380px">
+            <div style="font-size:12.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#7ff0c3">@DateTime.Now.ToString("dddd, d MMMM")</div>
+            <h2 style="margin-top:6px">@Greeting, @FirstName</h2>
+            <p>@HelloLine</p>
+            <div class="ms-hello-actions">
+                <a class="ms-btn primary" href="members/add-member"><i class="bi bi-person-plus"></i> Add member</a>
+                <a class="ms-btn" href="contributions/add"><i class="bi bi-plus-circle"></i> Record contribution</a>
+                <button type="button" class="ms-btn" @onclick="Refresh" disabled="@loading"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+            </div>
+        </div>
+        @if (data != null && !loading)
+        {
+            <div class="ms-hello-figures">
+                <div class="ms-hello-fig"><small>This month</small><b>@Sym @Short(data.ContributionsThisMonth)</b></div>
+                <div class="ms-hello-fig"><small>Awaiting approval</small><b>@data.PendingLoansCount</b></div>
+            </div>
+        }
+    </section>
 
     @if (loading || data == null)
     {
         <div class="ms-grid stats">
-            @for (int i = 0; i < 4; i++) { <div class="ms-card ms-stat"><div class="ms-skel" style="height:38px;width:60%"></div><div class="ms-skel" style="height:30px;width:75%;margin-top:16px"></div><div class="ms-skel" style="height:14px;width:45%;margin-top:12px"></div></div> }
+            @for (int i = 0; i < 4; i++) { <div class="ms-card ms-stat"><div class="ms-skel" style="height:42px;width:60%"></div><div class="ms-skel" style="height:30px;width:75%;margin-top:16px"></div><div class="ms-skel" style="height:14px;width:45%;margin-top:12px"></div></div> }
         </div>
         <div class="ms-grid main-side ms-mt">
             <div class="ms-card ms-card-pad"><div class="ms-skel" style="height:250px"></div></div>
@@ -30,19 +47,132 @@
                 <div>Some figures couldn't be loaded and show as zero. <span class="ms-muted">@data.Warnings.First()</span></div></div>
         }
 
-        <div class="ms-grid stats">
-            <StatCard Label="Members" Icon="bi-people-fill" Value="@data.TotalMembers.ToString("N0")"
-                      Delta="@(data.NewMembers30d > 0 ? $"+{data.NewMembers30d}" : null)" Foot="@($"{data.ActiveMembers:N0} active · last 30 days")" />
-            <StatCard Label="Total contributions" Icon="bi-piggy-bank-fill" Tone="blue" Prefix="KES" Value="@Short(data.TotalContributions)"
+        <div class="ms-grid stats ms-reveal">
+            <StatCard Label="Members" Icon="bi-people-fill" Value="@data.TotalMembers.ToString("N0")" CountTo="@data.TotalMembers"
+                      Delta="@(data.NewMembers30d > 0 ? $"+{data.NewMembers30d}" : null)" Foot="@($"{data.ActiveMembers:N0} active")" />
+            <StatCard Label="Total contributions" Icon="bi-piggy-bank-fill" Tone="blue" Prefix="@Sym" Value="@Short(data.TotalContributions)"
+                      CountTo="@ScaleNum(data.TotalContributions)" Decimals="@ScaleDec(data.TotalContributions)" Suffix="@ScaleSuf(data.TotalContributions)"
                       Delta="@DeltaText(data.ContributionDeltaPct)" DeltaDown="@(data.ContributionDeltaPct < 0)" Foot="vs last month"
                       Spark="@data.Months.Select(m => (double)m.Contributions).ToArray()" />
-            <StatCard Label="Loan book" Icon="bi-cash-coin" Tone="gold" Prefix="KES" Value="@Short(data.LoanBook)"
+            <StatCard Label="Loan book" Icon="bi-cash-coin" Tone="gold" Prefix="@Sym" Value="@Short(data.LoanBook)"
+                      CountTo="@ScaleNum(data.LoanBook)" Decimals="@ScaleDec(data.LoanBook)" Suffix="@ScaleSuf(data.LoanBook)"
                       Foot="@($"{data.ActiveLoans:N0} active loans")" />
-            <StatCard Label="Share capital" Icon="bi-graph-up-arrow" Prefix="KES" Value="@Short(data.SharesValue)"
+            <StatCard Label="Share capital" Icon="bi-graph-up-arrow" Prefix="@Sym" Value="@Short(data.SharesValue)"
+                      CountTo="@ScaleNum(data.SharesValue)" Decimals="@ScaleDec(data.SharesValue)" Suffix="@ScaleSuf(data.SharesValue)"
                       Foot="@($"{data.ShareholderCount:N0} shareholders")" />
         </div>
 
-        <div class="ms-grid main-side ms-mt">
+        <div class="ms-sec-title"><h2>Member demographics</h2><small>Who your members are</small></div>
+
+        <div class="ms-kpis ms-reveal">
+            <div class="ms-kpi"><small>Average age</small><b>@(data.AverageAge.HasValue ? data.AverageAge.Value.ToString() : "—")</b><em>@data.WithDob.ToString("N0") members with a birth date</em></div>
+            <div class="ms-kpi"><small>Women members</small><b>@data.FemalePct.ToString("0")%</b><em>of members who stated a gender</em>@Ring(data.FemalePct)</div>
+            <div class="ms-kpi"><small>Youth (18–35)</small><b>@data.YouthPct.ToString("0")%</b><em>@data.YouthCount.ToString("N0") members</em>@Ring(data.YouthPct)</div>
+            <div class="ms-kpi"><small>Contributing</small><b>@data.ParticipationPct.ToString("0")%</b><em>paid in the last 90 days</em>@Ring(data.ParticipationPct)</div>
+            <div class="ms-kpi"><small>Borrowing</small><b>@data.BorrowerPct.ToString("0")%</b><em>@data.Borrowers.ToString("N0") with a live loan</em>@Ring(data.BorrowerPct)</div>
+        </div>
+
+        <div class="ms-grid three ms-mt">
+            <div class="ms-card">
+                <div class="ms-card-head"><div><h3>Gender</h3><small>Split of all members</small></div></div>
+                <div class="ms-card-body">
+                    @if (data.Genders.Count == 0) { <EmptyState Icon="bi-gender-ambiguous" Title="No members yet" /> }
+                    else
+                    {
+                        <div class="ms-pie-wrap">
+                            <div class="ms-pie-box">
+                                <div class="ms-pie" style="background:@Pie(data.Genders)"></div>
+                                <div class="mid"><b>@data.Genders.Sum(g => g.Count).ToString("N0")</b><small>members</small></div>
+                            </div>
+                            <div class="ms-key">
+                                @for (int i = 0; i < data.Genders.Count; i++)
+                                {
+                                    var g = data.Genders[i];
+                                    <div><i style="background:@Color(i)"></i>@g.Label<span>@g.Count.ToString("N0") · @PctOf(g.Count, data.Genders)%</span></div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="ms-card">
+                <div class="ms-card-head"><div><h3>Age groups</h3><small>Members by age today</small></div></div>
+                <div class="ms-card-body">
+                    @if (data.AgeBands.Count == 0) { <EmptyState Icon="bi-people" Title="No birth dates captured" /> }
+                    else
+                    {
+                        var maxAge = Math.Max(1, data.AgeBands.Max(a => a.Count));
+                        <div class="ms-cols">
+                            @foreach (var a in data.AgeBands)
+                            {
+                                <div class="c" title="@a.Label: @a.Count members"><b>@a.Count</b><i style="height:@(Math.Max(3, a.Count * 100 / maxAge))%"></i><label>@a.Label.Replace("Under ", "<")</label></div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="ms-card">
+                <div class="ms-card-head"><div><h3>Membership growth</h3><small>New members, last 12 months</small></div></div>
+                <div class="ms-card-body">
+                    @{ var maxJ = Math.Max(1, data.Joins.Count == 0 ? 1 : data.Joins.Max(j => (int)j.Contributions)); }
+                    <div class="ms-cols">
+                        @foreach (var j in data.Joins)
+                        {
+                            <div class="c" title="@j.Label: @((int)j.Contributions) joined"><b>@((int)j.Contributions)</b><i style="height:@(Math.Max(3, (int)j.Contributions * 100 / maxJ))%;--c:#2559C7"></i><label>@j.Label</label></div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ms-grid three ms-mt">
+            <div class="ms-card">
+                <div class="ms-card-head"><div><h3>Marital status</h3></div></div>
+                <div class="ms-card-body">@HBars(data.Marital)</div>
+            </div>
+            <div class="ms-card">
+                <div class="ms-card-head"><div><h3>Top occupations</h3><small>What members do for a living</small></div></div>
+                <div class="ms-card-body">@HBars(data.Occupations)</div>
+            </div>
+            <div class="ms-card">
+                <div class="ms-card-head"><div><h3>Tenure</h3><small>How long members have been with you</small></div></div>
+                <div class="ms-card-body">@HBars(data.Tenure)</div>
+            </div>
+        </div>
+
+        <div class="ms-grid two ms-mt">
+            <div class="ms-card">
+                <div class="ms-card-head"><div><h3>Member status</h3></div></div>
+                <div class="ms-card-body">@HBars(data.MemberStatuses)</div>
+            </div>
+            <div class="ms-card">
+                <div class="ms-card-head"><div><h3>Where contributions come from</h3><small>By contribution type</small></div></div>
+                <div class="ms-card-body">
+                    @if (data.ContribTypes.Count == 0) { <EmptyState Icon="bi-piggy-bank" Title="No contributions yet" /> }
+                    else
+                    {
+                        var topC = Math.Max(1m, data.ContribTypes.Max(c => c.Amount));
+                        <div class="ms-hbars">
+                            @for (int i = 0; i < data.ContribTypes.Count; i++)
+                            {
+                                var c = data.ContribTypes[i];
+                                <div class="ms-hbar"><div class="top"><span>@c.Label</span><span>@Sym @Short(c.Amount)</span></div><div class="track"><i style="width:@((int)(c.Amount * 100 / topC))%;--c:@Color(i)"></i></div></div>
+                            }
+                        </div>
+                    }
+                    @if (data.CompletenessPct < 90 && data.TotalMembers > 0)
+                    {
+                        <div class="ms-note"><i class="bi bi-info-circle-fill"></i> Only @data.CompletenessPct.ToString("0")% of member profiles have a birth date and gender, so the charts above are partial. Filling these in sharpens them.</div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="ms-sec-title"><h2>Money</h2><small>Savings, lending and activity</small></div>
+
+        <div class="ms-grid main-side">
             <div class="ms-card">
                 <div class="ms-card-head">
                     <div><h3>Savings vs lending</h3><small>Last 6 months</small></div>
@@ -55,15 +185,23 @@
                     }
                     else
                     {
-                        <div class="ms-bars" role="img" aria-label="Monthly contributions and loans">
+                        <svg class="ms-area" viewBox="0 0 600 200" preserveAspectRatio="none" role="img" aria-label="Monthly contributions and loans">
+                            <defs>
+                                <linearGradient id="gA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#14a173" stop-opacity=".16" /><stop offset="100%" stop-color="#14a173" stop-opacity=".16" /></linearGradient>
+                                <linearGradient id="gB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2559C7" stop-opacity=".12" /><stop offset="100%" stop-color="#2559C7" stop-opacity=".12" /></linearGradient>
+                            </defs>
+                            <line class="grid" x1="0" x2="600" y1="50" y2="50" /><line class="grid" x1="0" x2="600" y1="100" y2="100" /><line class="grid" x1="0" x2="600" y1="150" y2="150" />
+                            <path class="a-fill" d="@areaB" fill="url(#gB)" />
+                            <path class="a-fill" d="@areaA" fill="url(#gA)" />
+                            <path class="a-line" d="@lineB" stroke="#2559C7" />
+                            <path class="a-line" d="@lineA" stroke="#14a173" />
+                        </svg>
+                        <div style="display:flex;justify-content:space-between;margin-top:10px">
                             @foreach (var m in data.Months)
                             {
-                                <div class="col" title="@m.Label: contributions KES @m.Contributions.ToString("N0"), loans KES @m.Loans.ToString("N0")">
-                                    <div class="stack">
-                                        <i style="height:@Pct(m.Contributions)%"></i>
-                                        <i class="b" style="height:@Pct(m.Loans)%"></i>
-                                    </div>
-                                    <label>@m.Label</label>
+                                <div style="text-align:center;min-width:0" title="@m.Label: contributions @Sym @m.Contributions.ToString("N0"), loans @Sym @m.Loans.ToString("N0")">
+                                    <div style="font-size:11.5px;font-weight:700;color:var(--ms-text-3)">@m.Label</div>
+                                    <div class="ms-num" style="font-size:12px;font-weight:800">@Short(m.Contributions)</div>
                                 </div>
                             }
                         </div>
@@ -89,7 +227,7 @@
                                 <a class="ms-li" href="loans/view/@p.LoanId" style="color:inherit">
                                     <span class="ms-li-ico gold"><i class="bi bi-hourglass-split"></i></span>
                                     <span class="ms-li-main"><b>@(string.IsNullOrWhiteSpace(p.Member) ? "Member" : p.Member)</b><small>@p.LoanType · @p.Applied.ToString("d MMM")</small></span>
-                                    <span class="ms-li-end">KES @p.Amount.ToString("N0")</span>
+                                    <span class="ms-li-end">@Sym @p.Amount.ToString("N0")</span>
                                 </a>
                             }
                         </div>
@@ -114,7 +252,7 @@
                                 <div class="ms-li">
                                     <span class="ms-li-ico @(a.Kind == "loan" ? "gold" : "")"><i class="bi @(a.Kind == "loan" ? "bi-cash-coin" : "bi-arrow-down-left")"></i></span>
                                     <span class="ms-li-main"><b>@(string.IsNullOrWhiteSpace(a.Title) ? "Member" : a.Title)</b><small>@a.Subtitle</small></span>
-                                    <span class="ms-li-end">KES @a.Amount.ToString("N0")<small>@a.When.ToString("d MMM yyyy")</small></span>
+                                    <span class="ms-li-end">@Sym @a.Amount.ToString("N0")<small>@a.When.ToString("d MMM yyyy")</small></span>
                                 </div>
                             }
                         </div>
@@ -165,7 +303,7 @@
                         <div style="flex:1">
                             <div class="ms-muted" style="font-size:12.5px;font-weight:700">Latest dividend · @data.DividendYear</div>
                             <div style="font-size:22px;font-weight:800">@data.DividendRate.Value.ToString("0.##")% <small class="ms-muted" style="font-size:13px">declared</small></div>
-                            <div class="ms-hint">KES @data.DividendsPaid.ToString("N0") paid out</div>
+                            <div class="ms-hint">@Sym @data.DividendsPaid.ToString("N0") paid out</div>
                         </div>
                         <a class="ms-btn sm" href="dividends">Open</a>
                     </div>
@@ -176,10 +314,30 @@
 </div>
 
 @code {
+    private string Sym => Cfg.Current.CurrencySymbol;
+    [CascadingParameter] private Task<AuthenticationState>? Auth { get; set; }
+
     private DashboardData? data;
     private bool loading = true;
+    private string FirstName = "there";
+    private string areaA = "", lineA = "", areaB = "", lineB = "";
 
-    protected override async Task OnInitializedAsync() => await Load();
+    private string Greeting => DateTime.Now.Hour < 12 ? "Good morning" : DateTime.Now.Hour < 18 ? "Good afternoon" : "Good evening";
+    private string HelloLine => data == null
+        ? "Pulling your latest numbers…"
+        : data.PendingLoansCount > 0
+            ? $"{data.PendingLoansCount} loan{(data.PendingLoansCount == 1 ? " is" : "s are")} waiting for a decision. Here's how the SACCO is doing today."
+            : "Nothing is waiting on you. Here's how the SACCO is doing today.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth != null)
+        {
+            var name = (await Auth).User.FindFirstValue(ClaimTypes.Name) ?? "";
+            FirstName = name.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "there";
+        }
+        await Load();
+    }
 
     private async Task Refresh() => await Load();
 
@@ -188,20 +346,91 @@
         loading = true;
         StateHasChanged();
         data = await Service.LoadAsync();
+        BuildChart();
         loading = false;
     }
 
-    private decimal MaxBar => data == null ? 1 : Math.Max(1, data.Months.Max(m => Math.Max(m.Contributions, m.Loans)));
-    private string Pct(decimal v) => Math.Max(v > 0 ? 3 : 0, (double)(v / MaxBar * 100m)).ToString("0.#", CultureInfo.InvariantCulture);
+    private void BuildChart()
+    {
+        if (data == null || data.Months.Count < 2) return;
+        var max = (double)Math.Max(1, data.Months.Max(m => Math.Max(m.Contributions, m.Loans)));
+        (lineA, areaA) = Curve(data.Months.Select(m => (double)m.Contributions).ToArray(), max);
+        (lineB, areaB) = Curve(data.Months.Select(m => (double)m.Loans).ToArray(), max);
+    }
+
+    private static (string line, string area) Curve(double[] v, double max)
+    {
+        const double W = 600, H = 200, Top = 14;
+        var inv = CultureInfo.InvariantCulture;
+        var pts = v.Select((x, i) => (X: i * W / (v.Length - 1), Y: H - (x / max) * (H - Top))).ToArray();
+        var sb = new System.Text.StringBuilder();
+        sb.Append("M").Append(pts[0].X.ToString("0.#", inv)).Append(',').Append(pts[0].Y.ToString("0.#", inv));
+        for (int i = 1; i < pts.Length; i++)
+        {
+            var mx = (pts[i - 1].X + pts[i].X) / 2;
+            sb.Append(" C").Append(mx.ToString("0.#", inv)).Append(',').Append(pts[i - 1].Y.ToString("0.#", inv))
+              .Append(' ').Append(mx.ToString("0.#", inv)).Append(',').Append(pts[i].Y.ToString("0.#", inv))
+              .Append(' ').Append(pts[i].X.ToString("0.#", inv)).Append(',').Append(pts[i].Y.ToString("0.#", inv));
+        }
+        var line = sb.ToString();
+        return (line, line + " L600,200 L0,200 Z");
+    }
+
+
+    private static readonly string[] Pal = { "#14a173", "#2559C7", "#D4A62A", "#8b5cf6", "#ef4444", "#0ea5b7", "#94a3b8" };
+    private static string Color(int i) => Pal[i % Pal.Length];
+    private static int PctOf(int n, List<StatusSlice> all) => (int)Math.Round(n * 100.0 / Math.Max(1, all.Sum(x => x.Count)));
+
+    private static string Pie(List<StatusSlice> slices)
+    {
+        var total = Math.Max(1, slices.Sum(x => x.Count));
+        double acc = 0;
+        var parts = new List<string>();
+        for (int i = 0; i < slices.Count; i++)
+        {
+            var from = acc; acc += slices[i].Count * 100.0 / total;
+            parts.Add(Color(i) + " " + from.ToString("0.##", CultureInfo.InvariantCulture) + "% " + acc.ToString("0.##", CultureInfo.InvariantCulture) + "%");
+        }
+        return "conic-gradient(" + string.Join(", ", parts) + ")";
+    }
+
+    private static RenderFragment Ring(double pct) => builder =>
+    {
+        var v = Math.Max(0, Math.Min(100, pct)).ToString("0.#", CultureInfo.InvariantCulture);
+        builder.AddMarkupContent(0, "<span class=\"ms-ring\"><svg viewBox=\"0 0 44 44\"><circle class=\"bg\" cx=\"22\" cy=\"22\" r=\"18\"/><circle class=\"fg\" cx=\"22\" cy=\"22\" r=\"18\" pathLength=\"100\" style=\"stroke-dashoffset:" + (100 - double.Parse(v, CultureInfo.InvariantCulture)).ToString(CultureInfo.InvariantCulture) + "\"/></svg></span>");
+    };
+
+    private RenderFragment HBars(List<StatusSlice> items) => builder =>
+    {
+        if (items.Count == 0) { builder.AddMarkupContent(0, "<div class=\"ms-empty\" style=\"padding:22px\">Nothing to show yet.</div>"); return; }
+        var top = Math.Max(1, items.Max(x => x.Count));
+        var sb = new System.Text.StringBuilder("<div class=\"ms-hbars\">");
+        for (int i = 0; i < items.Count; i++)
+        {
+            var it = items[i];
+            sb.Append("<div class=\"ms-hbar\"><div class=\"top\"><span>").Append(System.Net.WebUtility.HtmlEncode(it.Label)).Append("</span><span>")
+              .Append(it.Count.ToString("N0")).Append(" · ").Append(PctOf(it.Count, items)).Append("%</span></div><div class=\"track\"><i style=\"width:")
+              .Append(it.Count * 100 / top).Append("%;--c:").Append(Color(i)).Append("\"></i></div></div>");
+        }
+        sb.Append("</div>");
+        builder.AddMarkupContent(0, sb.ToString());
+    };
 
     private static string DeltaText(double pct) => pct == 0 ? "" : $"{Math.Abs(pct):0.#}%";
 
-    private static string Short(decimal v)
+    private static double ScaleNum(decimal v)
     {
         var a = Math.Abs(v);
-        if (a >= 1_000_000_000m) return (v / 1_000_000_000m).ToString("0.##", CultureInfo.InvariantCulture) + "B";
-        if (a >= 1_000_000m) return (v / 1_000_000m).ToString("0.##", CultureInfo.InvariantCulture) + "M";
-        if (a >= 10_000m) return (v / 1_000m).ToString("0.#", CultureInfo.InvariantCulture) + "K";
-        return v.ToString("N0", CultureInfo.InvariantCulture);
+        return (double)(a >= 1_000_000_000m ? v / 1_000_000_000m : a >= 1_000_000m ? v / 1_000_000m : a >= 10_000m ? v / 1_000m : v);
+    }
+    private static int ScaleDec(decimal v) { var a = Math.Abs(v); return a >= 1_000_000_000m || a >= 1_000_000m ? 2 : a >= 10_000m ? 1 : 0; }
+    private static string ScaleSuf(decimal v) { var a = Math.Abs(v); return a >= 1_000_000_000m ? "B" : a >= 1_000_000m ? "M" : a >= 10_000m ? "K" : ""; }
+
+    private static string Short(decimal v)
+    {
+        var s = ScaleSuf(v);
+        var dec = ScaleDec(v);
+        var n = ScaleNum(v);
+        return (dec == 0 ? n.ToString("N0", CultureInfo.InvariantCulture) : n.ToString("0." + new string('#', dec), CultureInfo.InvariantCulture)) + s;
     }
 }

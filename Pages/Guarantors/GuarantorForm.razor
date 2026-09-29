@@ -1,0 +1,98 @@
+@using System.ComponentModel.DataAnnotations
+
+<EditForm Model="Model" OnValidSubmit="OnValidSubmit">
+    <DataAnnotationsValidator />
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="ms-alert bad" role="alert" style="max-width:980px"><i class="bi bi-exclamation-circle-fill"></i><div>@ErrorMessage</div></div>
+    }
+
+    <div class="ms-form">
+        <section class="ms-fs">
+            <div class="ms-fs-head"><i class="bi bi-person-vcard"></i><div><h3>Identity</h3><small>Who the guarantor is</small></div></div>
+            <div class="ms-fs-body">
+                <div class="ms-grid-form">
+                    <Field Class="c6" Label="First name" Required="true" For="@(() => Model.FirstName)"><InputText id="firstName" class="ms-input" @bind-Value="Model.FirstName" /></Field>
+                    <Field Class="c6" Label="Last name" Required="true" For="@(() => Model.LastName)"><InputText id="lastName" class="ms-input" @bind-Value="Model.LastName" /></Field>
+                    <Field Class="c6" Label="ID number" Required="true" For="@(() => Model.IDNumber)"><InputText id="idNumber" class="ms-input" @bind-Value="Model.IDNumber" /></Field>
+                    <Field Class="c6" Label="Date of birth"><InputDate id="dob" class="ms-input" @bind-Value="Model.DateOfBirth" /></Field>
+                </div>
+            </div>
+        </section>
+
+        <section class="ms-fs">
+            <div class="ms-fs-head"><i class="bi bi-telephone"></i><div><h3>Contact</h3><small>How to reach them</small></div></div>
+            <div class="ms-fs-body">
+                <div class="ms-grid-form">
+                    <Field Class="c6" Label="Phone number" For="@(() => Model.PhoneNumber)"><InputText id="phone" type="tel" class="ms-input" placeholder="+254 7…" @bind-Value="Model.PhoneNumber" /></Field>
+                    <Field Class="c6" Label="Email" For="@(() => Model.Email)"><InputText id="email" type="email" class="ms-input" @bind-Value="Model.Email" /></Field>
+                    <Field Class="c12" Label="Physical address" For="@(() => Model.PhysicalAddress)"><InputTextArea id="address" class="ms-input" @bind-Value="Model.PhysicalAddress" /></Field>
+                </div>
+            </div>
+        </section>
+
+        <section class="ms-fs">
+            <div class="ms-fs-head"><i class="bi bi-chat-left-text"></i><div><h3>Status &amp; notes</h3><small>Availability and internal remarks</small></div></div>
+            <div class="ms-fs-body">
+                <div class="ms-grid-form">
+                    <div class="c12" style="display:flex;align-items:center;gap:12px">
+                        <ToggleSwitch @bind-Value="Model.IsActive" AriaLabel="Guarantor is active" />
+                        <div><b>@(Model.IsActive ? "Active" : "Inactive")</b><div class="ms-hint">Inactive guarantors shouldn't be used for new loans.</div></div>
+                    </div>
+                    <Field Class="c12" Label="Remarks" For="@(() => Model.Remarks)"><InputTextArea id="remarks" class="ms-input" @bind-Value="Model.Remarks" /></Field>
+                </div>
+            </div>
+        </section>
+
+        <div class="ms-formbar">
+            <span class="sp">@(IsEdit ? "Editing an existing guarantor" : "Fields marked * are required")</span>
+            <button type="button" class="ms-btn" @onclick="OnCancel" disabled="@Busy">Cancel</button>
+            <button type="submit" class="ms-btn primary @(Busy ? "busy" : "")">@if (Busy) { <span class="ms-spin"></span> } else { <i class="bi bi-check2"></i> } @(IsEdit ? "Save changes" : "Add guarantor")</button>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter, EditorRequired] public GuarantorInput Model { get; set; } = new();
+    [Parameter] public bool IsEdit { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
+    [Parameter] public EventCallback OnValidSubmit { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    /// <summary>Matches the create/update DTOs the API expects.</summary>
+    public class GuarantorInput
+    {
+        [Required(ErrorMessage = "First name is required")]
+        [StringLength(100, ErrorMessage = "First name cannot exceed 100 characters")]
+        public string FirstName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Last name is required")]
+        [StringLength(100, ErrorMessage = "Last name cannot exceed 100 characters")]
+        public string LastName { get; set; } = string.Empty;
+
+        [StringLength(20, ErrorMessage = "Phone number cannot exceed 20 characters")]
+        [RegularExpression(@"^[0-9\+\- ]*$", ErrorMessage = "Invalid phone number format")]
+        public string? PhoneNumber { get; set; } = string.Empty;
+
+        [EmailAddress(ErrorMessage = "Invalid email format")]
+        [StringLength(100, ErrorMessage = "Email cannot exceed 100 characters")]
+        public string? Email { get; set; } = string.Empty;
+
+        public DateTime? DateOfBirth { get; set; }
+
+        [Required(ErrorMessage = "ID number is required")]
+        [StringLength(50, ErrorMessage = "ID number cannot exceed 50 characters")]
+        public string IDNumber { get; set; } = string.Empty;
+
+        [StringLength(200, ErrorMessage = "Address cannot exceed 200 characters")]
+        public string? PhysicalAddress { get; set; } = string.Empty;
+
+        public bool IsActive { get; set; } = true;
+        public long? CreatedBy { get; set; }
+
+        [StringLength(500, ErrorMessage = "Remarks cannot exceed 500 characters")]
+        public string? Remarks { get; set; } = string.Empty;
+    }
+}

@@ -7,230 +7,178 @@
 @inject IConfiguration Configuration
 @inject ILogger<Reports> Logger
 
-<PageTitle>Reports Dashboard</PageTitle>
+<PageTitle>Reports · @Brand.Name</PageTitle>
 
-<style>
-    .rp-kpi { border: 0; border-left: 4px solid var(--rp-c); border-radius: 10px; box-shadow: 0 2px 10px rgba(15, 23, 42, .08); height: 100%; }
-    .rp-kpi .rp-label { font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--rp-c); }
-    .rp-kpi .rp-value { font-size: 1.35rem; font-weight: 700; color: #1f2937; margin-top: .25rem; }
-    .rp-card { border: 0; border-radius: 10px; box-shadow: 0 2px 10px rgba(15, 23, 42, .08); height: 100%; }
-    .rp-card .card-header { background: #fff; border-bottom: 1px solid #eef0f4; font-weight: 700; font-size: .9rem; color: #1f2937; display: flex; justify-content: space-between; align-items: center; }
-    .rp-chart { width: 100%; height: auto; display: block; }
-    .rp-chart text { font-family: inherit; font-size: 11px; fill: #6b7280; }
-    .rp-chart .rp-grid { stroke: #eef0f4; stroke-width: 1; }
-    .rp-chart .rp-axis { stroke: #d1d5db; stroke-width: 1; }
-    .rp-bar { transition: opacity .15s ease; }
-    .rp-bar:hover { opacity: .75; }
-    .rp-empty { padding: 2.5rem 1rem; text-align: center; color: #9ca3af; font-size: .9rem; }
-    .rp-rank { display: grid; grid-template-columns: minmax(90px, 1.2fr) 3fr auto; gap: .5rem .75rem; align-items: center; font-size: .85rem; }
-    .rp-rank .rp-track { height: 10px; border-radius: 99px; background: #f1f3f7; overflow: hidden; }
-    .rp-rank .rp-fill { height: 100%; border-radius: 99px; }
-    .rp-rank .rp-num { font-variant-numeric: tabular-nums; font-weight: 600; color: #374151; text-align: right; white-space: nowrap; }
-    .rp-rank .rp-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #374151; }
-    .rp-table td, .rp-table th { font-size: .85rem; vertical-align: middle; }
-    .rp-table td.num, .rp-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
-    @@media print { .rp-noprint { display: none !important; } .rp-card, .rp-kpi { box-shadow: none; border: 1px solid #ddd; } }
-</style>
-
-<div class="container-fluid py-3">
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
-        <div>
-            <h2 class="mb-0">Reports Dashboard</h2>
-            <div class="text-muted small">@ReportTitle · @model.StartDate.ToString("dd MMM yyyy") – @model.EndDate.ToString("dd MMM yyyy")</div>
-        </div>
+<div class="ms-page">
+    <PageHeader Title="Reports" Subtitle="@Sub">
         @if (!loading && tableRows.Count > 0)
         {
-            <div class="rp-noprint">
-                <a class="btn btn-outline-secondary btn-sm" href="@CsvHref" download="@CsvFileName">Export CSV</a>
-                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">Print</button>
-            </div>
+            <span class="rp-noprint" style="display:contents">
+                <a class="ms-btn" href="@CsvHref" download="@CsvFileName"><i class="bi bi-download"></i> Export CSV</a>
+                <button type="button" class="ms-btn" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
+            </span>
         }
-    </div>
+    </PageHeader>
 
-    <div class="card rp-card mb-4 rp-noprint">
-        <div class="card-body">
-            <EditForm Model="@model" OnValidSubmit="@GenerateReport">
-                <div class="row align-items-end">
-                    <div class="col-md-3 mb-2">
-                        <label class="form-label small fw-bold" for="startDate">Start date</label>
-                        <InputDate @bind-Value="model.StartDate" class="form-control" id="startDate" />
-                    </div>
-                    <div class="col-md-3 mb-2">
-                        <label class="form-label small fw-bold" for="endDate">End date</label>
-                        <InputDate @bind-Value="model.EndDate" class="form-control" id="endDate" />
-                    </div>
-                    <div class="col-md-4 mb-2">
-                        <label class="form-label small fw-bold" for="reportType">Report</label>
-                        <InputSelect @bind-Value="model.ReportType" class="form-control form-select" id="reportType">
-                            @foreach (var (value, text) in ReportTypes)
-                            {
-                                <option value="@value">@text</option>
-                            }
-                        </InputSelect>
-                    </div>
-                    <div class="col-md-2 mb-2">
-                        <button type="submit" class="btn btn-primary w-100" disabled="@loading">
-                            @(loading ? "Loading…" : "Generate")
-                        </button>
-                    </div>
+    <div class="ms-card rp-noprint">
+        <div class="ms-toolbar" style="flex-wrap:wrap">
+            <div class="ms-chips" role="group" aria-label="Report type">
+                @foreach (var (value, text) in ReportTypes)
+                {
+                    var v = value;
+                    <button type="button" class="ms-chip @(model.ReportType == v ? "on" : "")" disabled="@loading" @onclick="() => Pick(v)">@text</button>
+                }
+            </div>
+        </div>
+        <div class="ms-toolbar" style="flex-wrap:wrap;border-top:1px solid var(--ms-border)">
+            <EditForm Model="@model" OnValidSubmit="@GenerateReport" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;width:100%">
+                <label class="ms-hint" for="startDate">From</label>
+                <InputDate @bind-Value="model.StartDate" class="ms-input" style="width:auto" id="startDate" />
+                <label class="ms-hint" for="endDate">to</label>
+                <InputDate @bind-Value="model.EndDate" class="ms-input" style="width:auto" id="endDate" />
+                <div class="ms-seg" role="group" aria-label="Quick range">
+                    <button type="button" @onclick="() => Preset(3)">3 mo</button>
+                    <button type="button" @onclick="() => Preset(6)">6 mo</button>
+                    <button type="button" @onclick="() => Preset(12)">12 mo</button>
                 </div>
+                <button type="submit" class="ms-btn primary @(loading ? "busy" : "")" style="margin-left:auto" disabled="@loading">@if (loading) { <span class="ms-spin"></span> } else { <i class="bi bi-arrow-repeat"></i> } Generate</button>
             </EditForm>
         </div>
     </div>
 
     @if (errors.Count > 0)
     {
-        <div class="alert alert-warning">
-            <strong>Some parts of this report couldn't load:</strong>
-            <ul class="mb-0">
-                @foreach (var e in errors)
-                {
-                    <li>@e</li>
-                }
-            </ul>
+        <div class="ms-alert warn ms-mt" role="alert"><i class="bi bi-exclamation-triangle-fill"></i>
+            <div><b>Some parts of this report couldn't load:</b>
+                <ul style="margin:6px 0 0 18px;padding:0">@foreach (var e in errors) { <li>@e</li> }</ul>
+            </div>
         </div>
     }
 
     @if (loading)
     {
-        <div class="text-center py-5 text-muted">
-            <div class="spinner-border text-primary mb-2" role="status"></div>
-            <div>Generating report…</div>
-        </div>
+        <div class="ms-grid stats ms-mt">@for (int i = 0; i < 4; i++) { <div class="ms-skel" style="height:110px"></div> }</div>
+        <div class="ms-grid two ms-mt"><div class="ms-skel" style="height:300px"></div><div class="ms-skel" style="height:300px"></div></div>
     }
     else
     {
         @switch (shownReport)
         {
             case "FinancialSummary":
-                <div class="row">
-                    @Kpi("Active members", data.ActiveMembers.ToString("N0"), "#4e73df")
-                    @Kpi("Total contributions", Money(data.TotalContributions), "#1cc88a")
-                    @Kpi("Total savings (deposits)", Money(data.TotalSavings), "#36b9cc")
-                    @Kpi("Total loans issued", Money(data.TotalLoansIssued), "#f6c23e")
+                <div class="ms-grid stats ms-mt">
+                    @Kpi("Active members", data.ActiveMembers.ToString("N0"), "bi-people", "")
+                    @Kpi("Total contributions", Money(data.TotalContributions), "bi-piggy-bank-fill", "blue")
+                    @Kpi("Total savings (deposits)", Money(data.TotalSavings), "bi-safe", "gold")
+                    @Kpi("Total loans issued", Money(data.TotalLoansIssued), "bi-cash-coin", "red")
                 </div>
-                <div class="row">
-                    @ChartCard("Contributions trend", BarChart(data.ContributionsTrend, "#4e73df", true))
-                    @ChartCard("Savings trend", LineChart(data.SavingsTrend, "#1cc88a", true))
-                </div>
-                <div class="row">
-                    @ChartCard("Loans issued", BarChart(data.LoansTrend, "#f6c23e", true))
-                    @ChartCard("Dividends paid", LineChart(data.DividendsTrend, "#e74a3b", true))
+                <div class="ms-grid two ms-mt">
+                    @ChartCard("Contributions trend", BarChart(data.ContributionsTrend, Blue, true))
+                    @ChartCard("Savings trend", LineChart(data.SavingsTrend, Green, true))
+                    @ChartCard("Loans issued", BarChart(data.LoansTrend, Gold, true))
+                    @ChartCard("Dividends paid", LineChart(data.DividendsTrend, Red, true))
                 </div>
                 break;
 
             case "Contributions":
-                <div class="row">
-                    @ChartCard("Contributions by type", RankedBars(data.ByCategory, "#4e73df", true))
-                    @ChartCard("Monthly contributions trend", LineChart(data.ContributionsTrend, "#4e73df", true))
+                <div class="ms-grid two ms-mt">
+                    @ChartCard("Contributions by type", RankedBars(data.ByCategory, Blue, true))
+                    @ChartCard("Monthly contributions trend", LineChart(data.ContributionsTrend, Blue, true))
                 </div>
                 break;
 
             case "Loans":
-                <div class="row">
-                    <div class="col-lg-6 mb-4">
-                        <div class="card rp-card">
-                            <div class="card-header">Loans by status</div>
-                            <div class="card-body">
-                                @if (data.LoanStatus.Count == 0)
-                                {
-                                    <div class="rp-empty">No loans disbursed in this period.</div>
-                                }
-                                else
-                                {
-                                    <div class="table-responsive">
-                                        <table class="table table-sm table-hover rp-table mb-0">
-                                            <thead><tr><th>Status</th><th class="num">Loans</th><th class="num">Total amount</th><th class="num">Share</th></tr></thead>
-                                            <tbody>
-                                                @foreach (var s in data.LoanStatus)
-                                                {
-                                                    <tr>
-                                                        <td>@s.Status</td>
-                                                        <td class="num">@s.Count.ToString("N0")</td>
-                                                        <td class="num">@Money(s.TotalAmount)</td>
-                                                        <td class="num">@Pct(s.TotalAmount, data.LoanStatus.Sum(x => x.TotalAmount))</td>
-                                                    </tr>
-                                                }
-                                            </tbody>
-                                            <tfoot>
-                                                <tr class="fw-bold">
-                                                    <td>Total</td>
-                                                    <td class="num">@data.LoanStatus.Sum(x => x.Count).ToString("N0")</td>
-                                                    <td class="num">@Money(data.LoanStatus.Sum(x => x.TotalAmount))</td>
-                                                    <td class="num">100%</td>
-                                                </tr>
-                                            </tfoot>
-                                        </table>
-                                    </div>
-                                }
+                <div class="ms-grid two ms-mt">
+                    <section class="ms-card">
+                        <div class="ms-card-head"><div><h3>Loans by status</h3></div></div>
+                        @if (data.LoanStatus.Count == 0)
+                        {
+                            <div class="rp-empty">No loans disbursed in this period.</div>
+                        }
+                        else
+                        {
+                            <div class="ms-table-wrap">
+                                <table class="ms-table">
+                                    <thead><tr><th>Status</th><th class="r">Loans</th><th class="r">Total amount</th><th class="r">Share</th></tr></thead>
+                                    <tbody>
+                                        @foreach (var s in data.LoanStatus)
+                                        {
+                                            <tr>
+                                                <td><StatusPill Status="@s.Status" /></td>
+                                                <td class="r ms-num">@s.Count.ToString("N0")</td>
+                                                <td class="r ms-num">@Money(s.TotalAmount)</td>
+                                                <td class="r ms-num">@Pct(s.TotalAmount, data.LoanStatus.Sum(x => x.TotalAmount))</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                    <tfoot>
+                                        <tr style="font-weight:800">
+                                            <td>Total</td>
+                                            <td class="r ms-num">@data.LoanStatus.Sum(x => x.Count).ToString("N0")</td>
+                                            <td class="r ms-num">@Money(data.LoanStatus.Sum(x => x.TotalAmount))</td>
+                                            <td class="r ms-num">100%</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
                             </div>
-                        </div>
-                    </div>
-                    @ChartCard("Loans disbursed by month", BarChart(data.LoansTrend, "#f6c23e", true))
+                        }
+                    </section>
+                    @ChartCard("Loans disbursed by month", BarChart(data.LoansTrend, Gold, true))
                 </div>
                 break;
 
             case "Dividends":
-                <div class="row">
-                    <div class="col-lg-6 mb-4">
-                        <div class="card rp-card">
-                            <div class="card-header">Dividends by financial year</div>
-                            <div class="card-body">
-                                @if (data.DividendYears.Count == 0)
-                                {
-                                    <div class="rp-empty">No dividends paid in this period.</div>
-                                }
-                                else
-                                {
-                                    <div class="table-responsive">
-                                        <table class="table table-sm table-hover rp-table mb-0">
-                                            <thead><tr><th>Financial year</th><th class="num">Total amount</th><th class="num">Members paid</th></tr></thead>
-                                            <tbody>
-                                                @foreach (var d in data.DividendYears)
-                                                {
-                                                    <tr>
-                                                        <td>@d.FinancialYear</td>
-                                                        <td class="num">@Money(d.TotalAmount)</td>
-                                                        <td class="num">@d.MemberCount.ToString("N0")</td>
-                                                    </tr>
-                                                }
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                }
+                <div class="ms-grid two ms-mt">
+                    <section class="ms-card">
+                        <div class="ms-card-head"><div><h3>Dividends by financial year</h3></div></div>
+                        @if (data.DividendYears.Count == 0)
+                        {
+                            <div class="rp-empty">No dividends paid in this period.</div>
+                        }
+                        else
+                        {
+                            <div class="ms-table-wrap">
+                                <table class="ms-table">
+                                    <thead><tr><th>Financial year</th><th class="r">Total amount</th><th class="r">Members paid</th></tr></thead>
+                                    <tbody>
+                                        @foreach (var d in data.DividendYears)
+                                        {
+                                            <tr>
+                                                <td><b>@d.FinancialYear</b></td>
+                                                <td class="r ms-num">@Money(d.TotalAmount)</td>
+                                                <td class="r ms-num">@d.MemberCount.ToString("N0")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
                             </div>
-                        </div>
-                    </div>
-                    @ChartCard("Top 10 dividend recipients", RankedBars(data.TopRecipients, "#e74a3b", true))
+                        }
+                    </section>
+                    @ChartCard("Top 10 dividend recipients", RankedBars(data.TopRecipients, Red, true))
                 </div>
                 break;
 
             case "Savings":
-                <div class="row">
-                    @ChartCard("Savings by transaction type", RankedBars(data.ByCategory, "#1cc88a", true))
-                    @ChartCard("Monthly deposits trend", LineChart(data.SavingsTrend, "#1cc88a", true))
+                <div class="ms-grid two ms-mt">
+                    @ChartCard("Savings by transaction type", RankedBars(data.ByCategory, Green, true))
+                    @ChartCard("Monthly deposits trend", LineChart(data.SavingsTrend, Green, true))
                 </div>
                 break;
 
             case "Membership":
-                <div class="row">
-                    @Kpi("Total members", data.MemberStatus.Sum(x => x.Value).ToString("N0"), "#4e73df")
-                    @Kpi("New in period", data.MembershipGrowth.Sum(x => x.Value).ToString("N0"), "#1cc88a")
-                    @Kpi("Active", (data.MemberStatus.FirstOrDefault(x => x.Label.Equals("Active", StringComparison.OrdinalIgnoreCase))?.Value ?? 0).ToString("N0"), "#36b9cc")
-                    @Kpi("Status groups", data.MemberStatus.Count.ToString("N0"), "#858796")
+                <div class="ms-grid stats ms-mt">
+                    @Kpi("Total members", data.MemberStatus.Sum(x => x.Value).ToString("N0"), "bi-people", "")
+                    @Kpi("New in period", data.MembershipGrowth.Sum(x => x.Value).ToString("N0"), "bi-person-plus", "blue")
+                    @Kpi("Active", (data.MemberStatus.FirstOrDefault(x => x.Label.Equals("Active", StringComparison.OrdinalIgnoreCase))?.Value ?? 0).ToString("N0"), "bi-person-check", "gold")
+                    @Kpi("Status groups", data.MemberStatus.Count.ToString("N0"), "bi-diagram-3", "red")
                 </div>
-                <div class="row">
-                    @ChartCard("Members by status", RankedBars(data.MemberStatus, "#4e73df", false))
-                    @ChartCard("Members by gender", RankedBars(data.MemberGender, "#36b9cc", false))
+                <div class="ms-grid two ms-mt">
+                    @ChartCard("Members by status", RankedBars(data.MemberStatus, Blue, false))
+                    @ChartCard("Members by gender", RankedBars(data.MemberGender, Gold, false))
                 </div>
-                <div class="row">
-                    <div class="col-12 mb-4">
-                        <div class="card rp-card">
-                            <div class="card-header">New members by month</div>
-                            <div class="card-body">@BarChart(data.MembershipGrowth, "#1cc88a", false)</div>
-                        </div>
-                    </div>
-                </div>
+                <section class="ms-card ms-mt">
+                    <div class="ms-card-head"><div><h3>New members by month</h3></div></div>
+                    <div class="ms-card-body">@BarChart(data.MembershipGrowth, Green, false)</div>
+                </section>
                 break;
         }
     }
@@ -330,15 +278,15 @@
         await Safe("Active members", async () =>
             data.ActiveMembers = (int)await ScalarAsync(c, "SELECT COUNT(*) FROM Members WHERE Status = 'Active'"));
         await Safe("Contributions total", async () =>
-            data.TotalContributions = await ScalarAsync(c, "SELECT SUM(Amount) FROM Contributions WHERE ContributionDate >= @StartDate AND ContributionDate < @EndDate"));
+            data.TotalContributions = await ScalarAsync(c, "SELECT SUM(Amount) FROM Contributions WHERE DateContributed >= @StartDate AND DateContributed < @EndDate"));
         await Safe("Savings total", async () =>
             data.TotalSavings = await ScalarAsync(c, "SELECT SUM(Amount) FROM Savings WHERE TransactionType = 'Deposit' AND TransactionDate >= @StartDate AND TransactionDate < @EndDate"));
         await Safe("Loans total", async () =>
-            data.TotalLoansIssued = await ScalarAsync(c, "SELECT SUM(LoanAmount) FROM Loans WHERE DisbursementDate >= @StartDate AND DisbursementDate < @EndDate"));
+            data.TotalLoansIssued = await ScalarAsync(c, "SELECT SUM(PrincipalAmount) FROM Loans WHERE ApplicationDate >= @StartDate AND ApplicationDate < @EndDate"));
 
-        await Safe("Contributions trend", async () => data.ContributionsTrend = await MonthlyAsync(c, "Contributions", "ContributionDate", "SUM(Amount)"));
+        await Safe("Contributions trend", async () => data.ContributionsTrend = await MonthlyAsync(c, "Contributions", "DateContributed", "SUM(Amount)"));
         await Safe("Savings trend", async () => data.SavingsTrend = await MonthlyAsync(c, "Savings", "TransactionDate", "SUM(Amount)", "TransactionType = 'Deposit'"));
-        await Safe("Loans trend", async () => data.LoansTrend = await MonthlyAsync(c, "Loans", "DisbursementDate", "SUM(LoanAmount)"));
+        await Safe("Loans trend", async () => data.LoansTrend = await MonthlyAsync(c, "Loans", "ApplicationDate", "SUM(PrincipalAmount)"));
         await Safe("Dividends trend", async () => data.DividendsTrend = await MonthlyAsync(c, "Dividends", "PaymentDate", "SUM(Amount)"));
 
         tableRows.Add(new[] { "Month", "Contributions", "Savings deposits", "Loans issued", "Dividends paid" });
@@ -356,8 +304,8 @@
     private async Task LoadContributionsReport(SqlConnection c)
     {
         await Safe("Contributions by type", async () => data.ByCategory = await CategoryAsync(c,
-            "SELECT ContributionType, SUM(Amount) FROM Contributions WHERE ContributionDate >= @StartDate AND ContributionDate < @EndDate GROUP BY ContributionType ORDER BY 2 DESC"));
-        await Safe("Contributions trend", async () => data.ContributionsTrend = await MonthlyAsync(c, "Contributions", "ContributionDate", "SUM(Amount)"));
+            "SELECT ContributionType, SUM(Amount) FROM Contributions WHERE DateContributed >= @StartDate AND DateContributed < @EndDate GROUP BY ContributionType ORDER BY 2 DESC"));
+        await Safe("Contributions trend", async () => data.ContributionsTrend = await MonthlyAsync(c, "Contributions", "DateContributed", "SUM(Amount)"));
 
         tableRows.Add(new[] { "Contribution type", "Amount" });
         tableRows.AddRange(data.ByCategory.Select(x => new[] { x.Label, Raw(x.Value) }));
@@ -370,12 +318,12 @@
     {
         await Safe("Loans by status", async () =>
         {
-            await using var cmd = Command(c, "SELECT Status, COUNT(*), SUM(LoanAmount) FROM Loans WHERE DisbursementDate >= @StartDate AND DisbursementDate < @EndDate GROUP BY Status ORDER BY 3 DESC");
+            await using var cmd = Command(c, "SELECT Status, COUNT(*), SUM(PrincipalAmount) FROM Loans WHERE ApplicationDate >= @StartDate AND ApplicationDate < @EndDate GROUP BY Status ORDER BY 3 DESC");
             await using var r = await cmd.ExecuteReaderAsync();
             while (await r.ReadAsync())
                 data.LoanStatus.Add(new LoanStatusRow(Text(r, 0), (int)Num(r, 1), Num(r, 2)));
         });
-        await Safe("Loans trend", async () => data.LoansTrend = await MonthlyAsync(c, "Loans", "DisbursementDate", "SUM(LoanAmount)"));
+        await Safe("Loans trend", async () => data.LoansTrend = await MonthlyAsync(c, "Loans", "ApplicationDate", "SUM(PrincipalAmount)"));
 
         tableRows.Add(new[] { "Status", "Loans", "Total amount" });
         tableRows.AddRange(data.LoanStatus.Select(x => new[] { x.Status, x.Count.ToString(), Raw(x.TotalAmount) }));
@@ -507,7 +455,24 @@
 
     // ------------------------------------------------------------------ formatting
 
-    private static string Money(decimal v) => v.ToString("C", CultureInfo.CurrentCulture);
+    private const string Green = "#0B7A52", Blue = "#2F6FEB", Gold = "#C99A2E", Red = "#D64545";
+
+    private async Task Pick(string value)
+    {
+        model.ReportType = value;
+        await LoadReportData();
+    }
+
+    private async Task Preset(int months)
+    {
+        model.EndDate = DateTime.Today;
+        model.StartDate = DateTime.Today.AddMonths(-months);
+        await LoadReportData();
+    }
+
+    private static string Money(decimal v) => "KES " + v.ToString("N0", CultureInfo.InvariantCulture);
+
+    private string Sub => ReportTitle + " · " + model.StartDate.ToString("d MMM yyyy", CultureInfo.InvariantCulture) + " – " + model.EndDate.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
     private static string Raw(decimal v) => v.ToString("0.##", CultureInfo.InvariantCulture);
     private static string Pct(decimal part, decimal whole) => whole == 0 ? "0%" : (part * 100 / whole).ToString("0.#", CultureInfo.InvariantCulture) + "%";
     private static decimal At(List<ChartPoint> list, int i) => i < list.Count ? list[i].Value : 0;
@@ -532,26 +497,17 @@
 
     // ------------------------------------------------------------------ building blocks (no chart library needed)
 
-    private RenderFragment Kpi(string label, string value, string color) => __builder =>
+    private RenderFragment Kpi(string label, string value, string icon, string tone) => __builder =>
     {
-        <div class="col-md-6 col-xl-3 mb-4">
-            <div class="card rp-kpi" style="--rp-c:@color">
-                <div class="card-body">
-                    <div class="rp-label">@label</div>
-                    <div class="rp-value">@value</div>
-                </div>
-            </div>
-        </div>
+        <StatCard Label="@label" Value="@value" Icon="@icon" Tone="@tone" />
     };
 
     private RenderFragment ChartCard(string title, RenderFragment body) => __builder =>
     {
-        <div class="col-lg-6 mb-4">
-            <div class="card rp-card">
-                <div class="card-header">@title</div>
-                <div class="card-body">@body</div>
-            </div>
-        </div>
+        <section class="ms-card">
+            <div class="ms-card-head"><div><h3>@title</h3></div></div>
+            <div class="ms-card-body">@body</div>
+        </section>
     };
 
     /// <summary>SVG &lt;text&gt; built in code (Razor reserves the &lt;text&gt; tag inside code blocks).</summary>
@@ -634,7 +590,7 @@
             @for (var i = 0; i < points.Count; i++)
             {
                 var p = points[i];
-                <circle cx="@F(X(i))" cy="@F(Y(p.Value))" r="4" fill="#fff" stroke="@color" stroke-width="2">
+                <circle cx="@F(X(i))" cy="@F(Y(p.Value))" r="4" fill="#fff" stroke="@color" stroke-width="2.5">
                     <title>@p.Label: @(money ? Money(p.Value) : p.Value.ToString("N0"))</title>
                 </circle>
                 @if (i % every == 0)
@@ -660,10 +616,10 @@
             {
                 <div class="rp-name" title="@p.Label">@p.Label</div>
                 <div class="rp-track"><div class="rp-fill" style="width:@(max == 0 ? "0" : F((double)(p.Value * 100 / max)))%;background:@color"></div></div>
-                <div class="rp-num">@(money ? Money(p.Value) : p.Value.ToString("N0")) <span class="text-muted fw-normal">· @Pct(p.Value, total)</span></div>
+                <div class="rp-num">@(money ? Money(p.Value) : p.Value.ToString("N0")) <span style="color:var(--ms-text-3);font-weight:500">· @Pct(p.Value, total)</span></div>
             }
         </div>
-        <div class="text-end small text-muted mt-3">Total: <strong>@(money ? Money(total) : total.ToString("N0"))</strong></div>
+        <div class="ms-hint" style="text-align:right;margin-top:14px">Total: <strong>@(money ? Money(total) : total.ToString("N0"))</strong></div>
     };
 
     // ------------------------------------------------------------------ types (kept inside the page so nothing else is needed)

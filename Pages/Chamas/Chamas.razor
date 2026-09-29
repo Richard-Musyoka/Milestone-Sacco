@@ -1,0 +1,88 @@
+@page "/chamas"
+@using SaccoManagementSystem.Services
+@inject ChamaStore Store
+@inject ConfigStore Cfg
+
+<PageTitle>Chamas · @Brand.Name</PageTitle>
+
+<div class="ms-page">
+    <PageHeader Title="Chamas & merry-go-rounds" Subtitle="Groups that save together, rotate a pot, bank at the table or look after each other.">
+        <a class="ms-btn primary" href="chamas/add"><i class="bi bi-plus-lg"></i> Start a chama</a>
+    </PageHeader>
+
+    <div class="ms-grid stats">
+        <StatCard Label="Active chamas" Icon="bi-people-fill" Value="@totals.Chamas.ToString()" Foot="groups meeting now" />
+        <StatCard Label="Members in groups" Icon="bi-person-hearts" Tone="blue" Value="@totals.Members.ToString("N0")" Foot="across all chamas" />
+        <StatCard Label="Collected" Icon="bi-piggy-bank-fill" Tone="gold" Prefix="@Sym" Value="@totals.Collected.ToString("N0")" Foot="all rounds" />
+        <StatCard Label="Paid out" Icon="bi-gift" Tone="red" Prefix="@Sym" Value="@totals.PaidOut.ToString("N0")" Foot="merry-go-round pots handed over" />
+    </div>
+
+    <div class="ms-chips ms-mt" role="group" aria-label="Type">
+        <button type="button" class="ms-chip @(type == "" ? "on" : "")" @onclick='() => type = ""'>All<em>@(list?.Count ?? 0)</em></button>
+        @foreach (var t in ChamaStore.Types) { var tt = t; <button type="button" class="ms-chip @(type == tt ? "on" : "")" @onclick="() => type = tt">@tt<em>@(list?.Count(c => c.Type == tt) ?? 0)</em></button> }
+    </div>
+
+    @if (list == null)
+    {
+        <div class="ch-grid ms-mt">@for (var i = 0; i < 3; i++) { <div class="ms-skel" style="height:260px;border-radius:24px"></div> }</div>
+    }
+    else if (list.Count == 0)
+    {
+        <div class="ms-card ms-mt">
+            <EmptyState Icon="bi-people" Title="No chamas yet" Text="Start a merry-go-round, investment group or table-banking chama. Members can belong to more than one.">
+                <div style="margin-top:14px"><a class="ms-btn primary" href="chamas/add">Start a chama</a></div>
+            </EmptyState>
+        </div>
+    }
+    else
+    {
+        <div class="ch-grid ms-mt">
+            @foreach (var c in Shown)
+            {
+                <a class="ch-card" href="@("chamas/" + c.Id)" style="--cc:@c.Color">
+                    <div class="ch-band">
+                        <span class="ch-type"><i class="bi @TypeIcon(c.Type)"></i> @c.Type</span>
+                        @if (c.Status != "Active") { <span class="ch-state">@c.Status</span> }
+                        <h3>@c.Name</h3>
+                        <p>@Sym @c.ContributionAmount.ToString("N0") · @c.Frequency.ToLowerInvariant()@(string.IsNullOrWhiteSpace(c.MeetingDay) ? "" : " · " + c.MeetingDay + "s")</p>
+                    </div>
+                    <div class="ch-body">
+                        @if (c.Rotates)
+                        {
+                            var pct = c.Pot == 0 ? 0 : (int)Math.Min(100, c.CollectedThisRound * 100 / c.Pot);
+                            <div class="ch-round"><span>Round @c.CurrentCycle pot</span><b>@Sym @c.CollectedThisRound.ToString("N0") <small>of @c.Pot.ToString("N0")</small></b></div>
+                            <div class="ch-meter"><i style="width:@(pct)%"></i></div>
+                            <div class="ch-next">
+                                @if (!string.IsNullOrEmpty(c.NextRecipient)) { <Avatar Name="@c.NextRecipient" Size="sm" /><div><small>Next to receive</small><b>@c.NextRecipient</b></div><span class="when">@c.NextPayout?.ToString("d MMM")</span> }
+                                else { <i class="bi bi-shuffle"></i><div><small>No rotation yet</small><b>Add members and draw lots</b></div> }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="ch-round"><span>Group savings</span><b>@Sym @((c.TotalCollected - c.TotalPaidOut).ToString("N0"))</b></div>
+                            <div class="ch-meter"><i style="width:@(c.Pot == 0 ? 0 : (int)Math.Min(100, c.CollectedThisRound * 100 / c.Pot))%"></i></div>
+                            <div class="ch-next"><i class="bi bi-calendar-event"></i><div><small>This round</small><b>@Sym @c.CollectedThisRound.ToString("N0") in so far</b></div></div>
+                        }
+                        <div class="ch-foot"><span><i class="bi bi-people"></i> @c.Members members</span>@if (!string.IsNullOrWhiteSpace(c.MeetingPlace)) { <span><i class="bi bi-geo-alt"></i> @c.MeetingPlace</span> }</div>
+                    </div>
+                </a>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<Chama>? list;
+    private (int Chamas, int Members, decimal Collected, decimal PaidOut) totals;
+    private string type = "";
+    private string Sym => Cfg.Current.CurrencySymbol;
+    private IEnumerable<Chama> Shown => (list ?? new()).Where(c => type == "" || c.Type == type);
+
+    public static string TypeIcon(string t) => t switch { "Merry-go-round" => "bi-arrow-repeat", "Investment" => "bi-graph-up-arrow", "Table banking" => "bi-table", _ => "bi-heart" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { list = await Store.ListAsync(); } catch { list = new(); }
+        totals = await Store.TotalsAsync();
+    }
+}

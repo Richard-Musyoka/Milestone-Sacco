@@ -1,0 +1,64 @@
+﻿@using System.ComponentModel.DataAnnotations
+@using Sacco_Management_System.Models
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="emailNotifications" class="form-label">Enable Email Notifications</label>
+            <InputCheckbox id="emailNotifications" @bind-Value="Settings.EmailNotificationsEnabled" class="form-check-input"
+                           @onchange="() => OnSettingsChanged?.Invoke()" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="smsNotifications" class="form-label">Enable SMS Notifications</label>
+            <InputCheckbox id="smsNotifications" @bind-Value="Settings.SMSNotificationsEnabled" class="form-check-input"
+                           @onchange="() => OnSettingsChanged?.Invoke()" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="defaultEmail" class="form-label">Default Email Address</label>
+            <InputText id="defaultEmail" @bind-Value="Settings.DefaultNotificationEmail" class="form-control"
+                       @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.DefaultNotificationEmail)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="smsSenderId" class="form-label">SMS Sender ID</label>
+            <InputText id="smsSenderId" @bind-Value="Settings.SMSSenderId" class="form-control"
+                       @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.SMSSenderId)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="contributionReminderDays" class="form-label">Contribution Reminder (Days Before Due)</label>
+            <InputNumber id="contributionReminderDays" @bind-Value="Settings.ContributionReminderDays" class="form-control"
+                         @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.ContributionReminderDays)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="loanDueReminderDays" class="form-label">Loan Due Reminder (Days Before Due)</label>
+            <InputNumber id="loanDueReminderDays" @bind-Value="Settings.LoanDueReminderDays" class="form-control"
+                         @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.LoanDueReminderDays)" />
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public SaccoSettings Settings { get; set; } = new();
+
+    [Parameter]
+    public Action? OnSettingsChanged { get; set; }
+}

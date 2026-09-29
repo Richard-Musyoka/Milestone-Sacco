@@ -14,12 +14,14 @@ namespace SaccoManagementSystem.Controllers
         private readonly AuthService _auth;
         private readonly SecurityStore _store;
         private readonly IConfiguration _cfg;
+        private readonly SaccoManagementSystem.Services.ConfigStore _conf;
 
-        public AuthController(AuthService auth, SecurityStore store, IConfiguration cfg)
+        public AuthController(AuthService auth, SecurityStore store, IConfiguration cfg, SaccoManagementSystem.Services.ConfigStore conf)
         {
             _auth = auth;
             _store = store;
             _cfg = cfg;
+            _conf = conf;
         }
 
         public sealed record LoginDto([Required] string Email, [Required] string Password, bool RememberMe);
@@ -27,6 +29,9 @@ namespace SaccoManagementSystem.Controllers
         public sealed record OtpSendDto(string Token, string Channel);
         public sealed record OtpVerifyDto(string Token, Guid OtpId, string Code, bool TrustDevice);
         public sealed record PasskeyOptionsDto(string? MfaToken);
+        public sealed record ForgotDto(string Email);
+        public sealed record MemberStartDto(string Identifier, bool RememberMe);
+        public sealed record ResetDto(string Email, string Code, string NewPassword);
         public sealed record RegisterDto(string FirstName, string? MiddleName, string LastName, string? UserName, string Email, string? PhoneNumber, string Password);
 
         private IActionResult Respond(AuthResult r)
@@ -41,6 +46,7 @@ namespace SaccoManagementSystem.Controllers
                 "disabled" => StatusCode(403, body),
                 "closed" => StatusCode(403, body),
                 "exists" => Conflict(body),
+                "throttled" => StatusCode(429, body),
                 _ => BadRequest(body),
             };
         }
@@ -48,13 +54,18 @@ namespace SaccoManagementSystem.Controllers
         [HttpGet("config")]
         public async Task<IActionResult> Config()
         {
-            var open = await _store.CountUsersAsync() == 0 || _cfg.GetValue<bool>("Security:AllowSelfRegistration");
+            var first = await _store.CountUsersAsync() == 0;
+            var open = first;   // after the first administrator, accounts are created in Users & roles
             var policy = await _store.GetPolicyAsync();
-            return Ok(new { allowRegistration = open, passwordComplexity = policy.PasswordComplexity, brand = _cfg["Brand:Name"] ?? "Tajiri Sacco" });
+            return Ok(new { allowRegistration = open, firstUser = first, passwordComplexity = policy.PasswordComplexity, brand = Sacco_Management_System.Shared.Brand.Name });
         }
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto) => Respond(await _auth.LoginAsync(HttpContext, dto.Email, dto.Password, dto.RememberMe));
+
+        /// <summary>Member portal: member number / ID / phone, then a one-time code through mfa/otp/send + mfa/otp/verify.</summary>
+        [HttpPost("member/start")]
+        public async Task<IActionResult> MemberStart([FromBody] MemberStartDto dto) => Respond(await _auth.MemberStartAsync(HttpContext, dto.Identifier, dto.RememberMe));
 
         [HttpPost("mfa/totp")]
         public async Task<IActionResult> Totp([FromBody] TokenCodeDto dto) => Respond(await _auth.VerifyTotpAsync(HttpContext, dto.Token, dto.Code, dto.TrustDevice));
@@ -77,6 +88,12 @@ namespace SaccoManagementSystem.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
             => Respond(await _auth.RegisterAsync(HttpContext, dto.FirstName, dto.MiddleName, dto.LastName, dto.UserName, dto.Email, dto.PhoneNumber, dto.Password));
+
+        [HttpPost("forgot")]
+        public async Task<IActionResult> Forgot([FromBody] ForgotDto dto) => Respond(await _auth.ForgotPasswordAsync(HttpContext, dto.Email));
+
+        [HttpPost("reset")]
+        public async Task<IActionResult> Reset([FromBody] ResetDto dto) => Respond(await _auth.ResetPasswordAsync(HttpContext, dto.Email, dto.Code, dto.NewPassword));
 
         [HttpPost("logout")]
         public async Task<IActionResult> Logout()

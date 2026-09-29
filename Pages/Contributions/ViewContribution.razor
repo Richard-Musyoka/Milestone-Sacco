@@ -1,266 +1,106 @@
-﻿@page "/contributions/view/{ContributionId:int}"
+@page "/contributions/view/{ContributionId:int}"
 @using SaccoManagementSystem.Models
-@using System.ComponentModel.DataAnnotations
 @inject NavigationManager NavigationManager
-@inject IHttpClientFactory _httpClientFactory
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS
 
-@if (isLoading)
-{
-    <div class="text-center py-5">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-        <p>Loading contribution details...</p>
-    </div>
-}
-else if (contribution == null)
-{
-    <div class="alert alert-danger mt-4">
-        <h4>Contribution not found</h4>
-        <p>The requested contribution could not be loaded.</p>
-    <button class="btn btn-secondary" @onclick="NavigateBack">
-        </button>
-    </div>
-}
-else
-{
-    <div>
-        <!-- Header with back button and title -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <button class="btn btn-outline-secondary" @onclick="NavigateBack">
-                <i class="bi bi-arrow-left"></i> Back
-            </button>
-            <h2 class="mb-0">Contribution Details</h2>
-            <div class="actions">
-                <button class="btn btn-outline-primary me-2" @onclick="() => EditContribution(contribution.ContributionId)">
-                    <i class="bi bi-pencil"></i> Edit
-                </button>
-                <button class="btn btn-outline-danger" @onclick="ConfirmDelete">
-                    <i class="bi bi-trash"></i> Delete
-                </button>
-            </div>
-        </div>
+<PageTitle>@(c?.ReceiptNumber ?? "Contribution") · @Brand.Name</PageTitle>
 
-        <!-- Receipt Card -->
-        <div class="card receipt-card mb-4">
-            <div class="card-header bg-primary text-white">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0">Receipt: CT-@contribution.ContributionId.ToString("D3")</h4>
-                    <span class="badge @GetStatusClass(contribution.Status)">
-                        @contribution.Status
-                    </span>
+<div class="ms-page">
+    <button type="button" class="ms-back" @onclick="Back"><i class="bi bi-arrow-left"></i> Contributions</button>
+
+    @if (loading)
+    {
+        <div class="ms-skel" style="height:140px;border-radius:20px"></div>
+        <div class="ms-skel ms-mt" style="height:260px"></div>
+    }
+    else if (c == null)
+    {
+        <div class="ms-card"><EmptyState Icon="bi-receipt" Title="Contribution not found" Text="It may have been deleted, or couldn't be loaded.">
+            <div style="margin-top:14px"><button class="ms-btn" @onclick="Back">Back to contributions</button></div></EmptyState></div>
+    }
+    else
+    {
+        <section class="ms-hero">
+            <span class="ms-avatar xl"><i class="bi bi-receipt"></i></span>
+            <div style="position:relative;z-index:1">
+                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><h2>KES @c.Amount.ToString("N2")</h2><StatusPill Status="@c.Status" /></div>
+                <div class="meta">
+                    <span><i class="bi bi-hash"></i>@c.ReceiptNumber</span>
+                    <span><i class="bi bi-tag"></i>@c.Type</span>
+                    <span><i class="bi bi-calendar-event"></i>@c.Date.ToString("d MMMM yyyy")</span>
                 </div>
             </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="detail-item">
-                            <span class="detail-label">Member:</span>
-                            <span class="detail-value">@contribution.MemberName</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Member ID:</span>
-                            <span class="detail-value">@contribution.MemberId</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Contribution Type:</span>
-                            <span class="detail-value">@contribution.Type</span>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="detail-item">
-                            <span class="detail-label">Amount:</span>
-                            <span class="detail-value">@contribution.Amount.ToString("C")</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Date:</span>
-                            <span class="detail-value">@contribution.Date.ToString("d")</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Payment Method:</span>
-                            <span class="detail-value">@contribution.PaymentMethod</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row mt-3">
-                    <div class="col-12">
-                        <div class="detail-item">
-                            <span class="detail-label">Transaction Reference:</span>
-                            <span class="detail-value">@contribution.TransactionRef</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Remarks:</span>
-                            <span class="detail-value">@contribution.Remarks</span>
-                        </div>
-                    </div>
-                </div>
+            <div class="ms-hero-actions">
+                <a class="ms-btn primary" href="contributions/edit/@c.ContributionId"><i class="bi bi-pencil"></i> Edit</a>
+                <button class="ms-btn" @onclick="Print"><i class="bi bi-printer"></i> Print</button>
+                <button class="ms-btn" @onclick="() => showDelete = true"><i class="bi bi-trash3"></i> Delete</button>
             </div>
-            <div class="card-footer text-muted">
-                <small>Created on @contribution.Date.ToString("f")</small>
-            </div>
-        </div>
+        </section>
 
-        <!-- Print and Download Buttons -->
-        <div class="d-flex justify-content-end mb-4">
-            <button class="btn btn-outline-secondary me-2">
-                <i class="bi bi-printer"></i> Print Receipt
-            </button>
-            <button class="btn btn-outline-secondary">
-                <i class="bi bi-download"></i> Download PDF
-            </button>
+        <div class="ms-grid two ms-mt">
+            <section class="ms-card">
+                <div class="ms-card-head"><div><h3>Member</h3></div></div>
+                <div class="ms-card-body">
+                    <a class="ms-cell-person" href="members/view/@c.MemberId" style="text-decoration:none;color:inherit">
+                        <Avatar Name="@c.MemberName" />
+                        <div><b>@c.MemberName</b><small>View member profile</small></div>
+                    </a>
+                </div>
+            </section>
+            <section class="ms-card">
+                <div class="ms-card-head"><div><h3>Payment details</h3></div></div>
+                <div class="ms-card-body ms-kv">
+                    <div><small>Method</small><b>@c.PaymentMethod</b></div>
+                    <div><small>Reference</small><b>@c.TransactionRef</b></div>
+                    <div><small>Remarks</small><b>@c.Remarks</b></div>
+                </div>
+            </section>
         </div>
-    </div>
-}
+    }
+</div>
 
-<!-- Delete Confirmation Modal -->
-@if (showDeleteModal)
-{
-    <div class="modal-backdrop show"></div>
-    <div class="modal show d-block" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Confirm Delete</h5>
-                    <button type="button" class="btn-close" @onclick="CancelDelete"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Are you sure you want to delete contribution <strong>CT-@contribution?.ContributionId.ToString("D3")</strong>?</p>
-                    <p class="text-danger">This action cannot be undone.</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CancelDelete">
-                        Cancel
-                    </button>
-                    <button type="button" class="btn btn-danger" @onclick="DeleteContribution">
-                        Delete
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
+<ConfirmDialog Open="showDelete" Danger="true" Title="Delete contribution" ConfirmText="Delete" Busy="deleting" OnConfirm="Delete" OnCancel="() => showDelete = false">
+    <p style="margin:0 0 6px">Delete <b>@c?.ReceiptNumber</b> — KES @c?.Amount.ToString("N2") from @c?.MemberName?</p>
+    <p class="ms-hint" style="margin:0">This can't be undone.</p>
+</ConfirmDialog>
 
 @code {
-    [Parameter]
-    public int ContributionId { get; set; }
+    [Parameter] public int ContributionId { get; set; }
 
-    private HttpClient Http => _httpClientFactory.CreateClient("ApiClient");
-    private ContributionViewModel? contribution;
-    private bool isLoading = true;
-    private bool showDeleteModal = false;
+    private ContributionViewModel? c;
+    private bool loading = true, showDelete, deleting;
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadContribution();
-    }
-
-    private async Task LoadContribution()
-    {
         try
         {
-            isLoading = true;
-            contribution = await Http.GetFromJsonAsync<ContributionViewModel>($"api/contributions/get/{ContributionId}");
+            var http = HttpClientFactory.CreateClient("ApiClient");
+            c = await http.GetFromJsonAsync<ContributionViewModel>($"api/contributions/get/{ContributionId}");
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading contribution: {ex.Message}");
-        }
-        finally
-        {
-            isLoading = false;
-        }
+        catch { c = null; }
+        finally { loading = false; }
     }
 
-    private void NavigateBack()
-    {
-        NavigationManager.NavigateTo("/contributions");
-    }
+    private async Task Print() => await JS.InvokeVoidAsync("print");
+    private void Back() => NavigationManager.NavigateTo("/contributions");
 
-    private void EditContribution(int id)
+    private async Task Delete()
     {
-        NavigationManager.NavigateTo($"/contributions/edit/{id}");
-    }
-
-    private void ConfirmDelete()
-    {
-        showDeleteModal = true;
-    }
-
-    private void CancelDelete()
-    {
-        showDeleteModal = false;
-    }
-
-    private async Task DeleteContribution()
-    {
+        deleting = true;
         try
         {
-            var response = await Http.DeleteAsync($"api/contributions/delete/{ContributionId}");
-            if (response.IsSuccessStatusCode)
+            var http = HttpClientFactory.CreateClient("ApiClient");
+            var r = await http.DeleteAsync($"api/contributions/delete/{ContributionId}");
+            if (r.IsSuccessStatusCode)
             {
+                await JS.InvokeVoidAsync("ms.toast", "success", "Contribution deleted");
                 NavigationManager.NavigateTo("/contributions");
+                return;
             }
+            await JS.InvokeVoidAsync("ms.toast", "error", "Couldn't delete contribution");
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error deleting contribution: {ex.Message}");
-        }
-        finally
-        {
-            showDeleteModal = false;
-        }
+        catch { await JS.InvokeVoidAsync("ms.toast", "error", "Couldn't delete contribution", "Network problem — try again."); }
+        finally { deleting = false; showDelete = false; }
     }
-   
-
-    private string GetStatusClass(string status) => status switch
-    {
-        "Paid" or "Confirmed" => "bg-success",
-        "Pending" => "bg-warning text-dark",
-        "Overdue" => "bg-danger",
-        _ => "bg-secondary"
-    };
 }
-
-<style>
-    .contribution-view-container {
-        max-width: 900px;
-        margin: 0 auto;
-        padding: 20px;
-    }
-
-    .receipt-card {
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-
-    .detail-item {
-        margin-bottom: 15px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #eee;
-    }
-
-    .detail-label {
-        font-weight: 600;
-        color: #555;
-        display: inline-block;
-        width: 160px;
-    }
-
-    .detail-value {
-        color: #333;
-    }
-
-    .actions {
-        min-width: 200px;
-        text-align: right;
-    }
-
-    @@media (max-width: 768px) {
-        .detail-label {
-            display: block;
-            width: 100%;
-            margin-bottom: 5px;
-        }
-    }
-</style>

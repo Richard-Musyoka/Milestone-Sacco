@@ -1,0 +1,410 @@
+﻿@page "/guarantors/edit/{GuarantorId:int}"
+@using Microsoft.AspNetCore.Components
+@using System.ComponentModel.DataAnnotations
+@using SaccoManagementSystem.Controllers
+@using SaccoManagementSystem.Models
+@inject NavigationManager NavigationManager
+@inject IHttpClientFactory _httpClientFactory
+@inject IJSRuntime JSRuntime
+
+<style>
+    .edit-guarantor-container {
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 0 1.5rem;
+    }
+
+    .edit-guarantor-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        border: 1px solid #e9ecef;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+        .edit-guarantor-card:hover {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+        }
+
+    .card-header {
+        background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+        color: white;
+        padding: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+        .card-header h3 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .card-header i {
+            font-size: 1.75rem;
+            margin-right: 0.75rem;
+            color: rgba(255,255,255,0.9);
+        }
+
+    .status-badge {
+        padding: 0.35rem 0.75rem;
+        border-radius: 50px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+        .status-badge.active {
+            background-color: #1cc88a;
+            color: white;
+        }
+
+        .status-badge.inactive {
+            background-color: #e74a3b;
+            color: white;
+        }
+
+    .card-body {
+        padding: 2.5rem;
+    }
+
+    .form-label {
+        font-weight: 500;
+        color: #5a5c69;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .form-control, .form-select {
+        border-radius: 0.5rem;
+        padding: 0.75rem 1rem;
+        border: 1px solid #d1d3e2;
+        font-size: 0.95rem;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+        .form-control:focus, .form-select:focus {
+            border-color: #bac8f3;
+            box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+            outline: 0;
+        }
+
+    .validation-message {
+        color: #e74a3b;
+        font-size: 0.8rem;
+        margin-top: 0.25rem;
+    }
+
+    .action-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e3e6f0;
+    }
+
+    .btn {
+        padding: 0.75rem 1.75rem;
+        border-radius: 0.5rem;
+        font-weight: 500;
+        font-size: 0.9rem;
+        letter-spacing: 0.5px;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .btn-outline-secondary {
+        border: 1px solid #d1d3e2;
+        color: #5a5c69;
+    }
+
+        .btn-outline-secondary:hover {
+            background-color: #f8f9fc;
+            border-color: #bac8f3;
+            color: #4e73df;
+        }
+
+    .btn-primary {
+        background-color: #4e73df;
+        border-color: #4e73df;
+    }
+
+        .btn-primary:hover {
+            background-color: #2e59d9;
+            border-color: #2653d4;
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:disabled {
+            background-color: #4e73df;
+            border-color: #4e73df;
+            opacity: 0.7;
+        }
+
+    .alert-danger {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+        border-radius: 0.5rem;
+        padding: 1rem;
+    }
+
+    .spinner-border {
+        width: 1.25rem;
+        height: 1.25rem;
+        border-width: 0.15em;
+    }
+
+    .loading-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 0;
+    }
+
+        .loading-container p {
+            margin-top: 1rem;
+            color: #5a5c69;
+        }
+
+    @@media (max-width: 768px) {
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+        }
+
+        .btn {
+            width: 100%;
+        }
+
+        .card-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .status-badge {
+            align-self: flex-start;
+        }
+    }
+</style>
+
+<div class="edit-guarantor-container">
+    <div class="edit-guarantor-card">
+        <div class="card-header">
+            <h3><i class="bi bi-person-gear"></i> Edit Guarantor</h3>
+            <span class="status-badge @(guarantor?.IsActive ?? false ? "active" : "inactive")">
+                @(guarantor?.IsActive ?? false ? "Active" : "Inactive")
+            </span>
+        </div>
+
+        <div class="card-body">
+            @if (isLoading)
+            {
+                <div class="loading-container">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p>Loading guarantor details...</p>
+                </div>
+            }
+            else if (guarantor != null)
+            {
+                <EditForm Model="@guarantor" OnValidSubmit="SubmitGuarantor">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="alert alert-danger" />
+
+                    <div class="row mb-4">
+                        <div class="col-md-6 mb-3">
+                            <label for="firstName" class="form-label">First Name</label>
+                            <InputText id="firstName" @bind-Value="guarantor.FirstName" class="form-control" />
+                            <ValidationMessage For="@(() => guarantor.FirstName)" class="validation-message" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="lastName" class="form-label">Last Name</label>
+                            <InputText id="lastName" @bind-Value="guarantor.LastName" class="form-control" />
+                            <ValidationMessage For="@(() => guarantor.LastName)" class="validation-message" />
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6 mb-3">
+                            <label for="idNumber" class="form-label">ID Number</label>
+                            <InputText id="idNumber" @bind-Value="guarantor.IDNumber" class="form-control" />
+                            <ValidationMessage For="@(() => guarantor.IDNumber)" class="validation-message" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="phoneNumber" class="form-label">Phone Number</label>
+                            <InputText id="phoneNumber" @bind-Value="guarantor.PhoneNumber" class="form-control" />
+                            <ValidationMessage For="@(() => guarantor.PhoneNumber)" class="validation-message" />
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6 mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <InputText id="email" @bind-Value="guarantor.Email" class="form-control" />
+                            <ValidationMessage For="@(() => guarantor.Email)" class="validation-message" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="dateOfBirth" class="form-label">Date of Birth</label>
+                            <InputDate id="dateOfBirth" @bind-Value="guarantor.DateOfBirth" class="form-control" />
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="physicalAddress" class="form-label">Physical Address</label>
+                        <InputTextArea id="physicalAddress" @bind-Value="guarantor.PhysicalAddress" class="form-control" rows="3" />
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Status</label>
+                            <div class="form-check form-switch">
+                                <InputCheckbox id="isActive" @bind-Value="guarantor.IsActive" class="form-check-input" role="switch" />
+                                <label for="isActive" class="form-check-label">Active</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="remarks" class="form-label">Remarks</label>
+                        <InputTextArea id="remarks" @bind-Value="guarantor.Remarks" class="form-control" rows="2" />
+                    </div>
+
+                    <div class="action-buttons">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="Cancel">
+                            <i class="bi bi-x-circle"></i> Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                            @if (isSubmitting)
+                            {
+                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                <span>Saving Changes...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-check-circle"></i>
+                                <span>Save Changes</span>
+                            }
+                        </button>
+                    </div>
+                </EditForm>
+            }
+            else
+            {
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Guarantor not found
+                </div>
+                <div class="d-flex justify-content-end">
+                    <button class="btn btn-outline-secondary" @onclick="Cancel">
+                        <i class="bi bi-arrow-left"></i> Back to List
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int GuarantorId { get; set; }
+
+    private HttpClient Http => _httpClientFactory.CreateClient("ApiClient");
+    private SaccoManagementSystem.Controllers.GuarantorUpdateDto guarantor = new();
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGuarantor();
+    }
+
+    private async Task LoadGuarantor()
+    {
+        try
+        {
+            var existingGuarantor = await Http.GetFromJsonAsync<Guarantor>($"api/guarantors/{GuarantorId}");
+
+            if (existingGuarantor != null)
+            {
+                guarantor = new GuarantorUpdateDto
+                    {
+                        FirstName = existingGuarantor.FirstName,
+                        LastName = existingGuarantor.LastName,
+                        PhoneNumber = existingGuarantor.PhoneNumber,
+                        Email = existingGuarantor.Email,
+                        DateOfBirth = existingGuarantor.DateOfBirth,
+                        IDNumber = existingGuarantor.IDNumber,
+                        PhysicalAddress = existingGuarantor.PhysicalAddress,
+                        IsActive = existingGuarantor.IsActive,
+                        Remarks = existingGuarantor.Remarks
+                    };
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading guarantor: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task SubmitGuarantor()
+    {
+        isSubmitting = true;
+
+        try
+        {
+            var response = await Http.PutAsJsonAsync($"api/guarantors/{GuarantorId}", guarantor);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JSRuntime.InvokeVoidAsync("Swal.fire",
+                    "Success!",
+                    "Guarantor updated successfully",
+                    "success");
+                NavigationManager.NavigateTo($"/guarantors/view/{GuarantorId}");
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await JSRuntime.InvokeVoidAsync("Swal.fire",
+                    "Error!",
+                    error,
+                    "error");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("Swal.fire",
+                "Error!",
+                ex.Message,
+                "error");
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo($"/guarantors/view/{GuarantorId}");
+    }
+}

@@ -1,0 +1,12 @@
+<section class="ws-page-head">
+    <div class="ws-wrap ws-reveal">
+        <div class="ws-crumb"><a href="">Home</a> / @Title</div>
+        <h1>@Title</h1>
+        @if (!string.IsNullOrEmpty(Text)) { <p>@Text</p> }
+    </div>
+</section>
+
+@code {
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string? Text { get; set; }
+}

@@ -329,14 +329,47 @@ public sealed class SecurityStore
     }
 
     // ---------------------------------------------------------------- OTP
-    public async Task<Guid> CreateOtpAsync(int userId, string channel, string code, int minutes = 10)
+    /// <summary>Adds the delivery-tracking / admin-backup columns if they're missing (idempotent; also shipped as Database/003_email_otp.sql).</summary>
+    public async Task EnsureOtpSchemaAsync()
+    {
+        await using var c = await _db.OpenAsync();
+        await c.ExecAsync(@"
+            IF COL_LENGTH('OtpChallenges','CodeProtected')  IS NULL ALTER TABLE OtpChallenges ADD CodeProtected NVARCHAR(600) NULL;
+            IF COL_LENGTH('OtpChallenges','Destination')    IS NULL ALTER TABLE OtpChallenges ADD Destination NVARCHAR(200) NULL;
+            IF COL_LENGTH('OtpChallenges','DeliveryStatus') IS NULL ALTER TABLE OtpChallenges ADD DeliveryStatus NVARCHAR(20) NULL;
+            IF COL_LENGTH('OtpChallenges','DeliveryError')  IS NULL ALTER TABLE OtpChallenges ADD DeliveryError NVARCHAR(400) NULL;
+            IF COL_LENGTH('OtpChallenges','CodePlain')      IS NULL ALTER TABLE OtpChallenges ADD CodePlain NVARCHAR(12) NULL;");
+        await c.ExecAsync(@"CREATE OR ALTER VIEW vw_OtpBackup AS
+            SELECT o.CreatedUtc, u.Email, o.Channel, o.CodePlain AS Code, o.DeliveryStatus, o.DeliveryError, o.ExpiresUtc
+            FROM OtpChallenges o JOIN Users u ON u.Id = o.UserId
+            WHERE o.ConsumedUtc IS NULL AND o.ExpiresUtc > SYSUTCDATETIME() AND o.CodePlain IS NOT NULL");
+    }
+
+    /// <summary>codeProtected is the code encrypted with ASP.NET Data Protection; only administrators can read it back, and only while it is valid.</summary>
+    public async Task<Guid> CreateOtpAsync(int userId, string channel, string code, int minutes = 10, string? codeProtected = null, string? destination = null)
     {
         var id = Guid.NewGuid();
         await using var c = await _db.OpenAsync();
-        await c.ExecAsync(@"UPDATE OtpChallenges SET ConsumedUtc = SYSUTCDATETIME() WHERE UserId = @u AND ConsumedUtc IS NULL", ("u", userId));
-        await c.ExecAsync("INSERT INTO OtpChallenges (Id, UserId, Channel, CodeHash, ExpiresUtc) VALUES (@id, @u, @ch, @h, DATEADD(MINUTE, @m, SYSUTCDATETIME()))",
-            ("id", id), ("u", userId), ("ch", channel), ("h", Sha256Hex(id + ":" + code)), ("m", minutes));
+        await c.ExecAsync(@"UPDATE OtpChallenges SET ConsumedUtc = SYSUTCDATETIME(), CodeProtected = NULL, CodePlain = NULL WHERE UserId = @u AND ConsumedUtc IS NULL", ("u", userId));
+        await c.ExecAsync("UPDATE OtpChallenges SET CodeProtected = NULL, CodePlain = NULL WHERE (CodeProtected IS NOT NULL OR CodePlain IS NOT NULL) AND ExpiresUtc < SYSUTCDATETIME()");
+        await c.ExecAsync(@"INSERT INTO OtpChallenges (Id, UserId, Channel, CodeHash, ExpiresUtc, CodeProtected, Destination)
+                            VALUES (@id, @u, @ch, @h, DATEADD(MINUTE, @m, SYSUTCDATETIME()), @cp, @d)",
+            ("id", id), ("u", userId), ("ch", channel), ("h", Sha256Hex(id + ":" + code)), ("m", minutes), ("cp", codeProtected), ("d", Trim(destination, 200)));
         return id;
+    }
+
+    /// <summary>Only used when email delivery failed and the operator enabled it: lets the code be read in SSMS (view vw_OtpBackup). Wiped when used or expired.</summary>
+    public async Task SetOtpPlainAsync(Guid id, string code)
+    {
+        await using var c = await _db.OpenAsync();
+        await c.ExecAsync("UPDATE OtpChallenges SET CodePlain = @c WHERE Id = @id", ("c", code), ("id", id));
+    }
+
+    public async Task SetOtpDeliveryAsync(Guid id, bool ok, string? error)
+    {
+        await using var c = await _db.OpenAsync();
+        await c.ExecAsync("UPDATE OtpChallenges SET DeliveryStatus = @s, DeliveryError = @e WHERE Id = @id",
+            ("s", ok ? "sent" : "failed"), ("e", Trim(error, 400)), ("id", id));
     }
 
     public async Task<bool> VerifyOtpAsync(Guid id, int userId, string code)
@@ -344,10 +377,45 @@ public sealed class SecurityStore
         await using var c = await _db.OpenAsync();
         var attempts = await c.ScalarAsync<int?>("SELECT Attempts FROM OtpChallenges WHERE Id = @id AND UserId = @u AND ConsumedUtc IS NULL AND ExpiresUtc > SYSUTCDATETIME()", ("id", id), ("u", userId));
         if (attempts == null || attempts >= 5) return false;
-        var ok = await c.ExecAsync("UPDATE OtpChallenges SET ConsumedUtc = SYSUTCDATETIME() WHERE Id = @id AND CodeHash = @h AND ConsumedUtc IS NULL",
-            ("id", id), ("h", Sha256Hex(id + ":" + code.Trim()))) == 1;
+        var ok = await c.ExecAsync("UPDATE OtpChallenges SET ConsumedUtc = SYSUTCDATETIME(), CodeProtected = NULL, CodePlain = NULL WHERE Id = @id AND CodeHash = @h AND ConsumedUtc IS NULL",
+            ("id", id), ("h", Sha256Hex(id + ":" + (code ?? "").Trim()))) == 1;
         if (!ok) await c.ExecAsync("UPDATE OtpChallenges SET Attempts = Attempts + 1 WHERE Id = @id", ("id", id));
         return ok;
+    }
+
+    /// <summary>For flows where the browser doesn't hold the challenge id (password reset): checks the newest open challenge on a channel.</summary>
+    public async Task<bool> VerifyLatestOtpAsync(int userId, string channel, string code)
+    {
+        Guid id;
+        await using (var c = await _db.OpenAsync())
+        {
+            var found = await c.ScalarAsync<Guid?>("SELECT TOP 1 Id FROM OtpChallenges WHERE UserId = @u AND Channel = @ch AND ConsumedUtc IS NULL AND ExpiresUtc > SYSUTCDATETIME() ORDER BY CreatedUtc DESC",
+                ("u", userId), ("ch", channel));
+            if (found == null) return false;
+            id = found.Value;
+        }
+        return await VerifyOtpAsync(id, userId, code);
+    }
+
+    public sealed record OtpBackupRow(Guid Id, int UserId, string UserName, string Email, string Channel, string? Destination, string? DeliveryStatus, string? DeliveryError, DateTime CreatedUtc, DateTime ExpiresUtc, string? CodeProtected);
+
+    /// <summary>Codes that are still valid, newest first (administrators only).</summary>
+    public async Task<List<OtpBackupRow>> ListOpenOtpsAsync()
+    {
+        await using var c = await _db.OpenAsync();
+        return await c.QueryAsync(@"SELECT o.Id, o.UserId, LTRIM(RTRIM(ISNULL(u.FirstName,'') + ' ' + ISNULL(u.LastName,''))) AS UserName, u.Email, o.Channel, o.Destination,
+                    o.DeliveryStatus, o.DeliveryError, o.CreatedUtc, o.ExpiresUtc, o.CodeProtected
+                FROM OtpChallenges o JOIN Users u ON u.Id = o.UserId
+                WHERE o.ConsumedUtc IS NULL AND o.ExpiresUtc > SYSUTCDATETIME() AND o.CodeProtected IS NOT NULL
+                ORDER BY o.CreatedUtc DESC",
+            r => new OtpBackupRow(r.GuidV("Id"), r.Int("UserId"), r.Str("UserName"), r.Str("Email"), r.Str("Channel"), r.StrN("Destination"),
+                r.StrN("DeliveryStatus"), r.StrN("DeliveryError"), r.Date("CreatedUtc"), r.Date("ExpiresUtc"), r.StrN("CodeProtected")));
+    }
+
+    public async Task SetActiveAsync(int userId, bool active)
+    {
+        await using var c = await _db.OpenAsync();
+        await c.ExecAsync("UPDATE Users SET IsActive = @a WHERE Id = @id", ("a", active), ("id", userId));
     }
 
     // -------------------------------------------------------------- policy

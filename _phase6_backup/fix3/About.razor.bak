@@ -1,0 +1,85 @@
+@page "/about"
+@inject ConfigStore Cfg
+@inject SiteStore Site
+
+<PageTitle>About us · @Brand.Name</PageTitle>
+<SitePageHead Title="About us" Text="@S.AboutTitle" />
+
+<section class="ws-sec">
+    <div class="ws-wrap ws-split">
+        <div class="ws-reveal">
+            <span class="ws-eyebrow">Our story</span>
+            <h2 style="font-size:34px;letter-spacing:-.03em;margin:8px 0 14px">@S.AboutTitle</h2>
+            <p class="ws-story">@S.AboutText</p>
+            <div class="ws-fees" style="margin-top:22px">
+                @if (Cfg.Current.FoundedYear is int y) { <div class="ws-fee"><small>Founded</small><b>@y</b></div> }
+                <div class="ws-fee"><small>Type</small><b style="font-size:15px">@Cfg.Current.SaccoType</b></div>
+                <div class="ws-fee"><small>Common bond</small><b style="font-size:15px">@Cfg.Current.CommonBond</b></div>
+            </div>
+        </div>
+        <div class="ws-hero-art" style="aspect-ratio:4/3.4"><SaccoArt /></div>
+    </div>
+</section>
+
+<section class="ws-sec alt">
+    <div class="ws-wrap">
+        <div class="ws-vm">
+            <div class="ws-card"><div class="ic"><i class="bi bi-eye"></i></div><h3>Our vision</h3><p>@S.Vision</p></div>
+            <div class="ws-card"><div class="ic"><i class="bi bi-bullseye"></i></div><h3>Our mission</h3><p>@S.Mission</p></div>
+        </div>
+        @if (S.Values.Count > 0)
+        {
+            <div class="ws-head" style="margin-top:44px;margin-bottom:16px"><span class="ws-eyebrow">Core values</span><h2>What we stand for</h2></div>
+            <div class="ws-values">@foreach (var v in S.Values) { <span><i class="bi bi-check2-circle" style="color:var(--ms-accent)"></i> @v</span> }</div>
+        }
+    </div>
+</section>
+
+@if (S.Journey.Count > 0)
+{
+    <section class="ws-sec">
+        <div class="ws-wrap">
+            <div class="ws-head"><span class="ws-eyebrow">Our journey</span><h2>How we got here</h2></div>
+            <ol class="ws-timeline">
+                @foreach (var m in S.Journey) { <li><span class="yr">@m.Year</span><div><b>@m.Title</b><p>@m.Text</p></div></li> }
+            </ol>
+        </div>
+    </section>
+}
+
+@if (!string.IsNullOrWhiteSpace(S.ChairNote))
+{
+    <section class="ws-sec brand">
+        <div class="ws-wrap"><div class="ws-letter"><i class="bi bi-quote"></i><p>@S.ChairNote</p><div class="sig"><b>@(string.IsNullOrWhiteSpace(S.ChairName) ? "The Chairperson" : S.ChairName)</b><small>On behalf of the board</small></div></div></div>
+    </section>
+}
+
+@if (S.Community.Count > 0)
+{
+    <section class="ws-sec">
+        <div class="ws-wrap">
+            <div class="ws-head"><span class="ws-eyebrow">Beyond money</span><h2>In the community</h2><p>Part of every year's surplus goes back into the places our members live.</p></div>
+            <div class="ws-grid three">@foreach (var f in S.Community) { <div class="ws-card"><div class="ic"><i class="bi @f.Icon"></i></div><h3>@f.Title</h3><p>@f.Text</p></div> }</div>
+        </div>
+    </section>
+}
+
+@if (S.Team.Count > 0)
+{
+    <section class="ws-sec">
+        <div class="ws-wrap">
+            @foreach (var g in S.Team.GroupBy(t => string.IsNullOrWhiteSpace(t.Group) ? "Team" : t.Group))
+            {
+                <div class="ws-head" style="margin-bottom:16px"><span class="ws-eyebrow">Leadership</span><h2>@g.Key</h2></div>
+                <div class="ws-team" style="margin-bottom:36px">
+                    @foreach (var p in g) { <div class="ws-person"><span class="av">@Ini(p.Name)</span><div><b>@p.Name</b><small>@p.Role</small></div></div> }
+                </div>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    private SiteContent S => Site.Current;
+    private static string Ini(string n) { var p = n.Split(' ', StringSplitOptions.RemoveEmptyEntries); return p.Length == 0 ? "?" : (p[0][..1] + (p.Length > 1 ? p[^1][..1] : "")).ToUpperInvariant(); }
+}

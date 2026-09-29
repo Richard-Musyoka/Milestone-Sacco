@@ -1,0 +1,95 @@
+@using SaccoManagementSystem.Models
+
+<EditForm Model="Model" OnValidSubmit="OnValidSubmit">
+    <DataAnnotationsValidator />
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="ms-alert bad" role="alert" style="max-width:980px"><i class="bi bi-exclamation-circle-fill"></i><div>@ErrorMessage</div></div>
+    }
+
+    <div class="ms-form">
+        <section class="ms-fs">
+            <div class="ms-fs-head"><i class="bi bi-person"></i><div><h3>Who &amp; what</h3><small>The member paying and the kind of contribution</small></div></div>
+            <div class="ms-fs-body">
+                <div class="ms-grid-form">
+                    <Field Class="c6" Label="Member" Required="true" For="@(() => Model.MemberId)">
+                        @if (LoadingMembers)
+                        {
+                            <div class="ms-skel" style="height:42px"></div>
+                        }
+                        else
+                        {
+                            <InputSelect id="member" class="ms-select" @bind-Value="Model.MemberId">
+                                <option value="0">Select a member</option>
+                                @foreach (var m in Members) { <option value="@m.MemberId">@m.FullName</option> }
+                            </InputSelect>
+                        }
+                    </Field>
+                    <Field Class="c6" Label="Contribution type" Required="true" For="@(() => Model.ContributionType)">
+                        <InputSelect id="type" class="ms-select" @bind-Value="Model.ContributionType">
+                            <option value="">Select type</option>
+                            <option value="Monthly">Monthly</option>
+                            <option value="Share">Share</option>
+                            <option value="Loan">Loan repayment</option>
+                            <option value="Special">Special</option>
+                        </InputSelect>
+                    </Field>
+                </div>
+            </div>
+        </section>
+
+        <section class="ms-fs">
+            <div class="ms-fs-head"><i class="bi bi-cash-stack"></i><div><h3>Payment</h3><small>Amount, date and how it was paid</small></div></div>
+            <div class="ms-fs-body">
+                <div class="ms-grid-form">
+                    <Field Class="c6" Label="Amount (KES)" Required="true" For="@(() => Model.Amount)">
+                        <div class="ms-input-icon"><span>KES</span><InputNumber id="amount" class="ms-input" @bind-Value="Model.Amount" placeholder="0.00" /></div>
+                    </Field>
+                    <Field Class="c6" Label="Date contributed" Required="true" For="@(() => Model.DateContributed)"><InputDate id="date" class="ms-input" @bind-Value="Model.DateContributed" /></Field>
+                    <Field Class="c6" Label="Payment method">
+                        <InputSelect id="method" class="ms-select" @bind-Value="Model.PaymentMethod">
+                            <option value="">Select method</option>
+                            <option value="Cash">Cash</option>
+                            <option value="M-Pesa">M-Pesa</option>
+                            <option value="Bank Transfer">Bank transfer</option>
+                            <option value="Cheque">Cheque</option>
+                        </InputSelect>
+                    </Field>
+                    <Field Class="c6" Label="Transaction reference" Hint="M-Pesa code, cheque or bank ref"><InputText id="ref" class="ms-input" @bind-Value="Model.TransactionRef" /></Field>
+                    <Field Class="c6" Label="Status">
+                        <InputSelect id="status" class="ms-select" @bind-Value="Model.Status">
+                            <option value="Pending">Pending</option>
+                            <option value="Paid">Paid</option>
+                            <option value="Overdue">Overdue</option>
+                        </InputSelect>
+                    </Field>
+                    <Field Class="c12" Label="Remarks"><InputTextArea id="remarks" class="ms-input" placeholder="Optional note" @bind-Value="Model.Remarks" /></Field>
+                </div>
+            </div>
+        </section>
+
+        <div class="ms-formbar">
+            <span class="sp">@(IsEdit ? "Editing an existing contribution" : "Fields marked * are required")</span>
+            <button type="button" class="ms-btn" @onclick="OnCancel" disabled="@Busy">Cancel</button>
+            <button type="submit" class="ms-btn primary @(Busy ? "busy" : "")">@if (Busy) { <span class="ms-spin"></span> } else { <i class="bi bi-check2"></i> } @(IsEdit ? "Save changes" : "Record contribution")</button>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter, EditorRequired] public Contribution Model { get; set; } = new();
+    [Parameter] public List<MemberOption> Members { get; set; } = new();
+    [Parameter] public bool LoadingMembers { get; set; }
+    [Parameter] public bool IsEdit { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
+    [Parameter] public EventCallback OnValidSubmit { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    public sealed class MemberOption
+    {
+        public int MemberId { get; set; }
+        public string FullName { get; set; } = string.Empty;
+    }
+}

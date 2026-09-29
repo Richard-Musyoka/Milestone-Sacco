@@ -1,0 +1,185 @@
+@page "/profile"
+@using System.Text.Json
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<PageTitle>My profile · @Brand.Name</PageTitle>
+
+<div class="ms-page">
+    @if (loading)
+    {
+        <div class="ms-skel" style="height:150px;border-radius:20px"></div>
+        <div class="ms-grid two ms-mt"><div class="ms-skel" style="height:300px"></div><div class="ms-skel" style="height:300px"></div></div>
+    }
+    else if (ov == null)
+    {
+        <div class="ms-card"><EmptyState Icon="bi-wifi-off" Title="Couldn't load your profile" Text="@(loadError ?? "Please try again.")">
+            <div style="margin-top:14px"><button class="ms-btn" @onclick="Load"><i class="bi bi-arrow-clockwise"></i> Retry</button></div></EmptyState></div>
+    }
+    else
+    {
+        <section class="ms-hero">
+            <Avatar Name="@($"{ov.User.FirstName} {ov.User.LastName}")" Size="xl" />
+            <div style="position:relative;z-index:1">
+                <h2>@ov.User.FirstName @ov.User.LastName</h2>
+                <div class="meta">
+                    <span><i class="bi bi-envelope"></i>@ov.User.Email</span>
+                    @if (!string.IsNullOrWhiteSpace(ov.User.Phone)) { <span><i class="bi bi-telephone"></i>@ov.User.Phone</span> }
+                    <span><i class="bi bi-person-badge"></i>@ov.User.Role</span>
+                </div>
+            </div>
+            <div class="ms-hero-actions">
+                <a class="ms-btn primary" href="dashboard"><i class="bi bi-speedometer2"></i> Dashboard</a>
+                <button class="ms-btn" @onclick="SignOut"><i class="bi bi-box-arrow-right"></i> Sign out</button>
+            </div>
+        </section>
+
+        <div class="ms-grid stats ms-mt">
+            <StatCard Label="Security score" Icon="bi-shield-check" Value="@(ov.Score + "%")" Foot="@(ov.Score >= 80 ? "Strong" : ov.Score >= 60 ? "Good — can improve" : "Needs attention")" />
+            <StatCard Label="Two-step sign-in" Icon="bi-phone" Tone="@(ov.TotpEnabled ? "blue" : "red")" Value="@(ov.TotpEnabled ? "On" : "Off")" Foot="@(ov.TotpEnabled ? $"{ov.BackupCodesLeft} backup codes left" : "Authenticator app not set up")" />
+            <StatCard Label="Passkeys" Icon="bi-fingerprint" Tone="gold" Value="@ov.Passkeys.Count.ToString()" Foot="@(ov.Passkeys.Count == 0 ? "None registered" : "Fingerprint / face / key")" />
+            <StatCard Label="Active sessions" Icon="bi-laptop" Tone="red" Value="@ov.Sessions.Count.ToString()" Foot="@($"{ov.Devices.Count} known devices")" />
+        </div>
+
+        <div class="ms-grid two ms-mt">
+            <section class="ms-card">
+                <div class="ms-card-head"><div><h3>Personal details</h3><p>Your name and phone. Email is your sign-in and can't be changed here.</p></div></div>
+                <div class="ms-card-body">
+                    @if (!string.IsNullOrEmpty(formError)) { <div class="ms-alert bad"><i class="bi bi-exclamation-circle-fill"></i><div>@formError</div></div> }
+                    <div class="ms-grid-form">
+                        <Field Class="c6" Label="First name" Required="true"><input class="ms-input" @bind="first" autocomplete="given-name" /></Field>
+                        <Field Class="c6" Label="Last name" Required="true"><input class="ms-input" @bind="last" autocomplete="family-name" /></Field>
+                        <Field Class="c6" Label="Phone" Hint="Used for SMS codes"><input class="ms-input" type="tel" @bind="phone" autocomplete="tel" placeholder="+254 7…" /></Field>
+                        <Field Class="c6" Label="Email"><input class="ms-input" value="@ov.User.Email" disabled /></Field>
+                    </div>
+                    <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">
+                        <button class="ms-btn" disabled="@(!Dirty || saving)" @onclick="Reset">Reset</button>
+                        <button class="ms-btn primary @(saving ? "busy" : "")" disabled="@(!Dirty)" @onclick="Save">@if (saving) { <span class="ms-spin"></span> } else { <i class="bi bi-check2"></i> } Save changes</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="ms-card">
+                <div class="ms-card-head"><div><h3>Sign-in security</h3></div><a class="ms-btn sm" href="settings?tab=security-center">Manage</a></div>
+                <div class="ms-card-body ms-kv">
+                    <div><small>Password last changed</small><b>@(ov.PasswordChangedUtc?.ToLocalTime().ToString("d MMM yyyy") ?? "Never")</b></div>
+                    <div><small>Authenticator app</small><b>@(ov.TotpEnabled ? "Enabled" : "Not set up")</b></div>
+                    <div><small>Passkeys</small><b>@(ov.Passkeys.Count == 0 ? "None" : string.Join(", ", ov.Passkeys.Select(p => p.Name)))</b></div>
+                    <div><small>Code by email / SMS</small><b>@(ov.OtpFallbackEnabled ? "Allowed as a fallback" : "Off")</b></div>
+                </div>
+                <div class="ms-card-body ms-quick" style="padding-top:0">
+                    <a href="settings?tab=security-center"><i class="bi bi-shield-lock"></i>Security centre</a>
+                    <a href="settings?tab=appearance"><i class="bi bi-palette"></i>Appearance</a>
+                </div>
+            </section>
+        </div>
+
+        <section class="ms-card ms-mt">
+            <div class="ms-card-head"><div><h3>Recent sign-in activity</h3><p>If something here isn't you, change your password and sign out other sessions.</p></div></div>
+            @if (ov.History.Count == 0)
+            {
+                <EmptyState Icon="bi-clock-history" Title="No activity yet" Text="Sign-ins and security changes will show here." />
+            }
+            else
+            {
+                <div class="ms-table-wrap"><table class="ms-table">
+                    <thead><tr><th>When</th><th>Event</th><th>Device</th><th>IP</th><th>Outcome</th></tr></thead>
+                    <tbody>
+                        @foreach (var e in ov.History.Take(10))
+                        {
+                            <tr>
+                                <td class="ms-num">@e.CreatedUtc.ToLocalTime().ToString("d MMM, HH:mm")</td>
+                                <td>@Title(e.EventType)@(string.IsNullOrEmpty(e.Detail) ? "" : " · " + e.Detail)</td>
+                                <td>@e.Device</td>
+                                <td class="ms-num">@e.Ip</td>
+                                <td><StatusPill Status="@(e.Success ? "Success" : "Failed")" /></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table></div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
+
+    private Overview? ov;
+    private bool loading = true, saving;
+    private string? loadError, formError;
+    private string first = "", last = "", phone = "";
+
+    private bool Dirty => ov != null && (first.Trim() != ov.User.FirstName || last.Trim() != ov.User.LastName || (phone ?? "").Trim() != (ov.User.Phone ?? ""));
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task<(bool Ok, int Status, string? Message, JsonElement Body)> Call(string method, string url, object? body = null)
+    {
+        var el = await JS.InvokeAsync<JsonElement>("ms.api", method, url, body);
+        bool ok = el.TryGetProperty("ok", out var o) && o.GetBoolean();
+        int status = el.TryGetProperty("status", out var s) ? s.GetInt32() : 0;
+        string? msg = null; JsonElement b = default;
+        if (el.TryGetProperty("body", out b) && b.ValueKind == JsonValueKind.Object && b.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String) msg = m.GetString();
+        if (status == 401) Navigation.NavigateTo("/login", forceLoad: true);
+        return (ok, status, msg, b);
+    }
+
+    private async Task Load()
+    {
+        loading = ov == null; loadError = null;
+        var r = await Call("GET", "/api/security/overview");
+        if (r.Ok) { ov = JsonSerializer.Deserialize<Overview>(r.Body.GetRawText(), Json); Reset(); }
+        else loadError = r.Message ?? $"The server answered {r.Status}.";
+        loading = false;
+    }
+
+    private void Reset()
+    {
+        if (ov == null) return;
+        first = ov.User.FirstName; last = ov.User.LastName; phone = ov.User.Phone ?? "";
+        formError = null;
+    }
+
+    private async Task Save()
+    {
+        formError = null;
+        if (string.IsNullOrWhiteSpace(first) || string.IsNullOrWhiteSpace(last)) { formError = "First and last name are required."; return; }
+        saving = true;
+        try
+        {
+            var r = await Call("POST", "/api/security/profile", new { firstName = first.Trim(), lastName = last.Trim(), phone = phone?.Trim() });
+            if (!r.Ok) { formError = r.Message ?? "Couldn't save your details."; return; }
+            await JS.InvokeVoidAsync("ms.toast", "success", "Profile updated");
+            await Load();
+        }
+        finally { saving = false; }
+    }
+
+    private async Task SignOut()
+    {
+        try { await JS.InvokeAsync<JsonElement>("ms.api", "POST", "/api/auth/logout", null); } catch { }
+        Navigation.NavigateTo("/login", forceLoad: true);
+    }
+
+    private static string Title(string s) { var t = (s ?? "").Replace('-', ' ').Replace('_', ' '); return t.Length == 0 ? "—" : char.ToUpper(t[0]) + t[1..]; }
+
+    private sealed class Overview
+    {
+        public UserDto User { get; set; } = new();
+        public bool TotpEnabled { get; set; }
+        public bool OtpFallbackEnabled { get; set; }
+        public int BackupCodesLeft { get; set; }
+        public DateTime? PasswordChangedUtc { get; set; }
+        public int Score { get; set; }
+        public List<PasskeyDto> Passkeys { get; set; } = new();
+        public List<DeviceDto> Devices { get; set; } = new();
+        public List<SessionDto> Sessions { get; set; } = new();
+        public List<EventDto> History { get; set; } = new();
+    }
+    private sealed class UserDto { public int Id { get; set; } public string FirstName { get; set; } = ""; public string LastName { get; set; } = ""; public string Email { get; set; } = ""; public string? Phone { get; set; } public string Role { get; set; } = ""; }
+    private sealed class PasskeyDto { public int Id { get; set; } public string Name { get; set; } = ""; }
+    private sealed class DeviceDto { public int Id { get; set; } }
+    private sealed class SessionDto { public Guid Id { get; set; } }
+    private sealed class EventDto { public long Id { get; set; } public string EventType { get; set; } = ""; public bool Success { get; set; } public string Ip { get; set; } = ""; public string Device { get; set; } = ""; public string? Detail { get; set; } public DateTime CreatedUtc { get; set; } }
+}

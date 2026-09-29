@@ -1,0 +1,285 @@
+@page "/users"
+@using System.Text.Json
+@using SaccoManagementSystem.Security
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<PageTitle>Users &amp; roles · @Brand.Name</PageTitle>
+
+<div class="ms-page">
+    <PageHeader Title="Users &amp; roles" Subtitle="Who can sign in, and what each person is allowed to do.">
+        <button class="ms-btn primary" @onclick="OpenNew"><i class="bi bi-person-plus"></i> Add user</button>
+    </PageHeader>
+
+    @if (!loading && !failed)
+    {
+        <div class="ms-mini">
+            <div><small>People</small><b>@users.Count</b></div>
+            <div><small>Active</small><b>@users.Count(x => x.IsActive)</b></div>
+            <div><small>With 2-step sign-in</small><b>@users.Count(x => x.TwoStep)</b></div>
+            <div><small>Locked out</small><b style="@(users.Any(x => x.IsLocked) ? "color:var(--ms-red)" : "")">@users.Count(x => x.IsLocked)</b></div>
+        </div>
+
+        <div class="ms-role-cards" style="margin-bottom:18px">
+            @foreach (var r in roles)
+            {
+                <div class="ms-role-card"><span class="ms-role @r.Name.ToLowerInvariant()">@r.Name</span><p style="margin-top:8px">@r.Description</p></div>
+            }
+        </div>
+    }
+
+    <div class="ms-card">
+        <div class="ms-toolbar">
+            <div class="ms-searchbox">
+                <i class="bi bi-search"></i>
+                <input class="ms-input" type="search" placeholder="Search name or email…" aria-label="Search users" @bind="search" @bind:event="oninput" />
+            </div>
+            <div class="ms-chips" role="group" aria-label="Filter by role">
+                @foreach (var f in new[] { "All" }.Concat(roles.Select(r => r.Name)))
+                {
+                    var filterName = f;
+                    <button type="button" class="ms-chip @(roleFilter == filterName ? "on" : "")" @onclick="() => roleFilter = filterName">@filterName</button>
+                }
+            </div>
+        </div>
+
+        @if (loading)
+        {
+            <div class="ms-card-body">@for (int i = 0; i < 5; i++) { <div class="ms-skel" style="height:52px;margin-bottom:10px"></div> }</div>
+        }
+        else if (failed)
+        {
+            <EmptyState Icon="bi-wifi-off" Title="Couldn't load users" Text="@error">
+                <div style="margin-top:14px"><button class="ms-btn" @onclick="Load"><i class="bi bi-arrow-clockwise"></i> Retry</button></div>
+            </EmptyState>
+        }
+        else if (!Filtered.Any())
+        {
+            <EmptyState Icon="bi-people" Title="No users match" Text="Try a different search or role." />
+        }
+        else
+        {
+            <div class="ms-table-wrap">
+                <table class="ms-table">
+                    <thead><tr><th>Person</th><th>Role</th><th>Status</th><th>2-step</th><th>Last sign-in</th><th class="r" style="width:190px"></th></tr></thead>
+                    <tbody>
+                        @foreach (var u in Filtered)
+                        {
+                            <tr>
+                                <td><div class="ms-cell-person"><Avatar Name="@u.FullName" Size="sm" /><div><b>@u.FullName@(u.Id == me ? " (you)" : "")</b><small>@u.Email</small></div></div></td>
+                                <td><span class="ms-role @u.Role.ToLowerInvariant()">@u.Role</span></td>
+                                <td>
+                                    @if (u.IsLocked) { <StatusPill Status="Suspended" Text="Locked" /> }
+                                    else { <StatusPill Status="@(u.IsActive ? "Active" : "Inactive")" /> }
+                                </td>
+                                <td>@if (u.TwoStep) { <i class="bi bi-shield-fill-check" style="color:var(--ms-accent)" title="Enabled"></i> } else { <i class="bi bi-shield-exclamation ms-muted" title="Not set up"></i> }</td>
+                                <td class="ms-num">@(u.LastLoginUtc.HasValue ? u.LastLoginUtc.Value.ToLocalTime().ToString("d MMM yyyy, HH:mm") : "Never")</td>
+                                <td>
+                                    <div class="ms-row-actions">
+                                        <button class="ms-ib" title="Edit" aria-label="Edit @u.FullName" @onclick="() => OpenEdit(u)"><i class="bi bi-pencil"></i></button>
+                                        <button class="ms-ib" title="Reset password" aria-label="Reset password for @u.FullName" @onclick="() => resetTarget = u"><i class="bi bi-key"></i></button>
+                                        @if (u.IsLocked)
+                                        {
+                                            <button class="ms-ib" title="Unlock" aria-label="Unlock @u.FullName" @onclick="() => Unlock(u)"><i class="bi bi-unlock"></i></button>
+                                        }
+                                        @if (u.Sessions > 0 && u.Id != me)
+                                        {
+                                            <button class="ms-ib danger" title="Sign out everywhere" aria-label="Sign out @u.FullName everywhere" @onclick="() => Revoke(u)"><i class="bi bi-box-arrow-right"></i></button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<Modal Open="formOpen" OnClose="CloseForm" Title="@(editing == null ? "Add a user" : "Edit user")" Subtitle="@(editing == null ? "They'll get a one-time password to sign in with." : editing.Email)">
+    <ChildContent>
+        @if (!string.IsNullOrEmpty(formError)) { <div class="ms-alert bad" role="alert" style="margin-bottom:14px"><i class="bi bi-exclamation-triangle-fill"></i><div>@formError</div></div> }
+        <div class="ms-grid-form">
+            <Field Class="c6" Label="First name" Required="true"><input class="ms-input" @bind="f.FirstName" /></Field>
+            <Field Class="c6" Label="Last name" Required="true"><input class="ms-input" @bind="f.LastName" /></Field>
+            @if (editing == null)
+            {
+                <Field Class="c12" Label="Email" Required="true"><input class="ms-input" type="email" @bind="f.Email" /></Field>
+            }
+            <Field Class="c6" Label="Phone"><input class="ms-input" @bind="f.Phone" /></Field>
+            <Field Class="c6" Label="Role" Required="true" Hint="@Describe(f.Role)">
+                <select class="ms-select" @bind="f.Role" disabled="@(editing != null && editing.Id == me)">
+                    @foreach (var r in roles) { <option value="@r.Name">@r.Name</option> }
+                </select>
+            </Field>
+            @if (editing != null)
+            {
+                <div class="c12">
+                    <div style="display:flex;align-items:center;gap:10px;font-weight:600">
+                        <ToggleSwitch @bind-Value="f.IsActive" Disabled="@(editing.Id == me)" AriaLabel="Account is active" /> Account is active
+                    </div>
+                    @if (editing.Id == me) { <span class="ms-hint">You can't change your own role or deactivate yourself.</span> }
+                    else { <span class="ms-hint">Changing the role or deactivating signs the person out of every device.</span> }
+                </div>
+            }
+        </div>
+    </ChildContent>
+    <Footer>
+        <button class="ms-btn" @onclick="CloseForm" disabled="@busy">Cancel</button>
+        <button class="ms-btn primary @(busy ? "busy" : "")" @onclick="SaveForm">@if (busy) { <span class="ms-spin"></span> }@(editing == null ? "Create user" : "Save changes")</button>
+    </Footer>
+</Modal>
+
+<ConfirmDialog Open="resetTarget != null" Title="Reset password" ConfirmText="Reset password" Busy="busy" OnConfirm="Reset" OnCancel="() => resetTarget = null">
+    <p style="margin:0 0 6px">Create a new one-time password for <b>@resetTarget?.FullName</b>?</p>
+    <p class="ms-hint" style="margin:0">Their current password stops working and they are signed out everywhere.</p>
+</ConfirmDialog>
+
+<Modal Open="secret != null" OnClose="CloseSecret" Title="@secretTitle" Subtitle="Shown once. Share it privately and ask them to change it after signing in.">
+    <ChildContent>
+        <div class="ms-secret"><span>@secret</span><button class="ms-btn sm" @onclick="CopySecret"><i class="bi bi-clipboard"></i> Copy</button></div>
+    </ChildContent>
+    <Footer><button class="ms-btn primary" @onclick="CloseSecret">Done</button></Footer>
+</Modal>
+
+@code {
+    private sealed class RoleRow { public string Name { get; set; } = ""; public string Description { get; set; } = ""; }
+    private sealed class UserRow
+    {
+        public int Id { get; set; }
+        public string FirstName { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string? Phone { get; set; }
+        public string Role { get; set; } = "Viewer";
+        public bool IsActive { get; set; }
+        public bool IsLocked { get; set; }
+        public bool TwoStep { get; set; }
+        public DateTime? LastLoginUtc { get; set; }
+        public int Sessions { get; set; }
+        public string FullName => (FirstName + " " + LastName).Trim() is { Length: > 0 } n ? n : Email;
+    }
+    private sealed class ListResult { public int Me { get; set; } public List<RoleRow> Roles { get; set; } = new(); public List<UserRow> Users { get; set; } = new(); }
+    private sealed class Form { public string FirstName { get; set; } = ""; public string LastName { get; set; } = ""; public string Email { get; set; } = ""; public string? Phone { get; set; } public string Role { get; set; } = Roles.Teller; public bool IsActive { get; set; } = true; }
+
+    private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
+
+    private List<UserRow> users = new();
+    private List<RoleRow> roles = new();
+    private int me;
+    private bool loading = true, failed, busy, formOpen;
+    private string error = "", formError = "", search = "", roleFilter = "All";
+    private UserRow? editing, resetTarget;
+    private Form f = new();
+    private string? secret, secretTitle;
+
+    private IEnumerable<UserRow> Filtered => users
+        .Where(u => roleFilter == "All" || u.Role == roleFilter)
+        .Where(u => string.IsNullOrWhiteSpace(search) || u.FullName.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase) || u.Email.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private string Describe(string role) => roles.FirstOrDefault(r => r.Name == role)?.Description ?? "";
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task<(bool Ok, int Status, string? Message, JsonElement Body)> Call(string method, string url, object? body = null)
+    {
+        var el = await JS.InvokeAsync<JsonElement>("ms.api", method, url, body);
+        bool ok = el.TryGetProperty("ok", out var o) && o.GetBoolean();
+        int status = el.TryGetProperty("status", out var s) ? s.GetInt32() : 0;
+        string? msg = null; JsonElement b = default;
+        if (el.TryGetProperty("body", out b) && b.ValueKind == JsonValueKind.Object && b.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String) msg = m.GetString();
+        if (status == 401) Navigation.NavigateTo("/login", forceLoad: true);
+        return (ok, status, msg, b);
+    }
+
+    private async Task Load()
+    {
+        loading = true; failed = false; error = "";
+        var r = await Call("GET", "/api/users");
+        if (r.Ok)
+        {
+            var res = JsonSerializer.Deserialize<ListResult>(r.Body.GetRawText(), Json) ?? new ListResult();
+            users = res.Users; roles = res.Roles; me = res.Me;
+        }
+        else { failed = true; error = r.Message ?? $"The server answered {r.Status}."; }
+        loading = false;
+    }
+
+    private void OpenNew() { editing = null; f = new Form(); formError = ""; formOpen = true; }
+    private void OpenEdit(UserRow u)
+    {
+        editing = u; formError = "";
+        f = new Form { FirstName = u.FirstName, LastName = u.LastName, Email = u.Email, Phone = u.Phone, Role = u.Role, IsActive = u.IsActive };
+        formOpen = true;
+    }
+    private void CloseForm() { if (!busy) formOpen = false; }
+
+    private async Task SaveForm()
+    {
+        formError = "";
+        if (string.IsNullOrWhiteSpace(f.FirstName) || string.IsNullOrWhiteSpace(f.LastName) || (editing == null && string.IsNullOrWhiteSpace(f.Email)))
+        { formError = "Please fill the required fields."; return; }
+        busy = true;
+        try
+        {
+            if (editing == null)
+            {
+                var r = await Call("POST", "/api/users", new { f.FirstName, f.LastName, f.Email, f.Phone, f.Role });
+                if (!r.Ok) { formError = r.Message ?? "Couldn't create the user."; return; }
+                formOpen = false;
+                secretTitle = "Account created";
+                secret = r.Body.TryGetProperty("tempPassword", out var p) ? p.GetString() : null;
+                await JS.InvokeVoidAsync("ms.toast", "success", "User created", f.Email);
+            }
+            else
+            {
+                var r = await Call("PUT", $"/api/users/{editing.Id}", new { f.FirstName, f.LastName, f.Phone, f.Role, f.IsActive });
+                if (!r.Ok) { formError = r.Message ?? "Couldn't save changes."; return; }
+                formOpen = false;
+                await JS.InvokeVoidAsync("ms.toast", "success", "User updated");
+            }
+            await Load();
+        }
+        finally { busy = false; }
+    }
+
+    private async Task Reset()
+    {
+        if (resetTarget == null) return;
+        busy = true;
+        try
+        {
+            var r = await Call("POST", $"/api/users/{resetTarget.Id}/reset-password");
+            if (!r.Ok) { await JS.InvokeVoidAsync("ms.toast", "error", "Couldn't reset password", r.Message ?? ""); return; }
+            secretTitle = "New one-time password for " + resetTarget.FullName;
+            secret = r.Body.TryGetProperty("tempPassword", out var p) ? p.GetString() : null;
+            resetTarget = null;
+            await Load();
+        }
+        finally { busy = false; }
+    }
+
+    private async Task Unlock(UserRow u)
+    {
+        var r = await Call("POST", $"/api/users/{u.Id}/unlock");
+        await JS.InvokeVoidAsync("ms.toast", r.Ok ? "success" : "error", r.Ok ? "Account unlocked" : "Couldn't unlock", r.Message ?? "");
+        if (r.Ok) await Load();
+    }
+
+    private async Task Revoke(UserRow u)
+    {
+        var r = await Call("POST", $"/api/users/{u.Id}/revoke-sessions");
+        await JS.InvokeVoidAsync("ms.toast", r.Ok ? "success" : "error", r.Ok ? $"{u.FullName} was signed out" : "Couldn't sign out", r.Message ?? "");
+        if (r.Ok) await Load();
+    }
+
+    private async Task CopySecret()
+    {
+        if (secret == null) return;
+        var ok = await JS.InvokeAsync<bool>("ms.copy", secret);
+        await JS.InvokeVoidAsync("ms.toast", ok ? "success" : "warn", ok ? "Copied" : "Copy failed — select and copy it manually");
+    }
+
+    private void CloseSecret() => secret = null;
+}

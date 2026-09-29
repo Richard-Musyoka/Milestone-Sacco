@@ -1,0 +1,68 @@
+/* =====================================================================================
+   Installable app + phone polish
+   ===================================================================================== */
+
+/* install buttons (hidden until the browser says the app can be installed) */
+[data-pwa-install][hidden] { display: none !important; }
+.ms-install { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--ms-accent) 35%, var(--ms-border));
+  background: color-mix(in srgb, var(--ms-accent) 8%, var(--ms-surface)); color: var(--ms-accent); font: inherit; font-weight: 800; font-size: 13.5px; cursor: pointer; white-space: nowrap;
+  animation: pwa-pulse 2.4s ease-in-out 1s 2; }
+.ms-install:hover { background: var(--ms-accent); color: var(--ms-accent-ink); }
+.lg-top .ms-install { margin-left: auto; }
+@keyframes pwa-pulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--ms-accent) 18%, transparent); } }
+@media (max-width: 640px) { .ms-topbar .ms-install span { display: none; } .ms-topbar .ms-install { width: 38px; padding: 0; justify-content: center; } }
+
+/* iPhone "Add to Home Screen" sheet */
+.pwa-sheet-bg { position: fixed; inset: 0; z-index: 5000; background: rgba(7,15,29,.55); display: flex; align-items: flex-end; justify-content: center; animation: ms-fade .2s; }
+.pwa-sheet { width: min(460px, 100%); background: var(--ms-surface, #fff); color: var(--ms-text, #0B1F3A); border-radius: 24px 24px 0 0; padding: 12px 24px calc(24px + env(safe-area-inset-bottom)); text-align: center; animation: pwa-up .3s var(--ms-ease, ease); }
+.pwa-grab { width: 42px; height: 5px; border-radius: 99px; background: var(--ms-border, #d8dee6); margin: 0 auto 16px; }
+.pwa-sheet img { width: 64px; height: 64px; border-radius: 16px; box-shadow: 0 8px 20px rgba(0,0,0,.12); }
+.pwa-sheet h3 { margin: 12px 0 10px; font-size: 18px; font-weight: 800; }
+.pwa-sheet ol { text-align: left; margin: 0 0 18px; padding-left: 20px; display: grid; gap: 8px; font-size: 14.5px; }
+.pwa-sheet .ms-btn { width: 100%; justify-content: center; }
+@keyframes pwa-up { from { transform: translateY(100%); } }
+
+/* ---------------------------------------------------------------- running as an installed app */
+html.pwa-standalone .ms-topbar { padding-top: env(safe-area-inset-top); }
+html.pwa-standalone .ws-top { padding-top: env(safe-area-inset-top); }
+html.pwa-standalone .lg-back { visibility: hidden; }         /* no "back to website" inside the app */
+html.pwa-standalone body { overscroll-behavior-y: none; }
+html.pwa-standalone { -webkit-tap-highlight-color: transparent; }
+
+/* ---------------------------------------------------------------- member bottom tab bar (phones) */
+.mb-nav { display: none; }
+@media (max-width: 760px) {
+  .mb-nav { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 1030;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--ms-surface) 94%, transparent);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-top: 1px solid var(--ms-border); box-shadow: 0 -8px 24px rgba(15,23,42,.08); }
+  .mb-nav a { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; border-radius: 12px; color: var(--ms-text-3); text-decoration: none; font-size: 11px; font-weight: 700; }
+  .mb-nav a i { font-size: 20px; line-height: 1; }
+  .mb-nav a.active { color: var(--ms-accent); }
+  .mb-nav a.active i { transform: translateY(-1px); }
+  .mb-nav a.mb-pay i { width: 46px; height: 46px; margin-top: -22px; border-radius: 50%; display: grid; place-items: center; background: #1FA464; color: #fff; font-size: 20px;
+    box-shadow: 0 8px 18px rgba(31,164,100,.35); border: 4px solid var(--ms-surface); }
+  .mb-nav a.mb-pay.active { color: #1FA464; }
+  .ms-main:has(~ .mb-nav), body:has(.mb-nav) .ms-main { padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
+  body:has(.mb-nav) .mp-tabs { display: none; }               /* bottom bar replaces the tab strip on phones */
+  body:has(.mb-nav) .ms-toasts { bottom: calc(90px + env(safe-area-inset-bottom)); top: auto; }
+}
+
+/* ---------------------------------------------------------------- phone polish across the portal */
+@media (max-width: 640px) {
+  input, select, textarea, .ms-input, .ms-select { font-size: 16px !important; }   /* stops iPhone zooming into fields */
+  .ms-topbar { gap: 8px; }
+  .ms-crumbs .ms-crumb-parent, .ms-crumbs .bi-chevron-right { display: none; }
+  .ms-user-meta { display: none; }
+  .ms-member-chip { display: none; }
+  .ms-page { padding-left: 14px; padding-right: 14px; }
+  .ms-grid.stats { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ms-table-wrap, .ms-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .ms-drawer { top: auto; left: 0; right: 0; bottom: 0; width: 100%; max-height: 92vh; border-radius: 22px 22px 0 0; }
+  .ms-modal { width: 100% !important; max-width: none !important; border-radius: 22px 22px 0 0; margin-top: auto; }
+  .ms-modal-bg { align-items: flex-end; padding: 0; }
+  .mp-card { aspect-ratio: auto; min-height: 190px; }
+  .mp-big { font-size: 26px; }
+  .mp-w-actions .ms-btn { flex: 1 1 auto; justify-content: center; }
+  button, .ms-btn, a.ms-btn { min-height: 42px; }
+}
+@media (hover: none) { .ms-card.lift:hover, .mp-tile:hover, .ws-card:hover { transform: none; } }

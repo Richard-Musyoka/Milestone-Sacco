@@ -27,10 +27,21 @@ builder.Services.AddHttpContextAccessor();
 // ------------------------------------------------------------ authentication
 builder.Services.AddSingleton<IDbFactory, SqlDbFactory>();
 builder.Services.AddSingleton<SecurityStore>();
-builder.Services.AddSingleton<IOtpSender, LoggingOtpSender>();   // swap for a real email / SMS gateway
+builder.Services.AddSingleton<SaccoManagementSystem.Services.ConfigStore>();
+builder.Services.AddSingleton<SaccoManagementSystem.Services.SiteStore>();
+builder.Services.AddSingleton<SaccoManagementSystem.Services.ProfileStore>();
+builder.Services.AddSingleton<SaccoManagementSystem.Services.MemberExtrasStore>();
+builder.Services.AddSingleton<SaccoManagementSystem.Services.PaymentStore>();
+builder.Services.AddSingleton<SaccoManagementSystem.Services.ChamaStore>();
+builder.Services.AddSingleton<SaccoManagementSystem.Services.MemberPortalStore>();
+builder.Services.AddSingleton<SmtpOtpSender>();
+builder.Services.AddSingleton<IOtpSender>(sp => sp.GetRequiredService<SmtpOtpSender>());   // email via SMTP; SMS not wired yet
 builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<InternalApiKey>();
+builder.Services.AddSingleton<RoleLookup>();
 builder.Services.AddTransient<SessionCookieEvents>();
+builder.Services.AddSingleton<CircuitServicesAccessor>();
+builder.Services.AddScoped<Microsoft.AspNetCore.Components.Server.Circuits.CircuitHandler, ServicesAccessorCircuitHandler>();
 builder.Services.AddTransient<InternalKeyHandler>();
 
 builder.Services.AddAuthentication(AuthDefaults.Scheme)
@@ -54,9 +65,11 @@ builder.Services.AddScoped<DashboardService>();
 
 // Server-side calls from Razor pages to the API controllers carry an internal key (see ApiGuardMiddleware).
 builder.Services.ConfigureHttpClientDefaults(b => b.AddHttpMessageHandler<InternalKeyHandler>());
-builder.Services.AddHttpClient("ApiClient", client =>
+// The pages call this same app. Use ApiBaseUrl if set, otherwise whatever address the app is actually listening on
+// (so running the "http" profile on :5004 works as well as the "https" one on :7074).
+builder.Services.AddHttpClient("ApiClient", (sp, client) =>
 {
-    client.BaseAddress = new Uri(builder.Configuration["ApiBaseUrl"] ?? "https://localhost:7074/");
+    client.BaseAddress = SelfAddress.Resolve(sp, builder.Configuration["ApiBaseUrl"]);
 });
 
 var app = builder.Build();
@@ -66,6 +79,25 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error");
     app.UseHsts();
 }
+
+// Make sure the OTP delivery/backup columns exist (idempotent).
+try { await app.Services.GetRequiredService<SaccoManagementSystem.Services.ConfigStore>().LoadAsync(); }
+catch (Exception ex) { app.Logger.LogWarning(ex, "System configuration not loaded."); }
+try { await app.Services.GetRequiredService<SaccoManagementSystem.Services.SiteStore>().LoadAsync(); }
+catch (Exception ex) { app.Logger.LogWarning(ex, "Website content not loaded."); }
+try { await app.Services.GetRequiredService<SaccoManagementSystem.Services.ProfileStore>().EnsureSchemaAsync(); }
+catch (Exception ex) { app.Logger.LogWarning(ex, "Could not create UserProfiles table."); }
+// Phase 6 tables (members KYC, payments, chamas). Idempotent: safe on every start. Same SQL is in Database/006_payments_chamas.sql.
+try { await app.Services.GetRequiredService<SaccoManagementSystem.Services.MemberExtrasStore>().EnsureSchemaAsync(); }
+catch (Exception ex) { app.Logger.LogWarning(ex, "Could not create MemberExtras table."); }
+try { await app.Services.GetRequiredService<SaccoManagementSystem.Services.ChamaStore>().EnsureSchemaAsync(); }
+catch (Exception ex) { app.Logger.LogWarning(ex, "Could not create chama tables."); }
+try { await app.Services.GetRequiredService<SaccoManagementSystem.Services.PaymentStore>().EnsureSchemaAsync(); }
+catch (Exception ex) { app.Logger.LogWarning(ex, "Could not create Payments table."); }
+try { await app.Services.GetRequiredService<SaccoManagementSystem.Services.MemberPortalStore>().EnsureSchemaAsync(); }
+catch (Exception ex) { app.Logger.LogWarning(ex, "Could not add Users.MemberId for the member portal."); }
+try { await app.Services.GetRequiredService<SecurityStore>().EnsureOtpSchemaAsync(); }
+catch (Exception ex) { app.Logger.LogWarning(ex, "Could not apply OtpChallenges columns - run Database/003_email_otp.sql"); }
 
 app.UseHttpsRedirection();
 app.Use(async (ctx, next) =>
@@ -82,8 +114,27 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<ApiGuardMiddleware>();
+app.UseMiddleware<AuditMiddleware>();
 app.MapControllers();
+SaccoManagementSystem.Services.Media.MapMedia(app);
+SaccoManagementSystem.Services.Pwa.MapPwa(app);
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 
 app.Run();
+
+/// <summary>Works out the base address of this running app for server-side loopback calls.</summary>
+static class SelfAddress
+{
+    public static Uri Resolve(IServiceProvider sp, string? configured)
+    {
+        if (!string.IsNullOrWhiteSpace(configured) && Uri.TryCreate(configured, UriKind.Absolute, out var cfg)) return cfg;
+        var addrs = sp.GetService<Microsoft.AspNetCore.Hosting.Server.IServer>()?
+            .Features.Get<Microsoft.AspNetCore.Hosting.Server.Features.IServerAddressesFeature>()?.Addresses ?? Array.Empty<string>();
+        // Prefer https when the app listens on it (http would just be redirected there), otherwise plain http.
+        var pick = addrs.FirstOrDefault(a => a.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) ?? addrs.FirstOrDefault();
+        if (pick == null) return new Uri("http://localhost:5004/");
+        pick = pick.Replace("://+", "://localhost").Replace("://*", "://localhost").Replace("://0.0.0.0", "://localhost").Replace("://[::]", "://localhost");
+        return new Uri(pick.TrimEnd('/') + "/");
+    }
+}

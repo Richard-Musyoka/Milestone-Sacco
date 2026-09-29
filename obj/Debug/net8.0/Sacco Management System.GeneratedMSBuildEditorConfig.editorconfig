@@ -39,8 +39,24 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQXV0aGVudGljYXRpb25cUmVnaXN0ZXIucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Chamas/ChamaDetail.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ2hhbWFzXENoYW1hRGV0YWlsLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Chamas/ChamaEditor.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ2hhbWFzXENoYW1hRWRpdG9yLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Chamas/Chamas.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ2hhbWFzXENoYW1hcy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Contributions/AddContribution.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ29udHJpYnV0aW9uc1xBZGRDb250cmlidXRpb24ucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Contributions/ContributionForm.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ29udHJpYnV0aW9uc1xDb250cmlidXRpb25Gb3JtLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Contributions/EditContribution.razor]
@@ -91,6 +107,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcR3VhcmFudG9yc1xFZGl0R3VhcmFudG9yLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Guarantors/GuarantorForm.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcR3VhcmFudG9yc1xHdWFyYW50b3JGb3JtLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Guarantors/Guarantors.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcR3VhcmFudG9yc1xHdWFyYW50b3JzLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
@@ -127,8 +147,24 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcTWVtYmVyc1xMaXN0TWVtYmVyLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Members/MemberForm.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcTWVtYmVyc1xNZW1iZXJGb3JtLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Members/ViewMember.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcTWVtYmVyc1xWaWV3TWVtYmVyLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/My/MyPortal.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcTXlcTXlQb3J0YWwucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Payments/Payments.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUGF5bWVudHNcUGF5bWVudHMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Payments/RecordPayment.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUGF5bWVudHNcUmVjb3JkUGF5bWVudC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Profile.razor]
@@ -147,8 +183,24 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUmVwb3J0c1xSZXBvcnRzLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Settings/AboutTab.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2V0dGluZ3NcQWJvdXRUYWIucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Settings/AccountTab.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2V0dGluZ3NcQWNjb3VudFRhYi5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Settings/AppearanceSettings.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2V0dGluZ3NcQXBwZWFyYW5jZVNldHRpbmdzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Settings/BrandingTab.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2V0dGluZ3NcQnJhbmRpbmdUYWIucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Settings/ComplianceTab.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2V0dGluZ3NcQ29tcGxpYW5jZVRhYi5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Settings/FinancialSettingsTab.razor]
@@ -159,12 +211,28 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2V0dGluZ3NcR2VuZXJhbFNldHRpbmdzVGFiLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Settings/LoanProductsTab.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2V0dGluZ3NcTG9hblByb2R1Y3RzVGFiLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Settings/LoanSettingsTab.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2V0dGluZ3NcTG9hblNldHRpbmdzVGFiLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Settings/MembershipTab.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2V0dGluZ3NcTWVtYmVyc2hpcFRhYi5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Settings/NotificationSettingsTab.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2V0dGluZ3NcTm90aWZpY2F0aW9uU2V0dGluZ3NUYWIucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Settings/PaymentsTab.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2V0dGluZ3NcUGF5bWVudHNUYWIucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Settings/RegionalTab.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2V0dGluZ3NcUmVnaW9uYWxUYWIucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Settings/SecurityCenter.razor]
@@ -191,6 +259,42 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2hhcmVzXFZpZXdTaGFyZXMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Site/About.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2l0ZVxBYm91dC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Site/Contact.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2l0ZVxDb250YWN0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Site/Home.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2l0ZVxIb21lLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Site/Membership.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2l0ZVxNZW1iZXJzaGlwLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Site/News.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2l0ZVxOZXdzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Site/Products.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2l0ZVxQcm9kdWN0cy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Site/_Imports.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2l0ZVxfSW1wb3J0cy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Users/Users.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcVXNlcnNcVXNlcnMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Pages/Website/WebsiteManager.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcV2Vic2l0ZVxXZWJzaXRlTWFuYWdlci5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/DefaultLayout.razor]
 build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXERlZmF1bHRMYXlvdXQucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
@@ -203,8 +307,60 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFJlZGlyZWN0VG9Mb2dpbi5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/SiteLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFNpdGVMYXlvdXQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/Site/EnquiryForm.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFNpdGVcRW5xdWlyeUZvcm0ucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/Site/FirstYear.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFNpdGVcRmlyc3RZZWFyLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/Site/HeroCollage.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFNpdGVcSGVyb0NvbGxhZ2UucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/Site/LoanCalculator.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFNpdGVcTG9hbkNhbGN1bGF0b3IucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/Site/RateBoard.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFNpdGVcUmF0ZUJvYXJkLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/Site/SaccoArt.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFNpdGVcU2FjY29BcnQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/Site/SavingsCalculator.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFNpdGVcU2F2aW5nc0NhbGN1bGF0b3IucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/Site/SitePageHead.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFNpdGVcU2l0ZVBhZ2VIZWFkLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/Ui/Avatar.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFVpXEF2YXRhci5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/Ui/ConfirmDialog.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFVpXENvbmZpcm1EaWFsb2cucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/Ui/DrawerHost.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFVpXERyYXdlckhvc3QucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/Ui/EmptyState.razor]
 build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFVpXEVtcHR5U3RhdGUucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/Ui/Field.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFVpXEZpZWxkLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/Ui/Modal.razor]
@@ -215,8 +371,20 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFVpXFBhZ2VIZWFkZXIucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/Ui/Pager.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFVpXFBhZ2VyLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/Ui/SearchPicker.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFVpXFNlYXJjaFBpY2tlci5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/Ui/StatCard.razor]
 build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFVpXFN0YXRDYXJkLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/Ui/StatusPill.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkXFVpXFN0YXR1c1BpbGwucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/Attain/source/repos/Personal Projects/Sacco Management System/Shared/Ui/ToggleSwitch.razor]

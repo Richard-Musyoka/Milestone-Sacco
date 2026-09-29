@@ -1,9 +1,9 @@
-<div class="ms-card ms-stat">
+<div class="ms-card ms-stat @Tone">
     <div class="ms-stat-top">
         <span class="ms-stat-ico @Tone"><i class="bi @Icon"></i></span>
         <span>@Label</span>
     </div>
-    <div class="ms-stat-val">@if (!string.IsNullOrEmpty(Prefix)) { <small>@Prefix</small> }@Value</div>
+    <div class="ms-stat-val">@if (!string.IsNullOrEmpty(Prefix)) { <small>@Prefix</small> }@if (CountTo.HasValue) { <span class="ms-count" data-to="@CountInv" data-dec="@Decimals" data-suf="@Suffix">@Value</span> } else { <span>@Value</span> }</div>
     <div class="ms-stat-foot">
         @if (!string.IsNullOrEmpty(Delta)) { <span class="ms-delta @(DeltaDown ? "down" : "")"><i class="bi @(DeltaDown ? "bi-arrow-down-right" : "bi-arrow-up-right")"></i>@Delta</span> }
         @if (!string.IsNullOrEmpty(Foot)) { <span>@Foot</span> }
@@ -26,6 +26,12 @@
     [Parameter] public bool DeltaDown { get; set; }
     [Parameter] public string? Foot { get; set; }
     [Parameter] public double[]? Spark { get; set; }
+    /// <summary>When set, the number counts up from zero on first display (Value is the final text).</summary>
+    [Parameter] public double? CountTo { get; set; }
+    [Parameter] public int Decimals { get; set; }
+    [Parameter] public string Suffix { get; set; } = "";
+
+    private string CountInv => (CountTo ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     private string SparkPoints
     {

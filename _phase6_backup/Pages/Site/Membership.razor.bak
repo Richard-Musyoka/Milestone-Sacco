@@ -1,0 +1,51 @@
+@page "/membership"
+@inject ConfigStore Cfg
+@inject SiteStore Site
+
+<PageTitle>Membership · @Brand.Name</PageTitle>
+<SitePageHead Title="Become a member" Text="@("Open to " + Cfg.Current.CommonBond.ToLowerInvariant() + " members aged " + Cfg.Current.MinMemberAge + " and above.")" />
+
+<section class="ws-sec">
+    <div class="ws-wrap ws-split" style="align-items:start">
+        <div>
+            <div class="ws-head" style="margin-bottom:18px"><span class="ws-eyebrow">What you need</span><h2>Requirements</h2></div>
+            <ul class="ws-list">@foreach (var r in S.Requirements) { <li><i class="bi bi-check-circle-fill"></i>@r</li> }</ul>
+        </div>
+        <div>
+            <div class="ws-head" style="margin-bottom:18px"><span class="ws-eyebrow">What it costs</span><h2>Fees and minimums</h2></div>
+            <div class="ws-fees" style="grid-template-columns:1fr 1fr">
+                <div class="ws-fee"><small>Entrance fee (once)</small><b>@Sym @C.EntranceFee.ToString("N0")</b></div>
+                <div class="ws-fee"><small>Monthly deposit from</small><b>@Sym @C.MinMonthlyDeposit.ToString("N0")</b></div>
+                <div class="ws-fee"><small>Share capital</small><b>@Sym @C.MinShareCapital.ToString("N0")</b></div>
+                <div class="ws-fee"><small>Build it over</small><b>@C.ShareCapitalMonths months</b></div>
+            </div>
+            @if (C.CheckOffEnabled) { <p style="color:var(--ms-text-2);margin-top:14px"><i class="bi bi-building-check" style="color:var(--ms-accent)"></i> Employed? Pay through <b>check-off</b> straight from your payslip.</p> }
+            @if (!string.IsNullOrWhiteSpace(C.MpesaPaybill)) { <p style="color:var(--ms-text-2)"><i class="bi bi-phone" style="color:#16a34a"></i> Or pay by M-Pesa Paybill <b>@C.MpesaPaybill</b>, account: your @C.MpesaAccountRef.ToLowerInvariant().</p> }
+        </div>
+    </div>
+</section>
+
+<section class="ws-sec brand">
+    <div class="ws-wrap">
+        <div class="ws-head center"><span class="ws-eyebrow">How it works</span><h2>From sign-up to your first loan</h2></div>
+        <div class="ws-steps">@foreach (var s in S.Steps) { <div class="ws-step"><p>@s</p></div> }</div>
+    </div>
+</section>
+
+<section class="ws-sec" id="join">
+    <div class="ws-wrap ws-split" style="align-items:start">
+        <div>
+            <div class="ws-head"><span class="ws-eyebrow">Join</span><h2>Leave your details</h2><p>Our member services team will call you to complete registration, usually within one working day.</p></div>
+            <div class="ws-faq" id="faqs">
+                @foreach (var f in S.Faqs) { <details><summary>@f.Q</summary><p>@f.A</p></details> }
+            </div>
+        </div>
+        <div class="ws-card" style="padding:28px"><EnquiryForm Kind="Membership" /></div>
+    </div>
+</section>
+
+@code {
+    private SiteContent S => Site.Current;
+    private OrgConfig C => Cfg.Current;
+    private string Sym => C.CurrencySymbol;
+}

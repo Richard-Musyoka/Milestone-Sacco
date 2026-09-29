@@ -1,164 +1,300 @@
 @layout DefaultLayout
 @page "/login"
 @attribute [AllowAnonymous]
+@implements IDisposable
 @using System.Text.Json
 @using SaccoManagementSystem.Security
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @inject SecurityStore Store
 @inject IConfiguration Config
+@inject SaccoManagementSystem.Services.ConfigStore Conf
+@using Sacco_Management_System.Shared.Site
 
-<PageTitle>Sign in · @Brand.Name</PageTitle>
+<PageTitle>@PageTitleText · @Brand.Name</PageTitle>
 
-<div class="ms-auth">
-    <section class="ms-auth-hero">
-        <div class="ms-brand" style="padding:0">
-            <div class="ms-brand-mark"><i class="bi bi-people-fill"></i></div>
-            <div><div class="ms-brand-name" style="font-size:18px">@Brand.Name</div><div class="ms-brand-tag">@Brand.Tagline</div></div>
+<div class="au lg">
+    <section class="lg-art" aria-hidden="true">
+        @if (HasLoginImage)
+        {
+            <img class="lg-photo" src="@("media/login?v=" + Conf.Ver)" alt="" />
+        }
+        else
+        {
+            <SaccoArt Class="lg-photo" Portrait="true" />
+        }
+        <div class="lg-shade"></div>
+        <div class="lg-brand">
+            <div class="au-mark @(HasLogo ? "logo" : "")">@if (HasLogo) { <img src="@("media/logo?v=" + Conf.Ver)" alt="" /> } else { <i class="bi bi-people-fill"></i> }</div>
+            <div><b>@Brand.Name</b><small>Staff portal</small></div>
         </div>
-        <h1>Run your SACCO with clarity and confidence.</h1>
-        <p>Members, savings, loans, shares and dividends — in one secure workspace built for your team.</p>
-        <ul class="ms-auth-points">
-            <li><i class="bi bi-phone"></i> Authenticator app &amp; backup codes</li>
-            <li><i class="bi bi-fingerprint"></i> Passkeys — Face ID, Touch ID, Windows Hello</li>
-            <li><i class="bi bi-laptop"></i> Trusted devices and full sign-in history</li>
-        </ul>
+        <div class="lg-caption">
+            <span class="lg-kicker"><i class="bi bi-stars"></i> @Brand.Name</span>
+            <h1>@Brand.Tagline</h1>
+            <p>Members, savings, loans and dividends in one secure place, so your team can spend more time with members.</p>
+            <div class="lg-chips">
+                <span><i class="bi bi-shield-lock-fill"></i> Encrypted</span>
+                <span><i class="bi bi-fingerprint"></i> Passkeys &amp; 2-step</span>
+                <span><i class="bi bi-journal-check"></i> Fully audited</span>
+                @if (!string.IsNullOrWhiteSpace(Conf.Current.MpesaPaybill)) { <span><i class="bi bi-phone"></i> Paybill @Conf.Current.MpesaPaybill</span> }
+            </div>
+        </div>
     </section>
 
-    <section class="ms-auth-side">
-        <div class="ms-auth-card">
-            @if (step == "password")
-            {
-                <h2>Welcome back</h2>
-                <p>Sign in to your @Brand.Name workspace.</p>
+    <section class="lg-side">
+        <div class="lg-top">
+            <a class="lg-back" href="/"><i class="bi bi-arrow-left"></i> Back to website</a>
+            <button type="button" class="ms-install" data-pwa-install hidden title="Install the app on this device"><i class="bi bi-phone"></i><span>Install app</span></button>
+            <button type="button" class="ms-icon-btn ms-theme-btn" data-ms-theme title="Switch light / dark" aria-label="Switch light or dark theme"><i class="bi bi-moon-stars ms-t-dark"></i><i class="bi bi-sun ms-t-light"></i></button>
+        </div>
 
-                @if (!string.IsNullOrEmpty(error)) { <div class="ms-alert bad" role="alert"><i class="bi bi-exclamation-circle-fill"></i><div>@error</div></div> }
-                @if (!string.IsNullOrEmpty(notice)) { <div class="ms-alert ok"><i class="bi bi-check-circle-fill"></i><div>@notice</div></div> }
+        <div class="au-center">
+            <div class="au-card" @key="mode">
+                <div class="au-mobile-brand"><div class="au-mark @(HasLogo ? "logo" : "")">@if (HasLogo) { <img src="@("media/logo?v=" + Conf.Ver)" alt="" /> } else { <i class="bi bi-people-fill"></i> }</div>@Brand.Name</div>
 
-                <form @onsubmit="SubmitPassword" @onsubmit:preventDefault="true">
-                    <div class="ms-field">
-                        <label class="ms-label" for="email">Email</label>
-                        <input id="email" class="ms-input" type="email" autocomplete="username webauthn" placeholder="you@sacco.co.ke" @bind="email" @bind:event="oninput" />
-                    </div>
-                    <div class="ms-field">
-                        <label class="ms-label" for="password">Password</label>
-                        <div class="ms-input-wrap">
-                            <input id="password" class="ms-input" type="@(showPwd ? "text" : "password")" autocomplete="current-password" placeholder="••••••••" @bind="password" @bind:event="oninput" />
-                            <button type="button" @onclick="() => showPwd = !showPwd" aria-label="@(showPwd ? "Hide password" : "Show password")"><i class="bi @(showPwd ? "bi-eye-slash" : "bi-eye")"></i></button>
-                        </div>
-                    </div>
-                    <div class="ms-auth-links">
-                        <label class="ms-check"><input type="checkbox" @bind="remember" /> Keep me signed in</label>
-                        <span class="ms-hint">Forgot it? Ask your administrator.</span>
-                    </div>
-                    <button type="submit" class="ms-btn primary block @(busy ? "busy" : "")" style="height:46px">
-                        @if (busy) { <span class="ms-spin"></span> } Sign in
-                    </button>
-                </form>
-
-                @if (passkeysSupported)
+                @if (loading)
                 {
-                    <div class="ms-divider">or</div>
-                    <button type="button" class="ms-btn block @(busy ? "busy" : "")" style="height:46px" @onclick="PasskeySignIn"><i class="bi bi-fingerprint"></i> Sign in with a passkey</button>
-                }
-
-                @if (allowRegistration)
-                {
-                    <p class="ms-hint" style="text-align:center;margin-top:22px">New here? <a href="register" style="color:var(--ms-accent);font-weight:700">Create an account</a></p>
-                }
-            }
-            else if (step == "mfa")
-            {
-                <h2>Verify it's you</h2>
-                <p>Two-step verification protects your account.</p>
-
-                @if (!string.IsNullOrEmpty(error)) { <div class="ms-alert bad" role="alert"><i class="bi bi-exclamation-circle-fill"></i><div>@error</div></div> }
-
-                <div class="ms-step-tabs" role="tablist">
-                    @foreach (var m in AvailableMethods)
-                    {
-                        <button type="button" role="tab" class="@(method == m.Key ? "on" : "")" @onclick="() => PickMethod(m.Key)">@m.Value</button>
-                    }
-                </div>
-
-                @if (method == "totp")
-                {
-                    <form @onsubmit="SubmitCode" @onsubmit:preventDefault="true">
-                        <div class="ms-field">
-                            <label class="ms-label" for="code">6-digit code from your authenticator app</label>
-                            <input id="code" class="ms-input ms-code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="000000" @bind="code" @bind:event="oninput" />
-                        </div>
-                        <TrustBox @bind-Value="trust" />
-                        <button type="submit" class="ms-btn primary block @(busy ? "busy" : "")" style="height:46px">@if (busy) { <span class="ms-spin"></span> } Verify</button>
-                    </form>
-                }
-                else if (method == "backup")
-                {
-                    <form @onsubmit="SubmitCode" @onsubmit:preventDefault="true">
-                        <div class="ms-field">
-                            <label class="ms-label" for="code">Backup code</label>
-                            <input id="code" class="ms-input" autocomplete="off" placeholder="abcde-12345" @bind="code" @bind:event="oninput" />
-                            <span class="ms-hint">Each backup code works once.</span>
-                        </div>
-                        <TrustBox @bind-Value="trust" />
-                        <button type="submit" class="ms-btn primary block @(busy ? "busy" : "")" style="height:46px">@if (busy) { <span class="ms-spin"></span> } Use backup code</button>
-                    </form>
-                }
-                else if (method == "passkey")
-                {
-                    <div class="ms-card ms-card-pad" style="text-align:center">
-                        <span class="ms-method-ico" style="margin:0 auto 12px;width:56px;height:56px;font-size:26px"><i class="bi bi-fingerprint"></i></span>
-                        <b>Use your passkey</b>
-                        <p class="ms-hint" style="margin:6px 0 16px">Confirm with your fingerprint, face or device PIN.</p>
-                        <TrustBox @bind-Value="trust" />
-                        <button type="button" class="ms-btn primary block @(busy ? "busy" : "")" style="height:46px" @onclick="PasskeyVerify">@if (busy) { <span class="ms-spin"></span> } Continue with passkey</button>
-                    </div>
+                    <div class="ms-skel" style="height:360px;border-radius:16px"></div>
                 }
                 else
                 {
-                    @if (otpId == Guid.Empty)
+                    @if (mode is "signin" or "member")
                     {
-                        <div class="ms-card ms-card-pad" style="text-align:center">
-                            <b>Send a one-time code</b>
-                            <p class="ms-hint" style="margin:6px 0 16px">We'll send it to @(method == "sms" ? phoneHint : emailHint).</p>
-                            <button type="button" class="ms-btn primary block @(busy ? "busy" : "")" style="height:46px" @onclick="SendOtp">@if (busy) { <span class="ms-spin"></span> } Send code</button>
+                        <div class="au-tabs" data-pos="@TabPos" role="tablist" aria-label="Who is signing in">
+                            <button type="button" role="tab" aria-selected="@(mode == "signin")" class="@(mode == "signin" ? "on" : "")" @onclick="GoSignIn"><i class="bi bi-briefcase"></i> Staff</button>
+                            <button type="button" role="tab" aria-selected="@(mode == "member")" class="@(mode == "member" ? "on" : "")" @onclick='() => Go("member")'><i class="bi bi-person-vcard"></i> Member</button>
                         </div>
                     }
-                    else
+
+                    @switch (mode)
                     {
-                        <form @onsubmit="SubmitCode" @onsubmit:preventDefault="true">
-                            <div class="ms-alert ok"><i class="bi bi-send-check-fill"></i><div>Code sent to @sentTo. It expires in 10 minutes.</div></div>
-                            <div class="ms-field">
-                                <label class="ms-label" for="code">Enter the code</label>
-                                <input id="code" class="ms-input ms-code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="000000" @bind="code" @bind:event="oninput" />
+                        case "signin":
+                            <span class="lg-hello">@Greeting</span>
+                            <h2>Staff sign-in</h2>
+                            <p class="au-lead">Use your work email and password.</p>
+                            @Notes()
+                            <form @onsubmit="SubmitPassword" @onsubmit:preventDefault="true">
+                                <div class="au-field">
+                                    <label for="email">Email</label>
+                                    <div class="au-in"><i class="bi bi-envelope lead"></i><input id="email" type="email" autocomplete="username webauthn" placeholder="you@sacco.co.ke" @bind="email" @bind:event="oninput" /></div>
+                                </div>
+                                <div class="au-field">
+                                    <label for="password">Password <button type="button" class="au-link" @onclick="GoForgot">Forgot password?</button></label>
+                                    <div class="au-in">
+                                        <i class="bi bi-lock lead"></i>
+                                        <input id="password" type="@PwdType" autocomplete="current-password" placeholder="Your password" @bind="password" @bind:event="oninput" />
+                                        <button type="button" class="eye" @onclick="TogglePwd" aria-label="Show or hide password"><i class="bi @EyeIcon"></i></button>
+                                    </div>
+                                </div>
+                                <div class="au-opts"><label class="au-check"><input type="checkbox" @bind="remember" /> Keep me signed in</label></div>
+                                <button type="submit" class="au-btn primary" disabled="@busy">@if (busy) { <span class="au-spin"></span> } Sign in <i class="bi bi-arrow-right"></i></button>
+                            </form>
+                            @if (passkeysSupported)
+                            {
+                                <div class="au-or">or</div>
+                                <button type="button" class="au-btn" disabled="@busy" @onclick="PasskeySignIn"><i class="bi bi-fingerprint"></i> Sign in with a passkey</button>
+                            }
+                            <p class="au-hint" style="margin-top:16px;text-align:center">No account? Your administrator creates staff accounts in Users &amp; roles.</p>
+                            break;
+
+                        case "member":
+                            <span class="lg-hello">@Greeting</span>
+                            <h2>Member sign-in</h2>
+                            <p class="au-lead">No password needed. We'll send a one-time code to the phone or email on your membership.</p>
+                            @Notes()
+                            <form @onsubmit="SubmitMember" @onsubmit:preventDefault="true">
+                                <div class="au-field">
+                                    <label for="mid">Member number, ID number or phone</label>
+                                    <div class="au-in"><i class="bi bi-person-vcard lead"></i><input id="mid" autocomplete="username" placeholder="e.g. TSC0002, 12345678 or 0712 345 678" @bind="memberIdentifier" @bind:event="oninput" /></div>
+                                </div>
+                                <div class="au-opts"><label class="au-check"><input type="checkbox" @bind="remember" /> Keep me signed in on this device</label></div>
+                                <button type="submit" class="au-btn primary" disabled="@busy">@if (busy) { <span class="au-spin"></span> } Send my code <i class="bi bi-arrow-right"></i></button>
+                            </form>
+                            <div class="au-note" style="margin-top:14px"><i class="bi bi-shield-lock"></i><div>Staff will never ask for your code. If your phone number has changed, visit the office with your ID to update it.</div></div>
+                            break;
+
+                        case "register":
+                            <h2>Set up your workspace</h2>
+                            <p class="au-lead">@RegisterLead</p>
+                            @Notes()
+                            <form @onsubmit="SubmitRegister" @onsubmit:preventDefault="true">
+                                <div class="au-row2">
+                                    <div class="au-field"><label for="fn">First name</label><div class="au-in"><i class="bi bi-person lead"></i><input id="fn" autocomplete="given-name" @bind="first" @bind:event="oninput" /></div></div>
+                                    <div class="au-field"><label for="ln">Last name</label><div class="au-in"><i class="bi bi-person lead"></i><input id="ln" autocomplete="family-name" @bind="last" @bind:event="oninput" /></div></div>
+                                </div>
+                                <div class="au-field"><label for="em">Work email</label><div class="au-in"><i class="bi bi-envelope lead"></i><input id="em" type="email" autocomplete="email" placeholder="you@sacco.co.ke" @bind="email" @bind:event="oninput" /></div></div>
+                                <div class="au-field"><label for="ph">Phone (optional)</label><div class="au-in"><i class="bi bi-telephone lead"></i><input id="ph" type="tel" autocomplete="tel" placeholder="+254 7…" @bind="phone" @bind:event="oninput" /></div></div>
+                                <div class="au-field">
+                                    <label for="pw">Password</label>
+                                    <div class="au-in">
+                                        <i class="bi bi-lock lead"></i>
+                                        <input id="pw" type="@PwdType" autocomplete="new-password" @bind="password" @bind:event="oninput" />
+                                        <button type="button" class="eye" @onclick="TogglePwd" aria-label="Show or hide password"><i class="bi @EyeIcon"></i></button>
+                                    </div>
+                                    <div class="au-strength" aria-hidden="true">@for (int i = 1; i <= 4; i++) { <i class="@StrengthClass(i)"></i> }</div>
+                                    <span class="au-hint">@StrengthLabel</span>
+                                </div>
+                                <div class="au-field"><label for="pw2">Confirm password</label><div class="au-in"><i class="bi bi-shield-check lead"></i><input id="pw2" type="@PwdType" autocomplete="new-password" @bind="confirm" @bind:event="oninput" /></div></div>
+                                <button type="submit" class="au-btn primary" style="margin-top:8px" disabled="@busy">@if (busy) { <span class="au-spin"></span> } @RegisterButton <i class="bi bi-arrow-right"></i></button>
+                            </form>
+                            break;
+
+                        case "pending":
+                            <div class="au-center-text">
+                                <div class="au-badge ok"><i class="bi bi-hourglass-split"></i></div>
+                                <h2>Request received</h2>
+                                <p class="au-lead">Thanks, @first. An administrator will review your request. You'll be able to sign in with <b>@email</b> as soon as it's approved.</p>
+                                <button type="button" class="au-btn" @onclick="GoSignIn">Back to sign in</button>
                             </div>
-                            <TrustBox @bind-Value="trust" />
-                            <button type="submit" class="ms-btn primary block @(busy ? "busy" : "")" style="height:46px">@if (busy) { <span class="ms-spin"></span> } Verify</button>
-                            <button type="button" class="ms-btn ghost block" style="margin-top:8px" @onclick="SendOtp">Send a new code</button>
-                        </form>
+                            break;
+
+                        case "forgot":
+                            <div class="au-badge"><i class="bi bi-key"></i></div>
+                            <h2>Reset your password</h2>
+                            <p class="au-lead">Enter your email and we'll send a 6-digit code to reset your password.</p>
+                            @Notes()
+                            <form @onsubmit="SubmitForgot" @onsubmit:preventDefault="true">
+                                <div class="au-field"><label for="fe">Email</label><div class="au-in"><i class="bi bi-envelope lead"></i><input id="fe" type="email" autocomplete="email" placeholder="you@sacco.co.ke" @bind="email" @bind:event="oninput" /></div></div>
+                                <button type="submit" class="au-btn primary" disabled="@busy">@if (busy) { <span class="au-spin"></span> } Send reset code</button>
+                            </form>
+                            <button type="button" class="au-btn ghost" style="margin-top:10px" @onclick="GoSignIn"><i class="bi bi-arrow-left"></i> Back to sign in</button>
+                            break;
+
+                        case "reset":
+                            <div class="au-badge"><i class="bi bi-envelope-check"></i></div>
+                            <h2>Check your email</h2>
+                            <p class="au-lead">If <b>@email</b> has an account, a code is on its way. Enter it below with your new password.</p>
+                            @Notes()
+                            <form @onsubmit="SubmitReset" @onsubmit:preventDefault="true">
+                                <div class="au-field au-otp"><label for="rc">6-digit code</label><input id="rc" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" @bind="code" @bind:event="oninput" /></div>
+                                <div class="au-field">
+                                    <label for="np">New password</label>
+                                    <div class="au-in">
+                                        <i class="bi bi-lock lead"></i>
+                                        <input id="np" type="@PwdType" autocomplete="new-password" @bind="password" @bind:event="oninput" />
+                                        <button type="button" class="eye" @onclick="TogglePwd" aria-label="Show or hide password"><i class="bi @EyeIcon"></i></button>
+                                    </div>
+                                    <div class="au-strength" aria-hidden="true">@for (int i = 1; i <= 4; i++) { <i class="@StrengthClass(i)"></i> }</div>
+                                    <span class="au-hint">@StrengthLabel</span>
+                                </div>
+                                <div class="au-field"><label for="np2">Confirm new password</label><div class="au-in"><i class="bi bi-shield-check lead"></i><input id="np2" type="@PwdType" autocomplete="new-password" @bind="confirm" @bind:event="oninput" /></div></div>
+                                <button type="submit" class="au-btn primary" disabled="@busy">@if (busy) { <span class="au-spin"></span> } Update password</button>
+                            </form>
+                            <button type="button" class="au-btn ghost" style="margin-top:10px" disabled="@(cooldown > 0 || busy)" @onclick="SubmitForgot">@ResendLabel</button>
+                            <button type="button" class="au-btn ghost" @onclick="GoSignIn"><i class="bi bi-arrow-left"></i> Back to sign in</button>
+                            break;
+
+                        case "mfa":
+                            <div class="au-badge"><i class="bi bi-shield-lock"></i></div>
+                            <h2>Verify it's you</h2>
+                            <p class="au-lead">One more step to protect your account.</p>
+                            @Notes()
+                            @if (methods.Count > 1)
+                            {
+                                <div class="au-methods" role="tablist">
+                                    @foreach (var m in AvailableMethods)
+                                    {
+                                        var key = m.Key;
+                                        <button type="button" role="tab" class="au-method @(method == key ? "on" : "")" @onclick="() => PickMethod(key)"><i class="bi @MethodIcon(key)"></i>@m.Value</button>
+                                    }
+                                </div>
+                            }
+
+                            @if (method == "totp")
+                            {
+                                <form @onsubmit="SubmitCode" @onsubmit:preventDefault="true">
+                                    <div class="au-field au-otp"><label for="code">Code from your authenticator app</label><input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="000000" @bind="code" @bind:event="oninput" /></div>
+                                    <TrustBox @bind-Value="trust" />
+                                    <button type="submit" class="au-btn primary" style="margin-top:14px" disabled="@busy">@if (busy) { <span class="au-spin"></span> } Verify</button>
+                                </form>
+                            }
+                            else if (method == "backup")
+                            {
+                                <form @onsubmit="SubmitCode" @onsubmit:preventDefault="true">
+                                    <div class="au-field"><label for="code">Backup code</label><div class="au-in"><i class="bi bi-key lead"></i><input id="code" autocomplete="off" placeholder="abcde-12345" @bind="code" @bind:event="oninput" /></div><span class="au-hint">Each backup code works once.</span></div>
+                                    <TrustBox @bind-Value="trust" />
+                                    <button type="submit" class="au-btn primary" style="margin-top:14px" disabled="@busy">@if (busy) { <span class="au-spin"></span> } Use backup code</button>
+                                </form>
+                            }
+                            else if (method == "passkey")
+                            {
+                                <div class="au-center-text" style="padding:6px 0 4px">
+                                    <div class="au-badge"><i class="bi bi-fingerprint"></i></div>
+                                    <b>Use your passkey</b>
+                                    <p class="au-lead" style="margin:6px 0 14px">Confirm with your fingerprint, face or device PIN.</p>
+                                </div>
+                                <TrustBox @bind-Value="trust" />
+                                <button type="button" class="au-btn primary" style="margin-top:14px" disabled="@busy" @onclick="PasskeyVerify">@if (busy) { <span class="au-spin"></span> } Continue with passkey</button>
+                            }
+                            else if (otpId == Guid.Empty)
+                            {
+                                <div class="au-center-text" style="padding:6px 0 4px">
+                                    <div class="au-badge"><i class="bi @MethodIcon(method)"></i></div>
+                                    <b>Send a one-time code</b>
+                                    <p class="au-lead" style="margin:6px 0 14px">We'll send it to @SendHint.</p>
+                                </div>
+                                <button type="button" class="au-btn primary" disabled="@busy" @onclick="SendOtp">@if (busy) { <span class="au-spin"></span> } Send code</button>
+                            }
+                            else
+                            {
+                                <form @onsubmit="SubmitCode" @onsubmit:preventDefault="true">
+                                    @if (delivered) { <div class="au-note ok"><i class="bi bi-send-check-fill"></i><div>Code sent to <b>@sentTo</b>. It expires in 10 minutes. Check spam if you can't see it.</div></div> }
+                                    <div class="au-field au-otp"><label for="code">Enter the 6-digit code</label><input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="000000" @bind="code" @bind:event="oninput" /></div>
+                                    <TrustBox @bind-Value="trust" />
+                                    <button type="submit" class="au-btn primary" style="margin-top:14px" disabled="@busy">@if (busy) { <span class="au-spin"></span> } Verify</button>
+                                    <button type="button" class="au-btn ghost" style="margin-top:8px" disabled="@(cooldown > 0 || busy)" @onclick="SendOtp">@ResendLabel</button>
+                                </form>
+                            }
+
+                            <button type="button" class="au-btn ghost" style="margin-top:10px" @onclick="BackToPassword"><i class="bi bi-arrow-left"></i> Use a different account</button>
+                            break;
                     }
                 }
-
-                <button type="button" class="ms-btn ghost block" style="margin-top:14px" @onclick="BackToPassword"><i class="bi bi-arrow-left"></i> Use a different account</button>
-            }
+            </div>
         </div>
+        <div class="au-foot">© @DateTime.Now.Year @Brand.Name · Secure sign-in</div>
     </section>
 </div>
 
 @code {
     [CascadingParameter] private Task<AuthenticationState>? Auth { get; set; }
     [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery(Name = "mode")] public string? ModeParam { get; set; }
     [SupplyParameterFromQuery(Name = "notice")] public string? NoticeKey { get; set; }
 
-    private string step = "password";
-    private string email = "", password = "";
-    private bool remember, showPwd, busy, trust, passkeysSupported, allowRegistration;
-    private string? error, notice;
+    private string mode = "signin";
+    private string email = "", password = "", first = "", last = "", phone = "", confirm = "", memberIdentifier = "";
+    private bool memberFlow;
+    private bool remember, showPwd, busy, trust, passkeysSupported, allowRegistration, firstUser, loading = true, delivered = true;
+    private string? error, notice, warning;
 
     // MFA state
     private string mfaToken = "", method = "totp", code = "", sentTo = "", emailHint = "", phoneHint = "";
     private List<string> methods = new();
     private Guid otpId = Guid.Empty;
+    private int cooldown;
+    private CancellationTokenSource? cooldownCts;
+
+    private string PageTitleText => mode switch { "register" => firstUser ? "Set up" : "Request access", "forgot" or "reset" => "Reset password", "mfa" => "Verify", "member" => "Member sign-in", _ => "Sign in" };
+    private int TabPos => mode == "member" ? 1 : 0;
+    private string RegisterTab => firstUser ? "Set up" : "Request access";
+    private string RegisterButton => firstUser ? "Create administrator account" : "Request access";
+    private string RegisterLead => firstUser
+        ? "You're the first person here, so you'll be the administrator."
+        : "Tell us who you are. An administrator approves your account before you can sign in.";
+    private string PwdType => showPwd ? "text" : "password";
+    private string EyeIcon => showPwd ? "bi-eye-slash" : "bi-eye";
+    private string SendHint => method == "sms" ? phoneHint : emailHint;
+    private string ResendLabel => cooldown > 0 ? "Send a new code in " + cooldown + "s" : "Send a new code";
+
+    private RenderFragment Notes() => __builder =>
+    {
+        @if (!string.IsNullOrEmpty(error)) { <div class="au-note bad" role="alert"><i class="bi bi-exclamation-circle-fill"></i><div>@error</div></div> }
+        @if (!string.IsNullOrEmpty(warning)) { <div class="au-note warn" role="alert"><i class="bi bi-exclamation-triangle-fill"></i><div>@warning</div></div> }
+        @if (!string.IsNullOrEmpty(notice)) { <div class="au-note ok"><i class="bi bi-check-circle-fill"></i><div>@notice</div></div> }
+    };
+
+    private static string MethodIcon(string m) => m switch { "totp" => "bi-phone", "passkey" => "bi-fingerprint", "backup" => "bi-key", "email" => "bi-envelope", "sms" => "bi-chat-dots", _ => "bi-shield" };
 
     private IEnumerable<KeyValuePair<string, string>> AvailableMethods
     {
@@ -169,11 +305,38 @@
         }
     }
 
+    private int Strength
+    {
+        get
+        {
+            int s = 0;
+            if (password.Length >= 8) s++;
+            if (password.Any(char.IsUpper) && password.Any(char.IsLower)) s++;
+            if (password.Any(char.IsDigit)) s++;
+            if (password.Any(c => !char.IsLetterOrDigit(c)) || password.Length >= 14) s++;
+            return password.Length == 0 ? 0 : Math.Max(1, s);
+        }
+    }
+    private string StrengthClass(int i) => Strength >= i ? "s" + Strength : "";
+    private string StrengthLabel => Strength switch { 0 => "Use at least 8 characters with upper case, lower case and a number.", 1 => "Weak", 2 => "Fair", 3 => "Good", _ => "Strong" };
+
+    private bool HasLogo => !string.IsNullOrEmpty(Conf.Current.LogoDataUrl);
+    private bool HasLoginImage => !string.IsNullOrEmpty(Conf.Current.LoginImageDataUrl);
+    private static string Greeting => DateTime.Now.Hour < 12 ? "Habari ya asubuhi" : DateTime.Now.Hour < 17 ? "Habari ya mchana" : "Habari ya jioni";
+
     protected override async Task OnInitializedAsync()
     {
         if (Auth != null && (await Auth).User.Identity?.IsAuthenticated == true) { Navigation.NavigateTo(SafeTarget(), forceLoad: true); return; }
         if (NoticeKey == "registered") notice = "Account created. Sign in to continue.";
-        try { allowRegistration = await Store.CountUsersAsync() == 0 || Config.GetValue<bool>("Security:AllowSelfRegistration"); } catch { }
+        try
+        {
+            firstUser = await Store.CountUsersAsync() == 0;
+            allowRegistration = firstUser;   // only the very first administrator sets up their own account
+        }
+        catch { }
+        if (firstUser) mode = "register";
+        else if (ModeParam == "member") mode = "member";
+        loading = false;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -182,10 +345,22 @@
         try { passkeysSupported = await JS.InvokeAsync<bool>("ms.supportsPasskeys"); StateHasChanged(); } catch { }
     }
 
+    private void TogglePwd() => showPwd = !showPwd;
+    private void GoSignIn() => Go("signin");
+    private void GoRegister() => Go("register");
+    private void GoForgot() => Go("forgot");
+
+    private void Go(string m)
+    {
+        if (m == "register" && !allowRegistration) return;
+        mode = m; error = null; warning = null; notice = null; password = ""; confirm = ""; code = ""; cooldown = 0; showPwd = false;
+    }
+
     private string SafeTarget()
     {
         var t = ReturnUrl?.Trim() ?? "";
-        if (t.Length == 0 || t.StartsWith("//") || t.StartsWith("\\") || t.Contains(':') || t.StartsWith("login", StringComparison.OrdinalIgnoreCase)) return "/dashboard";
+        if (t.Length == 0 || t.StartsWith("//") || t.StartsWith("\\") || t.Contains(':') || t.StartsWith("login", StringComparison.OrdinalIgnoreCase)) return memberFlow ? "/my" : "/dashboard";
+        if (memberFlow && !t.TrimStart('/').StartsWith("my", StringComparison.OrdinalIgnoreCase)) return "/my";
         return "/" + t.TrimStart('/');
     }
 
@@ -214,34 +389,52 @@
 
     private void Fail(Reply r) => error = r.Message ?? (r.Status == 0 ? "Network problem. Try again." : "Something went wrong. Try again.");
 
+    // ------------------------------------------------------------ sign in
     private async Task SubmitPassword()
     {
-        error = null;
+        error = null; notice = null;
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrEmpty(password)) { error = "Enter your email and password."; return; }
         busy = true;
         try
         {
             var r = await Call("/api/auth/login", new { email = email.Trim(), password, rememberMe = remember });
             if (!r.Ok) { Fail(r); password = ""; return; }
-            if (r.ApiStatus == "mfa") { EnterMfa(r.Data); return; }
+            if (r.ApiStatus == "mfa") { await EnterMfa(r.Data); return; }
             Navigation.NavigateTo(SafeTarget(), forceLoad: true);
         }
         finally { busy = false; }
     }
 
-    private void EnterMfa(JsonElement d)
+    private async Task EnterMfa(JsonElement d)
     {
         mfaToken = d.GetProperty("token").GetString() ?? "";
         methods = d.GetProperty("methods").EnumerateArray().Select(x => x.GetString() ?? "").ToList();
         emailHint = d.GetProperty("emailHint").GetString() ?? "";
         phoneHint = d.GetProperty("phoneHint").GetString() ?? "";
         method = methods.Contains("totp") ? "totp" : methods.Contains("passkey") ? "passkey" : methods.FirstOrDefault() ?? "totp";
-        code = ""; otpId = Guid.Empty; error = null; step = "mfa";
+        code = ""; otpId = Guid.Empty; error = null; warning = null; notice = null; mode = "mfa";
+        StateHasChanged();
+        if (method == "email" || memberFlow) await SendOtp();          // email-only / member sign-in: send straight away
     }
 
-    private void PickMethod(string m) { method = m; code = ""; error = null; otpId = Guid.Empty; }
+    private void PickMethod(string m) { method = m; code = ""; error = null; warning = null; otpId = Guid.Empty; }
 
-    private void BackToPassword() { step = "password"; password = ""; code = ""; error = null; mfaToken = ""; }
+    private void BackToPassword() { Go(memberFlow ? "member" : "signin"); mfaToken = ""; }
+
+    private async Task SubmitMember()
+    {
+        error = null; notice = null; warning = null;
+        if (string.IsNullOrWhiteSpace(memberIdentifier)) { error = "Enter your member number, ID number or phone."; return; }
+        busy = true;
+        try
+        {
+            var r = await Call("/api/auth/member/start", new { identifier = memberIdentifier.Trim(), rememberMe = remember });
+            if (!r.Ok) { Fail(r); return; }
+            memberFlow = true;
+            await EnterMfa(r.Data);
+        }
+        finally { busy = false; }
+    }
 
     private async Task SubmitCode()
     {
@@ -258,7 +451,7 @@
             if (!r.Ok)
             {
                 Fail(r);
-                if (r.ApiStatus == "expired" || r.Status == 423) BackToPasswordWithError();
+                if (r.ApiStatus == "expired" || r.Status == 423) { var e = error; BackToPassword(); error = e; }
                 code = "";
                 return;
             }
@@ -267,18 +460,20 @@
         finally { busy = false; }
     }
 
-    private void BackToPasswordWithError() { var e = error; BackToPassword(); error = e; }
-
     private async Task SendOtp()
     {
-        error = null; busy = true;
+        error = null; warning = null; busy = true;
         try
         {
             var r = await Call("/api/auth/mfa/otp/send", new { token = mfaToken, channel = method });
             if (!r.Ok) { Fail(r); return; }
             otpId = Guid.Parse(r.Data.GetProperty("otpId").GetString()!);
             sentTo = r.Data.GetProperty("sentTo").GetString() ?? "";
+            delivered = !r.Data.TryGetProperty("delivered", out var dv) || dv.GetBoolean();
+            if (!delivered && r.Data.TryGetProperty("warning", out var w) && w.ValueKind == JsonValueKind.String) warning = w.GetString();
+            if (r.Data.TryGetProperty("devCode", out var dc) && dc.ValueKind == JsonValueKind.String) warning = "Development mode: delivery isn't set up, so here is your code: " + dc.GetString();
             code = "";
+            StartCooldown(30);
         }
         finally { busy = false; }
     }
@@ -308,4 +503,82 @@
         }
         finally { busy = false; }
     }
+
+    // ----------------------------------------------------------- register
+    private async Task SubmitRegister()
+    {
+        error = null;
+        if (string.IsNullOrWhiteSpace(first) || string.IsNullOrWhiteSpace(last) || string.IsNullOrWhiteSpace(email)) { error = "Please fill in your name and email."; return; }
+        if (!email.Contains('@')) { error = "Enter a valid email address."; return; }
+        if (password != confirm) { error = "Passwords don't match."; return; }
+        busy = true;
+        try
+        {
+            var r = await Call("/api/auth/register", new { firstName = first.Trim(), lastName = last.Trim(), email = email.Trim(), phoneNumber = phone.Trim(), password });
+            if (!r.Ok) { Fail(r); return; }
+            bool pending = r.Data.ValueKind == JsonValueKind.Object && r.Data.TryGetProperty("pending", out var p) && p.ValueKind == JsonValueKind.True;
+            if (pending) { mode = "pending"; return; }
+            var mail = email;
+            Go("signin"); email = mail; notice = "Account created. Sign in to continue.";
+        }
+        finally { busy = false; }
+    }
+
+    // ------------------------------------------------------ forgot / reset
+    private async Task SubmitForgot()
+    {
+        error = null; notice = null;
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@')) { error = "Enter the email address for your account."; return; }
+        busy = true;
+        try
+        {
+            var r = await Call("/api/auth/forgot", new { email = email.Trim() });
+            if (!r.Ok) { Fail(r); return; }
+            if (mode != "reset") { var mail = email; Go("reset"); email = mail; }
+            else notice = "If that account exists, a new code is on its way.";
+            StartCooldown(30);
+        }
+        finally { busy = false; }
+    }
+
+    private async Task SubmitReset()
+    {
+        error = null;
+        if (string.IsNullOrWhiteSpace(code)) { error = "Enter the 6-digit code from your email."; return; }
+        if (password != confirm) { error = "Passwords don't match."; return; }
+        busy = true;
+        try
+        {
+            var r = await Call("/api/auth/reset", new { email = email.Trim(), code = code.Trim(), newPassword = password });
+            if (!r.Ok) { Fail(r); return; }
+            var mail = email;
+            Go("signin"); email = mail; notice = "Password updated. Sign in with your new password.";
+        }
+        finally { busy = false; }
+    }
+
+    // ------------------------------------------------------------ cooldown
+    private void StartCooldown(int seconds)
+    {
+        cooldownCts?.Cancel();
+        cooldownCts = new CancellationTokenSource();
+        var token = cooldownCts.Token;
+        cooldown = seconds;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (cooldown > 0 && !token.IsCancellationRequested)
+                {
+                    await Task.Delay(1000, token);
+                    cooldown--;
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (ObjectDisposedException) { }
+        });
+    }
+
+    public void Dispose() { cooldownCts?.Cancel(); cooldownCts?.Dispose(); }
 }

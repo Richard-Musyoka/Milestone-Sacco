@@ -1,0 +1,242 @@
+@page "/payments"
+@using System.Security.Claims
+@using System.Text
+@using SaccoManagementSystem.Services
+@using SaccoManagementSystem.Security
+@inject PaymentStore Store
+@inject ConfigStore Cfg
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Payments · @Brand.Name</PageTitle>
+
+<div class="ms-page">
+    <PageHeader Title="Payments" Subtitle="Every shilling received: M-Pesa, bank, cash and check-off, and where it was posted.">
+        <button type="button" class="ms-btn" @onclick="Export"><i class="bi bi-download"></i> Export</button>
+        <a class="ms-btn primary" href="payments/record"><i class="bi bi-plus-lg"></i> Receive payment</a>
+    </PageHeader>
+
+    @if (sum == null)
+    {
+        <div class="ms-grid stats">@for (var i = 0; i < 4; i++) { <div class="ms-skel" style="height:120px"></div> }</div>
+    }
+    else
+    {
+        <div class="ms-grid stats">
+            <StatCard Label="Received today" Icon="bi-sun" Prefix="@Sym" Value="@sum.Today.ToString("N0")" CountTo="@((double)sum.Today)" Foot="@DateTime.Today.ToString("dddd d MMM")" />
+            <StatCard Label="This month" Icon="bi-calendar3" Tone="blue" Prefix="@Sym" Value="@sum.Month.ToString("N0")" CountTo="@((double)sum.Month)" Foot="@(sum.CountMonth + " payments")" Spark="@(sum.Last30.Select(x => (double)x.Amount).ToArray())" />
+            <StatCard Label="This year" Icon="bi-graph-up-arrow" Tone="gold" Prefix="@Sym" Value="@sum.Year.ToString("N0")" CountTo="@((double)sum.Year)" Foot="@DateTime.Today.Year.ToString()" />
+            <StatCard Label="Via M-Pesa" Icon="bi-phone" Tone="green" Value="@(MpesaPct + "%")" Foot="of this month's value" />
+        </div>
+
+        <div class="ms-grid two ms-mt">
+            <section class="ms-card">
+                <div class="ms-card-head"><div><h3>Last 30 days</h3><p>Daily money in</p></div></div>
+                <div class="ms-card-body">
+                    <div class="pay-bars">
+                        @foreach (var d in sum.Last30)
+                        {
+                            <div title="@($"{d.Day:ddd d MMM}: {Sym} {d.Amount:N0}")"><i style="height:@(Max == 0 ? 2 : Math.Max(2, (int)(d.Amount * 100 / Max)))%;@(d.Day == DateTime.Today ? "background:var(--ms-accent)" : "")"></i></div>
+                        }
+                    </div>
+                    <div class="pay-axis"><span>@sum.Last30.First().Day.ToString("d MMM")</span><span>Today</span></div>
+                </div>
+            </section>
+            <section class="ms-card">
+                <div class="ms-card-head"><div><h3>This month by channel and purpose</h3><p>Where money comes from, and where it goes</p></div></div>
+                <div class="ms-card-body pay-split">
+                    <div class="ms-hbars">
+                        @foreach (var ch in PaymentStore.Channels)
+                        {
+                            var v = sum.ByChannel.TryGetValue(ch, out var x) ? x : 0;
+                            <div class="ms-hbar"><div class="top"><span><i class="bi @ChannelIcon(ch)"></i> @ch</span><span>@Sym @v.ToString("N0")</span></div><div class="track"><i style="width:@(sum.Month == 0 ? 0 : (int)(v * 100 / sum.Month))%;--c:@ChannelColor(ch)"></i></div></div>
+                        }
+                    </div>
+                    <div class="ms-hbars">
+                        @foreach (var pu in PaymentStore.Purposes)
+                        {
+                            var v = sum.ByPurpose.TryGetValue(pu, out var x) ? x : 0;
+                            <div class="ms-hbar"><div class="top"><span>@pu</span><span>@Sym @v.ToString("N0")</span></div><div class="track"><i style="width:@(sum.Month == 0 ? 0 : (int)(v * 100 / sum.Month))%"></i></div></div>
+                        }
+                    </div>
+                </div>
+            </section>
+        </div>
+    }
+
+    <div class="ms-card ms-mt">
+        <div class="ms-toolbar">
+            <div class="ms-searchbox"><i class="bi bi-search"></i><input class="ms-input" type="search" placeholder="Receipt, M-Pesa code, member or phone…" @bind="q" @bind:event="oninput" @bind:after="Load" /></div>
+            <div class="ms-chips" role="group" aria-label="Channel">
+                <button type="button" class="ms-chip @(channel == "" ? "on" : "")" @onclick='() => SetChannel("")'>All</button>
+                @foreach (var ch in PaymentStore.Channels) { var cc = ch; <button type="button" class="ms-chip @(channel == cc ? "on" : "")" @onclick="() => SetChannel(cc)">@cc</button> }
+            </div>
+            <div class="ms-toolbar-end" style="display:flex;gap:8px;flex-wrap:wrap">
+                <select class="ms-select" @bind="purpose" @bind:after="Load" aria-label="Purpose"><option value="">All purposes</option>@foreach (var p in PaymentStore.Purposes) { <option>@p</option> }</select>
+                <input class="ms-input" type="date" @bind="from" @bind:after="Load" aria-label="From" style="width:150px" />
+                <input class="ms-input" type="date" @bind="to" @bind:after="Load" aria-label="To" style="width:150px" />
+            </div>
+        </div>
+
+        @if (items == null)
+        {
+            <div class="ms-card-body">@for (var i = 0; i < 6; i++) { <div class="ms-skel" style="height:52px;margin-bottom:10px"></div> }</div>
+        }
+        else if (items.Count == 0)
+        {
+            <EmptyState Icon="bi-wallet2" Title="No payments yet" Text="Receive an M-Pesa, bank, cash or check-off payment and it shows up here with its receipt.">
+                <div style="margin-top:14px"><a class="ms-btn primary" href="payments/record">Receive payment</a></div>
+            </EmptyState>
+        }
+        else
+        {
+            <div class="ms-table-wrap">
+                <table class="ms-table pay-table">
+                    <thead><tr><th>Receipt</th><th>Received</th><th>Member</th><th>Channel</th><th>For</th><th class="r">Amount</th><th>Status</th></tr></thead>
+                    <tbody>
+                        @foreach (var p in items)
+                        {
+                            var pp = p;
+                            <tr class="clickable @(p.Status == "Reversed" ? "rev" : "")" @onclick="() => open = pp">
+                                <td class="ms-num"><b>@p.ReceiptNo</b><small class="sub">@(string.IsNullOrEmpty(p.Reference) ? "" : p.Reference)</small></td>
+                                <td class="ms-num">@p.PaidOn.ToString("d MMM yyyy")<small class="sub">@p.PaidOn.ToString("HH:mm")</small></td>
+                                <td><div class="ms-who"><Avatar Name="@p.MemberName" Size="sm" /><span>@p.MemberName</span></div></td>
+                                <td><span class="pay-chan @Slug(p.Channel)"><i class="bi @ChannelIcon(p.Channel)"></i>@p.Channel</span></td>
+                                <td>@p.Purpose<small class="sub">@p.PostedTo</small></td>
+                                <td class="r ms-num"><b>@Sym @p.Amount.ToString("N2")</b></td>
+                                <td><StatusPill Status="@(p.Status == "Posted" ? "Paid" : p.Status)" /></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<Modal Open="open != null" OnClose="() => open = null" Title="@(open?.ReceiptNo ?? "")" Subtitle="@(open == null ? "" : open.Status == "Reversed" ? "Reversed" : "Official receipt")">
+    <ChildContent>
+        @if (open != null)
+        {
+            <div class="rc-print">
+                <div class="rc-head">
+                    <div><b>@Brand.Name</b><small>@Cfg.Current.PostalAddress@(string.IsNullOrWhiteSpace(Cfg.Current.Phone) ? "" : " · " + Cfg.Current.Phone)</small></div>
+                    <div class="rc-no"><small>Receipt</small><b>@open.ReceiptNo</b></div>
+                </div>
+                <div class="rc-amount">@Sym @open.Amount.ToString("N2")</div>
+                <div class="rc-words">@Words(open.Amount)</div>
+                <div class="rc-grid">
+                    <div><small>Received from</small><b>@open.MemberName</b></div>
+                    <div><small>Date</small><b>@open.PaidOn.ToString("d MMM yyyy, HH:mm")</b></div>
+                    <div><small>Channel</small><b>@open.Channel</b></div>
+                    <div><small>Reference</small><b>@(string.IsNullOrEmpty(open.Reference) ? "-" : open.Reference)</b></div>
+                    <div><small>For</small><b>@open.Purpose</b></div>
+                    <div><small>Posted to</small><b>@open.PostedTo</b></div>
+                    <div><small>Received by</small><b>@(string.IsNullOrEmpty(open.RecordedBy) ? "-" : open.RecordedBy)</b></div>
+                    @if (!string.IsNullOrEmpty(open.Notes)) { <div><small>Notes</small><b>@open.Notes</b></div> }
+                </div>
+                @if (open.Status == "Reversed") { <div class="ms-alert bad" style="margin-top:12px"><i class="bi bi-arrow-counterclockwise"></i><div>Reversed: @open.ReverseReason</div></div> }
+                <p class="rc-thanks">Asante for saving with us.</p>
+            </div>
+            @if (reversing)
+            {
+                <div class="ms-field" style="margin-top:14px"><label class="ms-label">Why is it being reversed?</label><input class="ms-input" @bind="reason" placeholder="e.g. Wrong member, duplicate entry" /></div>
+                @if (!string.IsNullOrEmpty(revError)) { <div class="ms-alert bad" style="margin-top:8px"><i class="bi bi-exclamation-circle-fill"></i><div>@revError</div></div> }
+            }
+        }
+    </ChildContent>
+    <Footer>
+        @if (open != null)
+        {
+            @if (reversing)
+            {
+                <button type="button" class="ms-btn" @onclick="() => reversing = false">Back</button>
+                <button type="button" class="ms-btn danger" @onclick="Reverse"><i class="bi bi-arrow-counterclockwise"></i> Reverse payment</button>
+            }
+            else
+            {
+                @if (open.Status != "Reversed" && canReverse) { <button type="button" class="ms-btn ghost danger" @onclick="() => { reversing = true; reason = string.Empty; revError = null; }">Reverse</button> }
+                <button type="button" class="ms-btn" @onclick='() => JS.InvokeVoidAsync("ms.print")'><i class="bi bi-printer"></i> Print</button>
+                <button type="button" class="ms-btn primary" @onclick="() => open = null">Close</button>
+            }
+        }
+    </Footer>
+</Modal>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? Auth { get; set; }
+    [SupplyParameterFromQuery(Name = "receipt")] public long? ReceiptParam { get; set; }
+
+    private PaymentSummary? sum;
+    private List<Payment>? items;
+    private Payment? open;
+    private string q = "", channel = "", purpose = "", reason = "";
+    private string? revError;
+    private DateTime? from, to;
+    private bool reversing, canReverse;
+    private string Sym => Cfg.Current.CurrencySymbol;
+    private decimal Max => sum == null || sum.Last30.Count == 0 ? 0 : sum.Last30.Max(x => x.Amount);
+    private int MpesaPct => sum == null || sum.Month == 0 ? 0 : (int)Math.Round((sum.ByChannel.TryGetValue("M-Pesa", out var v) ? v : 0) * 100 / sum.Month);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth != null) canReverse = Access.DenyApi((await Auth).User.FindFirstValue(ClaimTypes.Role), "POST", "/api/payments/1/reverse") == null;
+        try { sum = await Store.SummaryAsync(); } catch { sum = new PaymentSummary(0, 0, 0, 0, new(), new(), Enumerable.Range(0, 30).Select(i => (DateTime.Today.AddDays(-29 + i), 0m)).ToList()); }
+        await Load();
+        if (ReceiptParam is long id) open = items?.FirstOrDefault(x => x.Id == id) ?? await Store.GetAsync(id);
+    }
+
+    private async Task Load()
+    {
+        try { items = await Store.ListAsync(q, channel, purpose, null, from, to); } catch { items = new(); }
+    }
+
+    private async Task SetChannel(string c) { channel = c; await Load(); }
+
+    private async Task Reverse()
+    {
+        if (open == null) return;
+        revError = null;
+        var r = await Http.PostAsJsonAsync($"{Nav.BaseUri}api/payments/{open.Id}/reverse", new { reason });
+        if (!r.IsSuccessStatusCode)
+        {
+            try { using var d = System.Text.Json.JsonDocument.Parse(await r.Content.ReadAsStringAsync()); revError = d.RootElement.GetProperty("message").GetString(); } catch { revError = "Couldn't reverse (" + (int)r.StatusCode + ")."; }
+            return;
+        }
+        await JS.InvokeVoidAsync("ms.toast", "success", "Payment reversed", open.ReceiptNo);
+        reversing = false; var id = open.Id;
+        sum = await Store.SummaryAsync(); await Load();
+        open = items?.FirstOrDefault(x => x.Id == id);
+    }
+
+    private async Task Export()
+    {
+        var sb = new StringBuilder("Receipt,Date,Member,Channel,Reference,Phone,Purpose,Posted to,Amount,Status\n");
+        foreach (var p in items ?? new()) sb.AppendLine(string.Join(",", new[] { p.ReceiptNo, p.PaidOn.ToString("yyyy-MM-dd HH:mm"), p.MemberName, p.Channel, p.Reference, p.Phone, p.Purpose, p.PostedTo, p.Amount.ToString("0.00"), p.Status }.Select(Csv)));
+        await JS.InvokeVoidAsync("ms.download", "payments-" + DateTime.Now.ToString("yyyyMMdd") + ".csv", sb.ToString());
+    }
+    private static string Csv(string? s) => "\"" + (s ?? "").Replace("\"", "\"\"") + "\"";
+
+    private static string Slug(string s) => s.ToLowerInvariant().Replace("-", "").Replace(" ", "");
+    private static string ChannelIcon(string c) => c switch { "M-Pesa" => "bi-phone-fill", "Bank" => "bi-bank", "Cash" => "bi-cash-stack", "Check-off" => "bi-building-check", _ => "bi-journal-text" };
+    private static string ChannelColor(string c) => c switch { "M-Pesa" => "#16a34a", "Bank" => "#2559C7", "Cash" => "#D4A62A", "Check-off" => "#8b5cf6", _ => "#64748b" };
+
+    private static readonly string[] Ones = { "", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen" };
+    private static readonly string[] Tens = { "", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety" };
+    private static string Say(long n)
+    {
+        if (n == 0) return "zero";
+        string W(long x) => x < 20 ? Ones[x] : x < 100 ? Tens[x / 10] + (x % 10 > 0 ? "-" + Ones[x % 10] : "") : Ones[x / 100] + " hundred" + (x % 100 > 0 ? " and " + W(x % 100) : "");
+        var parts = new List<string>();
+        foreach (var (div, name) in new[] { (1_000_000_000L, " billion"), (1_000_000L, " million"), (1_000L, " thousand"), (1L, "") })
+            if (n >= div) { parts.Add(W(n / div) + name); n %= div; }
+        return string.Join(" ", parts);
+    }
+    private static string Words(decimal a)
+    {
+        var shillings = (long)Math.Floor(a); var cents = (int)Math.Round((a - shillings) * 100);
+        var s = Say(shillings) + " shillings" + (cents > 0 ? " and " + Say(cents) + " cents" : "") + " only";
+        return char.ToUpperInvariant(s[0]) + s[1..];
+    }
+}

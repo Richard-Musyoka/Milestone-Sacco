@@ -9,6 +9,10 @@ public static class PasswordHasher
     private const int SaltSize = 16;
     private const int HashSize = 32;
 
+    /// <summary>Organisation-defined password rules (set from Settings). When null the legacy Low/Medium/High levels apply.</summary>
+    public sealed record Rules(int Min, bool Lower, bool Upper, bool Number, bool Symbol);
+    public static volatile Rules? Custom;
+
     public static string Hash(string password)
     {
         var salt = RandomNumberGenerator.GetBytes(SaltSize);
@@ -42,6 +46,17 @@ public static class PasswordHasher
     public static string? Validate(string? password, string complexity)
     {
         password ??= "";
+        var custom = Custom;
+        if (custom != null)
+        {
+            if (password.Length < custom.Min) return $"Password must be at least {custom.Min} characters.";
+            var missing = new List<string>();
+            if (custom.Lower && !password.Any(char.IsLower)) missing.Add("a lower-case letter");
+            if (custom.Upper && !password.Any(char.IsUpper)) missing.Add("an upper-case letter");
+            if (custom.Number && !password.Any(char.IsDigit)) missing.Add("a number");
+            if (custom.Symbol && password.All(char.IsLetterOrDigit)) missing.Add("a symbol");
+            return missing.Count == 0 ? null : "Password needs " + string.Join(", ", missing) + ".";
+        }
         int min = complexity switch { "Low" => 6, "High" => 12, _ => 8 };
         if (password.Length < min) return $"Password must be at least {min} characters.";
         if (complexity is "Medium" or "High")

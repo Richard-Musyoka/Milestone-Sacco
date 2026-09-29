@@ -1,72 +1,145 @@
-@using System.ComponentModel.DataAnnotations
 @using Sacco_Management_System.Models
+@using SaccoManagementSystem.Services
 
-<div class="ms-section" style="padding-top:22px">
-    <h4>Sign-in requirements</h4>
-    <p class="sub">Applies to everyone who signs in. Each person sets up their own methods in the Security Center.</p>
-
-    <div class="ms-row">
-        <div class="ms-row-main">
-            <b>Require two-step verification</b>
-            <small>Everyone must use an authenticator app or passkey. Anyone without one is asked to set it up right after signing in.</small>
-        </div>
-        <div class="ms-row-end">
-            <ToggleSwitch Value="Settings.TwoFactorAuthenticationRequired" ValueChanged="SetTwoFactor" AriaLabel="Require two-step verification" />
-        </div>
-    </div>
-</div>
-
-<div class="ms-section">
-    <h4>Passwords</h4>
-    <p class="sub">Existing passwords are checked at the next change.</p>
-
-    <div class="ms-row">
-        <div class="ms-row-main"><b>Complexity</b><small>@ComplexityHelp</small></div>
-        <div class="ms-row-end" style="min-width:230px">
-            <InputSelect Value="Settings.PasswordComplexity" ValueChanged="@((string v) => Update(() => Settings.PasswordComplexity = v))" ValueExpression="@(() => Settings.PasswordComplexity)" class="ms-select">
-                <option value="Low">Low</option>
-                <option value="Medium">Medium</option>
-                <option value="High">High</option>
-            </InputSelect>
+<fieldset class="cc-fs" disabled="@ReadOnly">
+    <div class="cc-card">
+        <div class="cc-score">
+            <div class="n @Tone"><b>@Score</b><small>of 100</small></div>
+            <div class="t">
+                <small>Security strength</small>
+                <b>@Label</b>
+                <div class="cc-meter"><i style="width:@(Score)%"></i></div>
+                <span class="ms-hint">@Advice</span>
+            </div>
         </div>
     </div>
-    <div class="ms-row">
-        <div class="ms-row-main"><b>Password expires after</b><small>Days before people must choose a new password (30–365).</small></div>
-        <div class="ms-row-end"><InputNumber Value="Settings.PasswordExpiryDays" ValueChanged="@((int v) => Update(() => Settings.PasswordExpiryDays = v))" ValueExpression="@(() => Settings.PasswordExpiryDays)" class="ms-input" style="width:110px" /><span class="ms-muted">days</span></div>
-    </div>
-    <div class="ms-row">
-        <div class="ms-row-main"><b>Remember previous passwords</b><small>Blocks reuse of the last few (0–24).</small></div>
-        <div class="ms-row-end"><InputNumber Value="Settings.PasswordHistoryCount" ValueChanged="@((int v) => Update(() => Settings.PasswordHistoryCount = v))" ValueExpression="@(() => Settings.PasswordHistoryCount)" class="ms-input" style="width:110px" /></div>
-    </div>
-    <ValidationMessage For="@(() => Settings.PasswordExpiryDays)" />
-    <ValidationMessage For="@(() => Settings.PasswordHistoryCount)" />
-</div>
 
-<div class="ms-section">
-    <h4>Protection</h4>
-    <div class="ms-row">
-        <div class="ms-row-main"><b>Lock the account after</b><small>Failed password attempts before a 15-minute lockout (1–10).</small></div>
-        <div class="ms-row-end"><InputNumber Value="Settings.FailedAttemptsBeforeLockout" ValueChanged="@((int v) => Update(() => Settings.FailedAttemptsBeforeLockout = v))" ValueExpression="@(() => Settings.FailedAttemptsBeforeLockout)" class="ms-input" style="width:110px" /><span class="ms-muted">attempts</span></div>
+    <div class="cc-card">
+        <h3><i class="bi bi-key"></i> Password rules</h3>
+        <p class="sub">Applied when someone sets or changes a password. Existing passwords are checked at their next change.</p>
+        <div class="cc-row">
+            <div class="m"><b>Minimum length</b><small>Longer is stronger than complicated.</small></div>
+            <div class="e" style="flex:1;max-width:360px">
+                <div class="cc-range" style="width:100%">
+                    <input type="range" min="6" max="32" value="@Cfg.PwMinLength" @oninput="OnLen" aria-label="Minimum password length" />
+                    <b>@Cfg.PwMinLength chars</b>
+                </div>
+            </div>
+        </div>
+        <div class="cc-rules">
+            <button type="button" class="cc-rule @(Cfg.PwLower ? "on" : "")" @onclick="() => Toggle(1)" style="cursor:pointer;font:inherit;color:inherit;text-align:left"><i class="bi @(Cfg.PwLower ? "bi-check-circle-fill" : "bi-circle")"></i><span><b>Lower case</b><small>a b c</small></span></button>
+            <button type="button" class="cc-rule @(Cfg.PwUpper ? "on" : "")" @onclick="() => Toggle(2)" style="cursor:pointer;font:inherit;color:inherit;text-align:left"><i class="bi @(Cfg.PwUpper ? "bi-check-circle-fill" : "bi-circle")"></i><span><b>Upper case</b><small>A B C</small></span></button>
+            <button type="button" class="cc-rule @(Cfg.PwNumber ? "on" : "")" @onclick="() => Toggle(3)" style="cursor:pointer;font:inherit;color:inherit;text-align:left"><i class="bi @(Cfg.PwNumber ? "bi-check-circle-fill" : "bi-circle")"></i><span><b>Number</b><small>1 2 3</small></span></button>
+            <button type="button" class="cc-rule @(Cfg.PwSymbol ? "on" : "")" @onclick="() => Toggle(4)" style="cursor:pointer;font:inherit;color:inherit;text-align:left"><i class="bi @(Cfg.PwSymbol ? "bi-check-circle-fill" : "bi-circle")"></i><span><b>Symbol</b><small>! @@ #</small></span></button>
+        </div>
+        <div class="cc-try">
+            <div class="ms-field">
+                <label class="ms-label" for="tryPw">Try a password</label>
+                <input id="tryPw" class="ms-input" type="text" autocomplete="off" spellcheck="false" placeholder="Type to test the rules" @bind="tryPw" @bind:event="oninput" />
+                <span class="ms-hint">Nothing typed here is saved or sent anywhere.</span>
+            </div>
+            <ul class="cc-checks">
+                <li class="@(tryPw.Length >= Cfg.PwMinLength ? "ok" : "")"><i class="bi @(tryPw.Length >= Cfg.PwMinLength ? "bi-check-circle-fill" : "bi-circle")"></i> At least @Cfg.PwMinLength characters</li>
+                @if (Cfg.PwLower) { <li class="@(tryPw.Any(char.IsLower) ? "ok" : "")"><i class="bi @(tryPw.Any(char.IsLower) ? "bi-check-circle-fill" : "bi-circle")"></i> A lower case letter</li> }
+                @if (Cfg.PwUpper) { <li class="@(tryPw.Any(char.IsUpper) ? "ok" : "")"><i class="bi @(tryPw.Any(char.IsUpper) ? "bi-check-circle-fill" : "bi-circle")"></i> An upper case letter</li> }
+                @if (Cfg.PwNumber) { <li class="@(tryPw.Any(char.IsDigit) ? "ok" : "")"><i class="bi @(tryPw.Any(char.IsDigit) ? "bi-check-circle-fill" : "bi-circle")"></i> A number</li> }
+                @if (Cfg.PwSymbol) { <li class="@(tryPw.Any(IsSym) ? "ok" : "")"><i class="bi @(tryPw.Any(IsSym) ? "bi-check-circle-fill" : "bi-circle")"></i> A symbol</li> }
+            </ul>
+        </div>
+        <div class="cc-row" style="margin-top:12px">
+            <div class="m"><b>Password expires after</b><small>Days before people must choose a new one (30–365).</small></div>
+            <div class="e"><InputNumber Value="Settings.PasswordExpiryDays" ValueChanged="@((int v) => Upd(() => Settings.PasswordExpiryDays = v))" ValueExpression="@(() => Settings.PasswordExpiryDays)" class="ms-input" /><span class="ms-muted">days</span></div>
+        </div>
+        <div class="cc-row">
+            <div class="m"><b>Remember previous passwords</b><small>Blocks reuse of the last few (0–24).</small></div>
+            <div class="e"><InputNumber Value="Settings.PasswordHistoryCount" ValueChanged="@((int v) => Upd(() => Settings.PasswordHistoryCount = v))" ValueExpression="@(() => Settings.PasswordHistoryCount)" class="ms-input" /></div>
+        </div>
+        <ValidationMessage For="@(() => Settings.PasswordExpiryDays)" />
+        <ValidationMessage For="@(() => Settings.PasswordHistoryCount)" />
     </div>
-    <div class="ms-row">
-        <div class="ms-row-main"><b>Sign out after inactivity</b><small>Idle minutes before a session ends (5–1440).</small></div>
-        <div class="ms-row-end"><InputNumber Value="Settings.SessionTimeoutMinutes" ValueChanged="@((int v) => Update(() => Settings.SessionTimeoutMinutes = v))" ValueExpression="@(() => Settings.SessionTimeoutMinutes)" class="ms-input" style="width:110px" /><span class="ms-muted">minutes</span></div>
+
+    <div class="cc-card">
+        <h3><i class="bi bi-shield-lock"></i> Sign-in protection</h3>
+        <div class="cc-row">
+            <div class="m"><b>Lock after failed attempts</b><small>Wrong passwords in a row before the account locks (1–10).</small></div>
+            <div class="e"><InputNumber Value="Settings.FailedAttemptsBeforeLockout" ValueChanged="@((int v) => Upd(() => Settings.FailedAttemptsBeforeLockout = v))" ValueExpression="@(() => Settings.FailedAttemptsBeforeLockout)" class="ms-input" /></div>
+        </div>
+        <div class="cc-row">
+            <div class="m"><b>Lock duration</b><small>How long a locked account waits before trying again.</small></div>
+            <div class="e"><input type="number" class="ms-input" min="1" max="1440" value="@Cfg.LockMinutes" @onchange="OnLock" /><span class="ms-muted">minutes</span></div>
+        </div>
+        <div class="cc-row">
+            <div class="m"><b>Session length</b><small>Idle minutes before someone is signed out (5–1440).</small></div>
+            <div class="e"><InputNumber Value="Settings.SessionTimeoutMinutes" ValueChanged="@((int v) => Upd(() => Settings.SessionTimeoutMinutes = v))" ValueExpression="@(() => Settings.SessionTimeoutMinutes)" class="ms-input" /><span class="ms-muted">minutes</span></div>
+        </div>
+        <div class="cc-row">
+            <div class="m"><b>Trusted device</b><small>Days a device can skip the second step after a successful one. 0 turns it off.</small></div>
+            <div class="e"><input type="number" class="ms-input" min="0" max="90" value="@Cfg.TrustDays" @onchange="OnTrust" /><span class="ms-muted">days</span></div>
+        </div>
+        <ValidationMessage For="@(() => Settings.FailedAttemptsBeforeLockout)" />
+        <ValidationMessage For="@(() => Settings.SessionTimeoutMinutes)" />
     </div>
-    <ValidationMessage For="@(() => Settings.FailedAttemptsBeforeLockout)" />
-    <ValidationMessage For="@(() => Settings.SessionTimeoutMinutes)" />
-</div>
+
+    <div class="cc-card">
+        <h3><i class="bi bi-fingerprint"></i> Two-step and access</h3>
+        <p class="sub">Each person sets up their own authenticator app, passkey or fingerprint under My security.</p>
+        <div class="cc-row">
+            <div class="m"><b>Require two-step verification</b><small>Anyone without a method is asked to set one up right after signing in.</small></div>
+            <div class="e"><ToggleSwitch Value="Settings.TwoFactorAuthenticationRequired" ValueChanged="SetTwo" AriaLabel="Require two-step verification" /></div>
+        </div>
+        <div class="cc-row">
+            <div class="m"><b>Email code on sign-in</b><small>Send a one-time code to the person's email as a second step. Follow server default uses appsettings.json.</small></div>
+            <div class="e"><select class="ms-select" @onchange="OnOtp"><option value="" selected="@(Cfg.EmailOtpOnLogin == null)">Follow server default</option><option value="on" selected="@(Cfg.EmailOtpOnLogin == true)">On</option><option value="off" selected="@(Cfg.EmailOtpOnLogin == false)">Off</option></select></div>
+        </div>
+        <div class="cc-row">
+            <div class="m"><b>Who can create accounts</b><small>Staff accounts are created by administrators in Users &amp; roles. Members don't need an account: they sign in on the Member tab with their member number and a one-time code.</small></div>
+            <div class="e"><a class="ms-btn sm" href="users"><i class="bi bi-person-plus"></i> Users &amp; roles</a></div>
+        </div>
+    </div>
+</fieldset>
 
 @code {
+    [Parameter] public OrgConfig Cfg { get; set; } = new();
     [Parameter] public SaccoSettings Settings { get; set; } = new();
-    [Parameter] public Action? OnSettingsChanged { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public Action? OnChanged { get; set; }
 
-    private string ComplexityHelp => Settings.PasswordComplexity switch
+    private string tryPw = "";
+    private static bool IsSym(char c) => !char.IsLetterOrDigit(c) && !char.IsWhiteSpace(c);
+
+    public static int ScoreOf(OrgConfig c, SaccoSettings s)
     {
-        "Low" => "At least 6 characters.",
-        "High" => "At least 12 characters with upper case, lower case, a number and a symbol.",
-        _ => "At least 8 characters with upper case, lower case and a number."
-    };
+        var n = Math.Min(40, c.PwMinLength * 3);
+        if (c.PwLower) n += 12; if (c.PwUpper) n += 12; if (c.PwNumber) n += 12; if (c.PwSymbol) n += 16;
+        if (s.TwoFactorAuthenticationRequired) n += 8;
+        return Math.Min(100, n);
+    }
+    private int Score => ScoreOf(Cfg, Settings);
+    private string Tone => Score < 50 ? "weak" : Score < 75 ? "fair" : Score < 90 ? "good" : "";
+    private string Label => Score < 50 ? "Weak" : Score < 75 ? "Fair" : Score < 90 ? "Good" : "Strong";
+    private string Advice => Score >= 90 ? "Well protected." :
+        !Settings.TwoFactorAuthenticationRequired ? "Requiring two-step verification is the biggest single improvement." :
+        Cfg.PwMinLength < 10 ? "Raise the minimum length to 10 or more." : "Add symbols to the rules for extra strength.";
 
-    private void Update(Action set) { set(); OnSettingsChanged?.Invoke(); }
-    private void SetTwoFactor(bool v) => Update(() => Settings.TwoFactorAuthenticationRequired = v);
+    private void Upd(Action a) { a(); OnChanged?.Invoke(); }
+
+    private void Sync()
+    {
+        // keep the legacy Low/Medium/High field in step with the detailed rules
+        var all = Cfg.PwLower && Cfg.PwUpper && Cfg.PwNumber && Cfg.PwSymbol;
+        Settings.PasswordComplexity = Cfg.PwMinLength >= 12 && all ? "High" : Cfg.PwMinLength >= 8 && Cfg.PwLower && Cfg.PwUpper && Cfg.PwNumber ? "Medium" : "Low";
+        OnChanged?.Invoke();
+    }
+
+    private void OnLen(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out var n)) { Cfg.PwMinLength = Math.Clamp(n, 6, 32); Sync(); } }
+    private void Toggle(int which)
+    {
+        switch (which) { case 1: Cfg.PwLower = !Cfg.PwLower; break; case 2: Cfg.PwUpper = !Cfg.PwUpper; break; case 3: Cfg.PwNumber = !Cfg.PwNumber; break; default: Cfg.PwSymbol = !Cfg.PwSymbol; break; }
+        Sync();
+    }
+    private void OnLock(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out var n)) { Cfg.LockMinutes = Math.Clamp(n, 1, 1440); OnChanged?.Invoke(); } }
+    private void OnTrust(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out var n)) { Cfg.TrustDays = Math.Clamp(n, 0, 90); OnChanged?.Invoke(); } }
+    private void SetTwo(bool v) => Upd(() => Settings.TwoFactorAuthenticationRequired = v);
+    private void OnOtp(ChangeEventArgs e) { var v = e.Value?.ToString(); Cfg.EmailOtpOnLogin = v == "on" ? true : v == "off" ? false : null; OnChanged?.Invoke(); }
+    private void OnReg(ChangeEventArgs e) { var v = e.Value?.ToString(); Cfg.AllowSelfRegistration = v == "on" ? true : v == "off" ? false : null; OnChanged?.Invoke(); }
 }

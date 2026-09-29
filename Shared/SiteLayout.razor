@@ -1,0 +1,131 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@using SaccoManagementSystem.Services
+@inject ConfigStore Cfg
+@inject SiteStore Site
+@inject NavigationManager Nav
+
+@if (!Site.Current.Published && !signedIn)
+{
+    <div class="ws-soon">
+        <div>
+            <span class="ws-kicker"><i class="bi bi-tools"></i> Coming soon</span>
+            <h1>@Brand.Name</h1>
+            <p style="color:var(--ms-text-2);max-width:460px;margin:0 auto 22px">Our new website is on its way. For help in the meantime, call @(string.IsNullOrWhiteSpace(Cfg.Current.Phone) ? "our office" : Cfg.Current.Phone).</p>
+            <a class="ws-btn" href="login"><i class="bi bi-box-arrow-in-right"></i> Staff sign in</a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="ws">
+        @if (!string.IsNullOrWhiteSpace(Site.Current.Announcement))
+        {
+            <div class="ws-ann"><i class="bi bi-megaphone-fill"></i> @Site.Current.Announcement
+                @if (!string.IsNullOrWhiteSpace(Site.Current.AnnouncementLink)) { <a href="@Site.Current.AnnouncementLink">Learn more</a> }
+            </div>
+        }
+        <header class="ws-top">
+            <div class="ws-wrap ws-nav">
+                <a class="ws-logo" href="">
+                    <span class="mk @(HasLogo ? "img" : "")">@if (HasLogo) { <img src="@("media/logo?v=" + Cfg.Ver)" alt="" /> } else { <i class="bi bi-people-fill"></i> }</span>
+                    <span>@Brand.Name<small>@Brand.Tagline</small></span>
+                </a>
+                <nav class="ws-links" aria-label="Website">
+                    @foreach (var l in Links) { <a href="@l.Href" class="@(IsActive(l.Href) ? "active" : "")">@l.Label</a> }
+                </nav>
+                <div class="ws-cta">
+                    <button type="button" class="ws-btn ghost ws-install" data-pwa-install hidden><i class="bi bi-phone"></i> Get the app</button>
+                    <a class="ws-btn ghost" href="@(signedIn ? "dashboard" : "login")"><i class="bi bi-person-circle"></i> @(signedIn ? "Portal" : "Sign in")</a>
+                    <a class="ws-btn primary" href="membership#join">Join us</a>
+                </div>
+                <button type="button" class="ws-menu" aria-label="Menu" @onclick="() => menu = !menu"><i class="bi @(menu ? "bi-x-lg" : "bi-list")"></i></button>
+            </div>
+            <div class="ws-mobile @(menu ? "open" : "")">
+                @foreach (var l in Links) { <a href="@l.Href" @onclick="() => menu = false">@l.Label</a> }
+                <a href="membership#join" @onclick="() => menu = false">Join us</a>
+                <a href="@(signedIn ? "dashboard" : "login")">@(signedIn ? "Go to portal" : "Sign in")</a>
+                <a href="login?mode=member">Member portal</a>
+                <a href="#" data-pwa-install hidden>Get the app</a>
+            </div>
+        </header>
+
+        <main>@Body</main>
+
+        <footer class="ws-foot">
+            <div class="ws-wrap">
+                <div class="ws-foot-grid">
+                    <div>
+                        <a class="ws-logo" href="">
+                            <span class="mk @(HasLogo ? "img" : "")">@if (HasLogo) { <img src="@("media/logo?v=" + Cfg.Ver)" alt="" /> } else { <i class="bi bi-people-fill"></i> }</span>
+                            <span>@Brand.Name<small>@Brand.Tagline</small></span>
+                        </a>
+                        <p>@Cfg.Current.SaccoType SACCO@(string.IsNullOrWhiteSpace(Cfg.Current.County) ? "" : " in " + Cfg.Current.County + " County").</p>
+                        @if (!string.IsNullOrWhiteSpace(Cfg.Current.SasraLicenceNo)) { <p>Regulated by SASRA · Licence @Cfg.Current.SasraLicenceNo</p> }
+                        <div class="ws-social">
+                            @if (!string.IsNullOrWhiteSpace(Site.Current.Facebook)) { <a href="@Site.Current.Facebook" target="_blank" rel="noopener" aria-label="Facebook"><i class="bi bi-facebook"></i></a> }
+                            @if (!string.IsNullOrWhiteSpace(Site.Current.XHandle)) { <a href="@("https://x.com/" + Site.Current.XHandle.TrimStart('@'))" target="_blank" rel="noopener" aria-label="X"><i class="bi bi-twitter-x"></i></a> }
+                            @if (!string.IsNullOrWhiteSpace(Site.Current.Instagram)) { <a href="@Site.Current.Instagram" target="_blank" rel="noopener" aria-label="Instagram"><i class="bi bi-instagram"></i></a> }
+                            @if (!string.IsNullOrWhiteSpace(Site.Current.WhatsApp)) { <a href="@WaLink" target="_blank" rel="noopener" aria-label="WhatsApp"><i class="bi bi-whatsapp"></i></a> }
+                        </div>
+                    </div>
+                    <div>
+                        <h4>Explore</h4>
+                        @foreach (var l in Links) { <a href="@l.Href">@l.Label</a> }
+                    </div>
+                    <div>
+                        <h4>Members</h4>
+                        <a href="membership#join">Become a member</a>
+                        <a href="products#calculator">Loan calculator</a>
+                        <a href="membership#faqs">FAQs</a>
+                        <a href="login">Member/Staff login</a>
+                    </div>
+                    <div>
+                        <h4>Talk to us</h4>
+                        @if (!string.IsNullOrWhiteSpace(Cfg.Current.Phone)) { <p><i class="bi bi-telephone"></i> @Cfg.Current.Phone</p> }
+                        @if (!string.IsNullOrWhiteSpace(Cfg.Current.Email)) { <p><i class="bi bi-envelope"></i> @Cfg.Current.Email</p> }
+                        @if (!string.IsNullOrWhiteSpace(Cfg.Current.Address)) { <p><i class="bi bi-geo-alt"></i> @Cfg.Current.Address</p> }
+                        @if (!string.IsNullOrWhiteSpace(Cfg.Current.PostalAddress)) { <p><i class="bi bi-mailbox"></i> @Cfg.Current.PostalAddress</p> }
+                        @if (!string.IsNullOrWhiteSpace(Cfg.Current.MpesaPaybill)) { <p><i class="bi bi-phone"></i> M-Pesa Paybill <b style="color:#fff">@Cfg.Current.MpesaPaybill</b></p> }
+                    </div>
+                </div>
+                <div class="ws-legal">
+                    <span>© @DateTime.Now.Year @Brand.Name. All rights reserved.</span>
+                    <span>@(string.IsNullOrWhiteSpace(Site.Current.OfficeHours) ? "" : Site.Current.OfficeHours)</span>
+                </div>
+            </div>
+        </footer>
+
+        @if (!Site.Current.Published && signedIn)
+        {
+            <div class="ws-preview"><i class="bi bi-eye"></i> Preview only. The website is unpublished. <a href="website">Publish it</a></div>
+        }
+    </div>
+}
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? Auth { get; set; }
+    private bool signedIn, menu;
+    private bool HasLogo => !string.IsNullOrEmpty(Cfg.Current.LogoDataUrl);
+    private string WaLink => "https://wa.me/" + new string((Site.Current.WhatsApp ?? "").Where(char.IsDigit).ToArray());
+
+    private sealed record L(string Href, string Label);
+    private static readonly L[] Links = { new("", "Home"), new("about", "About us"), new("products", "Products"), new("membership", "Membership"), new("news", "News"), new("contact", "Contact") };
+
+    private bool IsActive(string href)
+    {
+        var p = Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0].Trim('/');
+        return href.Length == 0 ? p.Length == 0 : p == href || p.StartsWith(href + "/");
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth != null) signedIn = (await Auth).User.Identity?.IsAuthenticated == true;
+        Site.Changed += OnChanged; Cfg.Changed += OnChanged;
+        Nav.LocationChanged += OnLoc;
+    }
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+    private void OnLoc(object? s, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) { menu = false; InvokeAsync(StateHasChanged); }
+    public void Dispose() { Site.Changed -= OnChanged; Cfg.Changed -= OnChanged; Nav.LocationChanged -= OnLoc; }
+}

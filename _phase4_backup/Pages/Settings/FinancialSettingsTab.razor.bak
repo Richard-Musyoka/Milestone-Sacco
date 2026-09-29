@@ -1,0 +1,71 @@
+﻿@using System.ComponentModel.DataAnnotations
+@using Sacco_Management_System.Models
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="sharePrice" class="form-label">Share Price *</label>
+            <InputNumber id="sharePrice" @bind-Value="Settings.SharePrice" class="form-control"
+                         @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.SharePrice)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="dividendRate" class="form-label">Dividend Rate (%) *</label>
+            <InputNumber id="dividendRate" @bind-Value="Settings.DividendRate" class="form-control"
+                         @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.DividendRate)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="minimumShares" class="form-label">Minimum Shares *</label>
+            <InputNumber id="minimumShares" @bind-Value="Settings.MinimumShares" class="form-control"
+                         @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.MinimumShares)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="maximumShares" class="form-label">Maximum Shares *</label>
+            <InputNumber id="maximumShares" @bind-Value="Settings.MaximumShares" class="form-control"
+                         @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.MaximumShares)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="interestMethod" class="form-label">Interest Calculation Method *</label>
+            <InputSelect id="interestMethod" @bind-Value="Settings.InterestCalculationMethod" class="form-select"
+                         @onchange="() => OnSettingsChanged?.Invoke()">
+                <option value="">Select Method</option>
+                <option value="Declining Balance">Declining Balance</option>
+                <option value="Flat Rate">Flat Rate</option>
+                <option value="Reducing Balance">Reducing Balance</option>
+            </InputSelect>
+            <ValidationMessage For="@(() => Settings.InterestCalculationMethod)" />
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="penaltyRate" class="form-label">Penalty Rate (%) *</label>
+            <InputNumber id="penaltyRate" @bind-Value="Settings.PenaltyRate" class="form-control"
+                         @oninput="() => OnSettingsChanged?.Invoke()" />
+            <ValidationMessage For="@(() => Settings.PenaltyRate)" />
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public SaccoSettings Settings { get; set; } = new();
+
+    [Parameter]
+    public Action? OnSettingsChanged { get; set; }
+}
